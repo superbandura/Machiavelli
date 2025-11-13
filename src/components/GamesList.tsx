@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { collection, query, where, onSnapshot, orderBy, Timestamp, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/store/authStore'
+import { useIsAdmin } from '@/hooks/useIsAdmin'
 import { Game } from '@/types'
+import DeleteGameDialog from './DeleteGameDialog'
 
 interface GamesListProps {
   onJoinGame: (gameId: string, gameName: string, maxPlayers: number) => void
@@ -10,9 +12,12 @@ interface GamesListProps {
 
 export default function GamesList({ onJoinGame }: GamesListProps) {
   const { user } = useAuthStore()
+  const isAdmin = useIsAdmin()
   const [games, setGames] = useState<Game[]>([])
   const [myGameIds, setMyGameIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [gameToDelete, setGameToDelete] = useState<Game | null>(null)
 
   // Cargar IDs de partidas donde ya estoy jugando
   useEffect(() => {
@@ -93,6 +98,25 @@ export default function GamesList({ onJoinGame }: GamesListProps) {
     return `Hace ${days}d`
   }
 
+  const handleOpenDeleteDialog = (game: Game) => {
+    setGameToDelete(game)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleCloseDeleteDialog = () => {
+    setDeleteDialogOpen(false)
+    setGameToDelete(null)
+  }
+
+  const handleGameDeleted = () => {
+    // El listener de onSnapshot se encargará de actualizar la lista automáticamente
+    console.log('[GamesList] Partida eliminada correctamente')
+  }
+
+  const canDeleteGame = (game: Game) => {
+    return user?.uid === game.createdBy || isAdmin
+  }
+
   if (loading) {
     return (
       <div className="bg-gray-800 rounded-lg p-6">
@@ -136,12 +160,23 @@ export default function GamesList({ onJoinGame }: GamesListProps) {
                   Creada {formatDate(game.createdAt as Timestamp)}
                 </p>
               </div>
-              <button
-                onClick={() => onJoinGame(game.id, game.name || game.scenario, game.maxPlayers)}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-medium transition-colors"
-              >
-                Unirse
-              </button>
+              <div className="flex gap-2">
+                {canDeleteGame(game) && (
+                  <button
+                    onClick={() => handleOpenDeleteDialog(game)}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-medium transition-colors"
+                    title="Eliminar partida"
+                  >
+                    Eliminar
+                  </button>
+                )}
+                <button
+                  onClick={() => onJoinGame(game.id, game.name || game.scenario, game.maxPlayers)}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-medium transition-colors"
+                >
+                  Unirse
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4 text-sm mt-3">
@@ -200,6 +235,19 @@ export default function GamesList({ onJoinGame }: GamesListProps) {
           </div>
         ))}
       </div>
+
+      {/* Dialog de eliminación */}
+      {gameToDelete && (
+        <DeleteGameDialog
+          isOpen={deleteDialogOpen}
+          onClose={handleCloseDeleteDialog}
+          gameId={gameToDelete.id}
+          gameName={gameToDelete.name || gameToDelete.scenario}
+          gameStatus={gameToDelete.status}
+          playerCount={gameToDelete.playersCount}
+          onDeleted={handleGameDeleted}
+        />
+      )}
     </div>
   )
 }
