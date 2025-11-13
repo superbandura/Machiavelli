@@ -1,0 +1,169 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isPlayer(gameId) {
+      return exists(/databases/$(database)/documents/players/$(request.auth.uid + '_' + gameId));
+    }
+
+    // ==================== GAMES ====================
+    match /games/{gameId} {
+      // Todos pueden leer partidas (para lobby)
+      allow read: if isAuthenticated();
+
+      // Solo usuarios autenticados pueden crear partidas
+      allow create: if isAuthenticated() && request.resource.data.createdBy == request.auth.uid;
+
+      // Los jugadores pueden actualizar el contador de jugadores y updatedAt al unirse
+      // Cloud Functions usan Admin SDK y bypasean estas reglas
+      allow update: if isAuthenticated() &&
+        resource.data.status == 'waiting' &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['playersCount', 'updatedAt']);
+    }
+
+    // ==================== PLAYERS ====================
+    match /players/{playerId} {
+      // Los jugadores pueden leer su propia información
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+
+      // Los jugadores pueden leer otros jugadores del mismo juego
+      allow read: if isAuthenticated() &&
+        exists(/databases/$(database)/documents/players/$(request.auth.uid + '_' + resource.data.gameId));
+
+      // Permitir leer jugadores de juegos en lobby (para ver facciones disponibles antes de unirse)
+      allow read: if isAuthenticated() &&
+        get(/databases/$(database)/documents/games/$(resource.data.gameId)).data.status == 'waiting';
+
+      // Los jugadores pueden crear su propio documento al unirse a una partida
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid;
+
+      // Los jugadores solo pueden actualizar su campo lastSeen
+      allow update: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastSeen']);
+    }
+
+    // ==================== UNITS ====================
+    match /units/{unitId} {
+      // REGLA DE VISIBILIDAD (FOG OF WAR):
+      // Un jugador puede leer una unidad si:
+      // 1. El juego está en fase de lobby (waiting), O
+      // 2. No tiene campo visibleTo (visible para todos - backwards compatibility), O
+      // 3. Está en la lista visibleTo de la unidad (fog of war durante el juego)
+      allow read: if isAuthenticated() && (
+        get(/databases/$(database)/documents/games/$(resource.data.gameId)).data.status == 'waiting' ||
+        (!('visibleTo' in resource.data)) ||
+        (request.auth.uid in resource.data.visibleTo)
+      );
+
+      // Permitir crear/actualizar unidades durante la fase de lobby (cuando jugadores se unen)
+      // Cloud Functions pueden modificar unidades usando Admin SDK
+      allow create, update: if isAuthenticated() &&
+        get(/databases/$(database)/documents/games/$(request.resource.data.gameId)).data.status == 'waiting';
+
+      // Solo Cloud Functions pueden eliminar unidades
+      allow delete: if false;
+    }
+
+    // ==================== ORDERS ====================
+    match /orders/{orderId} {
+      // Durante la fase de órdenes: Solo el propietario puede leer sus propias órdenes
+      // Después de la resolución: Todas las órdenes son visibles (para historial)
+      allow read: if isAuthenticated() && (
+        resource.data.playerId == request.auth.uid ||
+        resource.data.phase == 'resolution'
+      );
+
+      // Los jugadores pueden crear/actualizar sus propias órdenes durante la fase de órdenes
+      allow create: if isAuthenticated() &&
+        request.resource.data.playerId == request.auth.uid &&
+        request.resource.data.phase == 'orders';
+
+      allow update: if isAuthenticated() &&
+        resource.data.playerId == request.auth.uid &&
+        resource.data.phase == 'orders';
+
+      // Solo Cloud Functions pueden eliminar órdenes
+      allow delete: if false;
+    }
+
+    // ==================== DIPLOMATIC MESSAGES ====================
+    match /diplomatic_messages/{messageId} {
+      // Los jugadores pueden leer mensajes donde son remitente o destinatario
+      // Los mensajes públicos (to == 'all') son visibles para todos los jugadores del juego
+      allow read: if isAuthenticated() && (
+        resource.data.from == request.auth.uid ||
+        resource.data.to == request.auth.uid ||
+        (resource.data.to == 'all' && isPlayer(resource.data.gameId))
+      );
+
+      // Los jugadores pueden crear mensajes diplomáticos
+      allow create: if isAuthenticated() &&
+        request.resource.data.from == request.auth.uid;
+
+      // Solo Cloud Functions pueden actualizar/eliminar mensajes
+      allow update, delete: if false;
+    }
+
+    // ==================== VOTES ====================
+    match /votes/{voteId} {
+      // Los jugadores pueden leer votos del juego al que pertenecen
+      allow read: if isAuthenticated() && isPlayer(resource.data.gameId);
+
+      // Los jugadores pueden crear votos
+      allow create: if isAuthenticated() &&
+        request.resource.data.voterId == request.auth.uid;
+
+      // Solo Cloud Functions pueden actualizar/eliminar votos
+      allow update, delete: if false;
+    }
+
+    // ==================== TURNS (HISTORIAL) ====================
+    match /turns/{turnId} {
+      // Los jugadores pueden leer el historial de turnos de juegos en los que participan
+      allow read: if isAuthenticated() && isPlayer(resource.data.gameId);
+
+      // Solo Cloud Functions pueden crear/modificar historial de turnos
+      allow create, update, delete: if false;
+    }
+
+    // ==================== USERS ====================
+    match /users/{userId} {
+      // Todos los usuarios autenticados pueden leer perfiles de usuario
+      allow read: if isAuthenticated();
+
+      // Los usuarios pueden crear su propio documento al registrarse
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+
+      // Los usuarios pueden actualizar su propio perfil (excepto role)
+      // Los admins pueden actualizar cualquier perfil
+      allow update: if isAuthenticated() && (
+        (request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])) ||
+        isAdmin()
+      );
+
+      // Solo admins pueden eliminar usuarios
+      allow delete: if isAdmin();
+    }
+
+    // ==================== SCENARIOS ====================
+    match /scenarios/{scenarioId} {
+      // Todos los usuarios autenticados pueden leer escenarios
+      allow read: if isAuthenticated();
+
+      // Solo admins pueden crear, actualizar o eliminar escenarios
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}

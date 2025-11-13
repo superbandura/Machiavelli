@@ -1,0 +1,345 @@
+import { useState, useEffect } from 'react'
+import { collection, query, where, getDocs, addDoc, updateDoc, doc, getDoc, serverTimestamp, increment } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
+import { useAuthStore } from '@/store/authStore'
+import { FACTIONS } from '@/data/factions'
+import { getInitialSetup } from '@/data/scenarios'
+
+interface JoinGameDialogProps {
+  isOpen: boolean
+  onClose: () => void
+  gameId: string
+  gameName: string
+  maxPlayers: number
+  onJoined?: (gameId: string) => void
+}
+
+interface FactionOption {
+  id: string
+  name: string
+  color: string
+  available: boolean
+}
+
+export default function JoinGameDialog({
+  isOpen,
+  onClose,
+  gameId,
+  gameName,
+  maxPlayers,
+  onJoined
+}: JoinGameDialogProps) {
+  const { user } = useAuthStore()
+  const [loading, setLoading] = useState(false)
+  const [loadingFactions, setLoadingFactions] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedFaction, setSelectedFaction] = useState<string | null>(null)
+  const [availableFactions, setAvailableFactions] = useState<FactionOption[]>([])
+
+  // Cargar facciones disponibles
+  useEffect(() => {
+    if (!isOpen || !gameId) return
+
+    const loadAvailableFactions = async () => {
+      setLoadingFactions(true)
+      try {
+        // Consultar jugadores ya unidos a la partida
+        const playersQuery = query(
+          collection(db, 'players'),
+          where('gameId', '==', gameId)
+        )
+        const playersSnapshot = await getDocs(playersQuery)
+        const takenFactions = new Set<string>()
+        playersSnapshot.forEach((doc) => {
+          takenFactions.add(doc.data().faction)
+        })
+
+        // Crear lista de facciones con disponibilidad (excluir NEUTRAL)
+        const factionOptions: FactionOption[] = Object.entries(FACTIONS)
+          .filter(([id]) => id !== 'NEUTRAL')
+          .map(([id, faction]) => ({
+            id,
+            name: faction.name,
+            color: faction.color,
+            available: !takenFactions.has(id)
+          }))
+
+        setAvailableFactions(factionOptions)
+
+        // Seleccionar automáticamente la primera facción disponible
+        const firstAvailable = factionOptions.find(f => f.available)
+        if (firstAvailable) {
+          setSelectedFaction(firstAvailable.id)
+        }
+      } catch (err) {
+        console.error('Error cargando facciones:', err)
+        setError('Error al cargar las facciones disponibles')
+      } finally {
+        setLoadingFactions(false)
+      }
+    }
+
+    loadAvailableFactions()
+  }, [isOpen, gameId])
+
+  const handleJoin = async () => {
+    if (!user || !selectedFaction) return
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      // 1. Obtener información del juego para saber el escenario
+      const gameDoc = await getDoc(doc(db, 'games', gameId))
+      if (!gameDoc.exists()) {
+        throw new Error('Partida no encontrada')
+      }
+      const gameData = gameDoc.data()
+      const scenarioId = gameData.scenarioId
+
+      // 2. Obtener configuración inicial del escenario para esta facción
+      const initialSetup = getInitialSetup(scenarioId, selectedFaction)
+      if (!initialSetup) {
+        console.warn(`[JoinGameDialog] No se encontró setup inicial para ${scenarioId}:${selectedFaction}`)
+      }
+
+      // 3. Crear documento de jugador
+      const playerData = {
+        gameId,
+        userId: user.uid,
+        displayName: user.displayName || user.email || 'Jugador',
+        faction: selectedFaction,
+
+        // Estado inicial
+        isAlive: true,
+        isReady: false,
+        hasSubmittedOrders: false,
+
+        // Recursos iniciales (según el escenario)
+        treasury: initialSetup?.treasury || 10,
+        income: 0,
+        expenses: 0,
+
+        // Ciudades iniciales
+        cities: initialSetup?.cities || [],
+
+        // Fichas de asesino (vacío al inicio)
+        assassinTokens: {},
+
+        // Timestamps
+        joinedAt: serverTimestamp(),
+        lastActiveAt: serverTimestamp()
+      }
+
+      const playerDocRef = await addDoc(collection(db, 'players'), playerData)
+      const playerId = playerDocRef.id
+
+      // 4. Actualizar las unidades existentes de esta facción
+      // Las unidades ya fueron creadas al inicializar el juego con owner=factionId
+      // Ahora actualizamos el owner de factionId a playerId
+      const unitsQuery = query(
+        collection(db, 'units'),
+        where('gameId', '==', gameId),
+        where('owner', '==', selectedFaction) // Las unidades tienen owner=factionId
+      )
+      const unitsSnapshot = await getDocs(unitsQuery)
+
+      const updatePromises: Promise<any>[] = []
+      unitsSnapshot.forEach((unitDoc) => {
+        updatePromises.push(
+          updateDoc(doc(db, 'units', unitDoc.id), {
+            owner: playerId // Cambiar de factionId a playerId
+          })
+        )
+      })
+
+      if (updatePromises.length > 0) {
+        await Promise.all(updatePromises)
+        console.log(`[JoinGameDialog] Actualizadas ${updatePromises.length} unidades de ${selectedFaction} a jugador ${playerId}`)
+      } else {
+        console.warn(`[JoinGameDialog] No se encontraron unidades para ${selectedFaction}, creando nuevas...`)
+
+        // Fallback: Si no hay unidades (juego antiguo), crearlas
+        if (initialSetup) {
+          const unitPromises: Promise<any>[] = []
+
+          initialSetup.garrison.forEach((provinceId) => {
+            unitPromises.push(
+              addDoc(collection(db, 'units'), {
+                gameId,
+                owner: playerId,
+                type: 'garrison',
+                currentPosition: provinceId,
+                status: 'active',
+                siegeTurns: 0,
+                createdAt: serverTimestamp()
+              })
+            )
+          })
+
+          initialSetup.armies.forEach((provinceId) => {
+            unitPromises.push(
+              addDoc(collection(db, 'units'), {
+                gameId,
+                owner: playerId,
+                type: 'army',
+                currentPosition: provinceId,
+                status: 'active',
+                siegeTurns: 0,
+                createdAt: serverTimestamp()
+              })
+            )
+          })
+
+          initialSetup.fleets.forEach((provinceId) => {
+            unitPromises.push(
+              addDoc(collection(db, 'units'), {
+                gameId,
+                owner: playerId,
+                type: 'fleet',
+                currentPosition: provinceId,
+                status: 'active',
+                siegeTurns: 0,
+                createdAt: serverTimestamp()
+              })
+            )
+          })
+
+          await Promise.all(unitPromises)
+          console.log(`[JoinGameDialog] Creadas ${unitPromises.length} unidades para ${selectedFaction}`)
+        }
+      }
+
+      // 5. Incrementar contador de jugadores en la partida
+      const gameRef = doc(db, 'games', gameId)
+      await updateDoc(gameRef, {
+        playersCount: increment(1),
+        updatedAt: serverTimestamp()
+      })
+
+      console.log('[JoinGameDialog] Unido a la partida correctamente')
+
+      // Reset
+      setSelectedFaction(null)
+
+      // Cerrar diálogo
+      onClose()
+
+      // Callback (después de cerrar para evitar interferencias)
+      if (onJoined) {
+        onJoined(gameId)
+      }
+
+    } catch (err) {
+      console.error('Error uniéndose a la partida:', err)
+      setError('Error al unirse a la partida. Por favor intenta de nuevo.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-gray-800 rounded-lg max-w-lg w-full">
+        <div className="p-6">
+          {/* Header */}
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-white">Unirse a Partida</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-white text-2xl"
+            >
+              ×
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="space-y-4">
+            {error && (
+              <div className="bg-red-500/10 border border-red-500 text-red-500 px-4 py-3 rounded">
+                {error}
+              </div>
+            )}
+
+            <div>
+              <h3 className="text-lg font-medium text-white mb-2">{gameName}</h3>
+              <p className="text-sm text-gray-400">
+                Selecciona una facción para jugar
+              </p>
+            </div>
+
+            {/* Facciones */}
+            {loadingFactions ? (
+              <div className="text-center py-8">
+                <div className="animate-pulse text-gray-400">Cargando facciones...</div>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {availableFactions.map((faction) => (
+                  <button
+                    key={faction.id}
+                    onClick={() => faction.available && setSelectedFaction(faction.id)}
+                    disabled={!faction.available}
+                    className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
+                      selectedFaction === faction.id
+                        ? 'border-blue-500 bg-blue-500/10'
+                        : faction.available
+                        ? 'border-gray-600 hover:border-gray-500 bg-gray-700'
+                        : 'border-gray-700 bg-gray-800 opacity-50 cursor-not-allowed'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-8 h-8 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: faction.color }}
+                      />
+                      <div className="flex-1">
+                        <div className="font-bold text-white">{faction.name}</div>
+                        {!faction.available && (
+                          <div className="text-xs text-red-400">Ya ocupada</div>
+                        )}
+                      </div>
+                      {selectedFaction === faction.id && (
+                        <div className="text-blue-400">✓</div>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Información adicional */}
+            <div className="bg-gray-900 rounded-lg p-3 text-sm text-gray-400">
+              <div className="flex justify-between">
+                <span>Jugadores:</span>
+                <span className="text-white font-medium">
+                  {availableFactions.filter(f => !f.available).length} / {maxPlayers}
+                </span>
+              </div>
+            </div>
+
+            {/* Botones */}
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded font-medium transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleJoin}
+                disabled={loading || !selectedFaction || loadingFactions}
+                className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Uniéndose...' : 'Unirse a Partida'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

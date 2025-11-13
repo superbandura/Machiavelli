@@ -1,0 +1,43 @@
+{
+  "name": "machiavelli",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/superbandura/Machiavelli.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/superbandura/Machiavelli/issues"
+  },
+  "homepage": "https://github.com/superbandura/Machiavelli#readme",
+  "description": "",
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.14",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.1",
+    "@vitejs/plugin-react": "^5.0.4",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.14",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.9"
+  },
+  "dependencies": {
+    "firebase": "^12.4.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.9.4",
+    "react-zoom-pan-pinch": "^3.7.0",
+    "zustand": "^5.0.8"
+  }
+}
