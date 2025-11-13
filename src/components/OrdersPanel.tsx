@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Unit, Order, Player } from '@/types'
+import { Unit, Order, Player, Game } from '@/types'
 import { validateOrder, getValidMoveDestinations, getValidSupportTargets } from '@/utils/orderValidation'
-import { getProvinceInfo } from '@/data/provinceData'
+import { getProvinceInfo } from '@/utils/gameMapHelpers'
 import { collection, addDoc, query, where, getDocs, deleteDoc, doc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 
 interface OrdersPanelProps {
-  gameId: string
+  game: Game
   player: Player
   units: Unit[]
   selectedUnit: Unit | null
@@ -16,7 +16,7 @@ interface OrdersPanelProps {
 }
 
 export default function OrdersPanel({
-  gameId,
+  game,
   player,
   units,
   selectedUnit,
@@ -24,6 +24,7 @@ export default function OrdersPanel({
   currentPhase,
   turnNumber
 }: OrdersPanelProps) {
+  const gameId = game.id
   // Estado local de órdenes (antes de guardar en Firestore)
   const [orders, setOrders] = useState<Record<string, Order>>({})
   const [isSaving, setIsSaving] = useState(false)
@@ -85,7 +86,7 @@ export default function OrdersPanel({
     }
 
     // Validar la orden inmediatamente
-    const validation = validateOrder(newOrder, unit, units)
+    const validation = validateOrder(game.map, newOrder, unit, units)
     newOrder.isValid = validation.isValid
     if (validation.error) {
       newOrder.validationError = validation.error
@@ -146,13 +147,13 @@ export default function OrdersPanel({
 
   // Obtener destinos válidos para una unidad
   const getValidDestinationsForUnit = useMemo(() => {
-    return (unit: Unit) => getValidMoveDestinations(unit)
-  }, [])
+    return (unit: Unit) => getValidMoveDestinations(game.map, unit)
+  }, [game.map])
 
   // Obtener unidades válidas para apoyo
   const getValidSupportTargetsForUnit = useMemo(() => {
-    return (unit: Unit) => getValidSupportTargets(unit, units)
-  }, [units])
+    return (unit: Unit) => getValidSupportTargets(game.map, unit, units)
+  }, [game.map, units])
 
   // Renderizar mensaje si no es fase de órdenes
   if (!canGiveOrders) {
@@ -260,7 +261,7 @@ export default function OrdersPanel({
                       >
                         <option value="">Seleccionar provincia...</option>
                         {getValidDestinationsForUnit(unit).map(provinceId => {
-                          const provinceInfo = getProvinceInfo(provinceId)
+                          const provinceInfo = getProvinceInfo(game.map, provinceId)
                           return (
                             <option key={provinceId} value={provinceId}>
                               {provinceInfo?.name || provinceId}
@@ -333,7 +334,7 @@ export default function OrdersPanel({
                       >
                         <option value="">Seleccionar ciudad...</option>
                         <option value={unit.currentPosition}>
-                          {getProvinceInfo(unit.currentPosition)?.cityName || unit.currentPosition}
+                          {getProvinceInfo(game.map, unit.currentPosition)?.cityName || unit.currentPosition}
                         </option>
                       </select>
                       <div className="text-xs text-gray-400 mt-1">

@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/store/authStore'
-import { SCENARIOS, getScenariosList, getInitialSetup } from '@/data/scenarios'
 import { listScenarios, getScenario as getFirestoreScenario } from '@/lib/scenarioService'
 import { ScenarioListItem, ScenarioDocument } from '@/types/scenario'
+import { GameMap, ScenarioData, ProvinceInfo } from '@/types/game'
 
 interface CreateGameModalProps {
   isOpen: boolean
@@ -13,81 +13,45 @@ interface CreateGameModalProps {
 }
 
 /**
- * Inicializa todas las facciones del escenario con sus unidades iniciales
- * Esto permite que se vean en el mapa aunque no haya jugador asignado
+ * Construye el GameMap desde un escenario de Firestore
  */
-async function initializeScenarioFactions(gameId: string, scenarioId: string) {
-  const scenario = SCENARIOS[scenarioId]
-  if (!scenario) {
-    console.error('[initializeScenarioFactions] Escenario no encontrado:', scenarioId)
-    return
-  }
+function buildGameMapFromFirestore(scenarioDoc: ScenarioDocument): GameMap {
+  const provinces: Record<string, ProvinceInfo> = {}
+  const adjacencies: Record<string, string[]> = {}
 
-  const unitPromises: Promise<any>[] = []
-
-  // Crear unidades para cada facción disponible en el escenario
-  for (const factionId of scenario.availableFactions) {
-    const initialSetup = getInitialSetup(scenarioId, factionId)
-    if (!initialSetup) {
-      console.warn(`[initializeScenarioFactions] No hay setup para ${scenarioId}:${factionId}`)
-      continue
+  scenarioDoc.provinces.forEach(province => {
+    provinces[province.id] = {
+      id: province.id,
+      name: province.name,
+      type: province.type,
+      adjacencies: province.adjacencies,
+      hasCity: province.hasCity,
+      cityName: province.cityName,
+      isPort: province.isPort,
+      income: province.income
     }
+    adjacencies[province.id] = province.adjacencies
+  })
 
-    // Crear guarniciones
-    initialSetup.garrison.forEach((provinceId) => {
-      unitPromises.push(
-        addDoc(collection(db, 'units'), {
-          gameId,
-          owner: factionId, // owner es el factionId (no playerId)
-          type: 'garrison',
-          currentPosition: provinceId,
-          status: 'active',
-          siegeTurns: 0,
-          createdAt: serverTimestamp()
-        })
-      )
-    })
+  return { provinces, adjacencies }
+}
 
-    // Crear ejércitos
-    initialSetup.armies.forEach((provinceId) => {
-      unitPromises.push(
-        addDoc(collection(db, 'units'), {
-          gameId,
-          owner: factionId,
-          type: 'army',
-          currentPosition: provinceId,
-          status: 'active',
-          siegeTurns: 0,
-          createdAt: serverTimestamp()
-        })
-      )
-    })
-
-    // Crear flotas
-    initialSetup.fleets.forEach((provinceId) => {
-      unitPromises.push(
-        addDoc(collection(db, 'units'), {
-          gameId,
-          owner: factionId,
-          type: 'fleet',
-          currentPosition: provinceId,
-          status: 'active',
-          siegeTurns: 0,
-          createdAt: serverTimestamp()
-        })
-      )
-    })
+/**
+ * Construye ScenarioData desde escenario de Firestore
+ */
+function buildScenarioDataFromFirestore(scenarioDoc: ScenarioDocument): ScenarioData {
+  return {
+    availableFactions: scenarioDoc.availableFactions,
+    neutralTerritories: scenarioDoc.neutralTerritories,
+    victoryConditions: scenarioDoc.victoryConditions,
+    factionSetups: scenarioDoc.factionSetups
   }
-
-  // Crear todas las unidades en paralelo
-  await Promise.all(unitPromises)
-  console.log(`[initializeScenarioFactions] Creadas ${unitPromises.length} unidades para ${scenario.availableFactions.length} facciones`)
 }
 
 /**
  * Inicializa unidades desde un escenario de Firestore
  */
-async function initializeFromFirestoreScenario(gameId: string, scenarioDoc: ScenarioDocument) {
+async function initializeFirestoreScenarioUnits(gameId: string, scenarioDoc: ScenarioDocument) {
   const unitPromises: Promise<any>[] = []
 
   // Crear unidades según los datos de las provincias
@@ -141,7 +105,7 @@ async function initializeFromFirestoreScenario(gameId: string, scenarioDoc: Scen
   }
 
   await Promise.all(unitPromises)
-  console.log(`[initializeFromFirestoreScenario] Creadas ${unitPromises.length} unidades`)
+  console.log(`[initializeFirestoreScenarioUnits] Creadas ${unitPromises.length} unidades`)
 }
 
 export default function CreateGameModal({ isOpen, onClose, onGameCreated }: CreateGameModalProps) {
@@ -151,7 +115,7 @@ export default function CreateGameModal({ isOpen, onClose, onGameCreated }: Crea
 
   // Configuración del juego
   const [gameName, setGameName] = useState('')
-  const [selectedScenario, setSelectedScenario] = useState('ITALIA_1454')
+  const [selectedScenario, setSelectedScenario] = useState('')
   const [maxPlayers, setMaxPlayers] = useState(6)
   const [diplomaticDuration, setDiplomaticDuration] = useState(48)
   const [ordersDuration, setOrdersDuration] = useState(48)
@@ -175,41 +139,44 @@ export default function CreateGameModal({ isOpen, onClose, onGameCreated }: Crea
     try {
       const scenarios = await listScenarios()
       setFirestoreScenarios(scenarios)
+
+      // Seleccionar el primer escenario por defecto
+      if (scenarios.length > 0 && !selectedScenario) {
+        setSelectedScenario(scenarios[0].id)
+        setMaxPlayers(scenarios[0].maxPlayers)
+      }
     } catch (error) {
       console.error('Error loading Firestore scenarios:', error)
-      // No mostramos error al usuario, simplemente no hay escenarios custom
+      setError('Error al cargar escenarios. Por favor recarga la página.')
     }
   }
 
-  // Obtener configuración del escenario seleccionado (hardcoded o Firestore)
-  const scenario = SCENARIOS[selectedScenario]
-  const isFirestoreScenario = !scenario && selectedScenario.startsWith('fs_')
+  // Obtener información del escenario seleccionado
+  const selectedScenarioInfo = firestoreScenarios.find(s => s.id === selectedScenario)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user) return
 
+    if (!selectedScenario) {
+      setError('Por favor selecciona un escenario')
+      return
+    }
+
     setLoading(true)
     setError(null)
 
     try {
-      // Cargar escenario si es de Firestore
-      let scenarioDoc: ScenarioDocument | null = null
-      let scenarioName: string
-      let scenarioYear: number
-
-      if (isFirestoreScenario) {
-        const fsId = selectedScenario.replace('fs_', '')
-        scenarioDoc = await getFirestoreScenario(fsId)
-        if (!scenarioDoc) {
-          throw new Error('Escenario no encontrado')
-        }
-        scenarioName = scenarioDoc.name
-        scenarioYear = scenarioDoc.year
-      } else {
-        scenarioName = scenario.name
-        scenarioYear = scenario.year
+      // Cargar escenario de Firestore
+      const scenarioDoc = await getFirestoreScenario(selectedScenario)
+      if (!scenarioDoc) {
+        throw new Error('Escenario no encontrado')
       }
+
+      const scenarioName = scenarioDoc.name
+      const scenarioYear = scenarioDoc.year
+      const gameMap = buildGameMapFromFirestore(scenarioDoc)
+      const scenarioData = buildScenarioDataFromFirestore(scenarioDoc)
 
       // Crear documento de partida en Firestore
       const gameData = {
@@ -223,6 +190,10 @@ export default function CreateGameModal({ isOpen, onClose, onGameCreated }: Crea
         turnNumber: 1,
         maxPlayers: maxPlayers,
         playersCount: 0, // El creador se une después
+
+        // Datos del mapa y escenario
+        map: gameMap,
+        scenarioData: scenarioData,
 
         // Deadlines (se calculan al empezar)
         phaseDeadline: null,
@@ -256,12 +227,8 @@ export default function CreateGameModal({ isOpen, onClose, onGameCreated }: Crea
       const docRef = await addDoc(collection(db, 'games'), gameData)
       console.log('[CreateGameModal] Partida creada con ID:', docRef.id)
 
-      // Inicializar unidades según el tipo de escenario
-      if (isFirestoreScenario && scenarioDoc) {
-        await initializeFromFirestoreScenario(docRef.id, scenarioDoc)
-      } else {
-        await initializeScenarioFactions(docRef.id, selectedScenario)
-      }
+      // Inicializar unidades desde Firestore
+      await initializeFirestoreScenarioUnits(docRef.id, scenarioDoc)
 
       // Cerrar modal primero
       onClose()
@@ -339,57 +306,39 @@ export default function CreateGameModal({ isOpen, onClose, onGameCreated }: Crea
                 onChange={(e) => {
                   setSelectedScenario(e.target.value)
                   // Ajustar jugadores según el escenario
-                  const newScenario = SCENARIOS[e.target.value]
-                  if (newScenario) {
-                    setMaxPlayers(newScenario.maxPlayers)
-                  } else {
-                    // Es de Firestore, buscar en la lista
-                    const fsScenario = firestoreScenarios.find(
-                      (s) => `fs_${s.id}` === e.target.value
-                    )
-                    if (fsScenario) {
-                      setMaxPlayers(fsScenario.maxPlayers)
-                    }
+                  const scenario = firestoreScenarios.find(s => s.id === e.target.value)
+                  if (scenario) {
+                    setMaxPlayers(scenario.maxPlayers)
                   }
                 }}
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <optgroup label="Escenarios Oficiales">
-                  {getScenariosList().map((sc) => (
+                {firestoreScenarios.length === 0 ? (
+                  <option value="">Cargando escenarios...</option>
+                ) : (
+                  firestoreScenarios.map((sc) => (
                     <option key={sc.id} value={sc.id}>
-                      {sc.name}
+                      {sc.name} ({sc.year})
                     </option>
-                  ))}
-                </optgroup>
-                {firestoreScenarios.length > 0 && (
-                  <optgroup label="Escenarios Personalizados">
-                    {firestoreScenarios.map((sc) => (
-                      <option key={`fs_${sc.id}`} value={`fs_${sc.id}`}>
-                        {sc.name} ({sc.year})
-                      </option>
-                    ))}
-                  </optgroup>
+                  ))
                 )}
               </select>
-              {scenario && (
+              {selectedScenarioInfo && (
                 <div className="mt-2 text-sm text-gray-400">
-                  <div className="mb-1">{scenario.description}</div>
                   <div className="flex gap-4 text-xs">
                     <span>
-                      {scenario.minPlayers}-{scenario.maxPlayers} jugadores
+                      {selectedScenarioInfo.minPlayers}-{selectedScenarioInfo.maxPlayers} jugadores
                     </span>
                     <span>•</span>
                     <span className={`font-medium ${
-                      scenario.difficulty === 'tutorial' ? 'text-green-400' :
-                      scenario.difficulty === 'medium' ? 'text-yellow-400' :
+                      selectedScenarioInfo.difficulty === 'tutorial' ? 'text-green-400' :
+                      selectedScenarioInfo.difficulty === 'medium' ? 'text-yellow-400' :
                       'text-red-400'
                     }`}>
-                      {scenario.difficulty === 'tutorial' ? '📚 Tutorial' :
-                       scenario.difficulty === 'medium' ? '⚔️ Medio' :
-                       '🔥 Difícil'}
+                      {selectedScenarioInfo.difficulty === 'tutorial' ? 'Tutorial' :
+                       selectedScenarioInfo.difficulty === 'medium' ? 'Medio' :
+                       'Difícil'}
                     </span>
-                    <span>•</span>
-                    <span>{scenario.estimatedDuration}</span>
                   </div>
                 </div>
               )}
@@ -402,18 +351,19 @@ export default function CreateGameModal({ isOpen, onClose, onGameCreated }: Crea
               </label>
               <input
                 type="range"
-                min={scenario?.minPlayers || 2}
-                max={scenario?.maxPlayers || 8}
+                min={selectedScenarioInfo?.minPlayers || 2}
+                max={selectedScenarioInfo?.maxPlayers || 8}
                 value={maxPlayers}
                 onChange={(e) => setMaxPlayers(Number(e.target.value))}
                 className="w-full"
+                disabled={!selectedScenarioInfo}
               />
               <div className="flex justify-between text-xs text-gray-400 mt-1">
-                <span>{scenario?.minPlayers || 2}</span>
-                {scenario && scenario.maxPlayers > scenario.minPlayers + 1 && (
-                  <span>{Math.floor((scenario.minPlayers + scenario.maxPlayers) / 2)}</span>
+                <span>{selectedScenarioInfo?.minPlayers || 2}</span>
+                {selectedScenarioInfo && selectedScenarioInfo.maxPlayers > selectedScenarioInfo.minPlayers + 1 && (
+                  <span>{Math.floor((selectedScenarioInfo.minPlayers + selectedScenarioInfo.maxPlayers) / 2)}</span>
                 )}
-                <span>{scenario?.maxPlayers || 8} (Recomendado)</span>
+                <span>{selectedScenarioInfo?.maxPlayers || 8} (Recomendado)</span>
               </div>
             </div>
 
@@ -545,7 +495,7 @@ export default function CreateGameModal({ isOpen, onClose, onGameCreated }: Crea
               </button>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !selectedScenario}
                 className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Creando...' : 'Crear Partida'}

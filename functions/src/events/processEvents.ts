@@ -8,7 +8,7 @@
  */
 
 import * as admin from 'firebase-admin';
-import { PROVINCE_INFO } from '../data/provinceData';
+import { GameMap } from '../types';
 
 interface EventsConfig {
   famine: boolean;
@@ -23,6 +23,7 @@ interface Game {
   turnNumber: number;
   eventsConfig?: EventsConfig;
   famineProvinces?: string[]; // Provincias con marcador de hambre
+  map: GameMap;
   [key: string]: any;
 }
 
@@ -53,7 +54,7 @@ export async function processSpecialEvents(gameId: string, db: admin.firestore.F
 
   // Procesar según estación
   if (game.currentSeason === 'Primavera' && eventsConfig.famine) {
-    const famineEvents = await processFamine(game, db);
+    const famineEvents = await processFamine(game, db, game.map);
     events.push(...famineEvents);
   }
 
@@ -75,7 +76,7 @@ export async function processSpecialEvents(gameId: string, db: admin.firestore.F
 
     // Procesar peste
     if (eventsConfig.plague) {
-      const plagueEvents = await processPlague(game, db);
+      const plagueEvents = await processPlague(game, db, game.map);
       events.push(...plagueEvents);
     }
   }
@@ -86,7 +87,7 @@ export async function processSpecialEvents(gameId: string, db: admin.firestore.F
 /**
  * Procesar Hambre (Primavera)
  */
-async function processFamine(game: Game, db: admin.firestore.Firestore): Promise<TurnEvent[]> {
+async function processFamine(game: Game, db: admin.firestore.Firestore, map: GameMap): Promise<TurnEvent[]> {
   console.log('Processing FAMINE event...');
 
   const events: TurnEvent[] = [];
@@ -112,7 +113,7 @@ async function processFamine(game: Game, db: admin.firestore.Firestore): Promise
   }
 
   // Obtener provincias terrestres (land o port, no sea)
-  const landProvinces = Object.values(PROVINCE_INFO)
+  const landProvinces = Object.values(map.provinces)
     .filter(p => p.type === 'land' || p.type === 'port')
     .map(p => p.id);
 
@@ -183,7 +184,7 @@ async function processFamine(game: Game, db: admin.firestore.Firestore): Promise
 /**
  * Procesar Peste (Verano)
  */
-async function processPlague(game: Game, db: admin.firestore.Firestore): Promise<TurnEvent[]> {
+async function processPlague(game: Game, db: admin.firestore.Firestore, map: GameMap): Promise<TurnEvent[]> {
   console.log('Processing PLAGUE event...');
 
   const events: TurnEvent[] = [];
@@ -205,7 +206,7 @@ async function processPlague(game: Game, db: admin.firestore.Firestore): Promise
   }
 
   // Peste aparece - seleccionar provincia aleatoria
-  const allProvinces = Object.values(PROVINCE_INFO).map(p => p.id);
+  const allProvinces = Object.values(map.provinces).map(p => p.id);
   const randomIndex = Math.floor(Math.random() * allProvinces.length);
   const affectedProvince = allProvinces[randomIndex];
 

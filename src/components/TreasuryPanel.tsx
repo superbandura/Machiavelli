@@ -8,16 +8,16 @@
  */
 
 import { useMemo } from 'react';
-import type { Player, Unit } from '../types';
-import { PROVINCE_INFO } from '../data/provinceData';
+import type { Player, Unit, GameMap } from '../types';
 
 interface TreasuryPanelProps {
   player: Player;
   units: Unit[];
   currentSeason: string;
+  gameMap: GameMap;
 }
 
-export default function TreasuryPanel({ player, units, currentSeason }: TreasuryPanelProps) {
+export default function TreasuryPanel({ player, units, currentSeason, gameMap }: TreasuryPanelProps) {
   // Calcular ciudades controladas (provincias con guarnición del jugador)
   const citiesControlled = useMemo(() => {
     const garrisonProvinces = units
@@ -26,11 +26,11 @@ export default function TreasuryPanel({ player, units, currentSeason }: Treasury
 
     return garrisonProvinces
       .map(provinceId => {
-        const province = PROVINCE_INFO[provinceId];
+        const province = gameMap.provinces[provinceId];
         return province?.hasCity ? { id: provinceId, name: province.cityName || province.name } : null;
       })
       .filter(Boolean);
-  }, [units, player.id]);
+  }, [units, player.id, gameMap.provinces]);
 
   // Calcular ingresos estimados (3 ducados por ciudad)
   const estimatedIncome = citiesControlled.length * 3;

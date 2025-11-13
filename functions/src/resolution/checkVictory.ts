@@ -7,8 +7,7 @@
  */
 
 import * as admin from 'firebase-admin';
-import { ResolutionContext, Player } from '../types';
-import { PROVINCE_INFO } from '../data/provinceData';
+import { ResolutionContext, Player, GameMap } from '../types';
 import { notifyGameEnded } from '../email/notificationService';
 
 /**
@@ -21,7 +20,7 @@ export async function checkVictoryConditions(context: ResolutionContext): Promis
   console.log('Checking victory conditions...');
 
   // Contar ciudades controladas por cada jugador
-  const cityCounts = countCitiesPerPlayer(players, units);
+  const cityCounts = countCitiesPerPlayer(players, units, context.map);
 
   // 1. VICTORIA ESTÁNDAR: X ciudades al final de Otoño
   if (currentSeason === 'Otoño') {
@@ -41,7 +40,7 @@ export async function checkVictoryConditions(context: ResolutionContext): Promis
   // 2. VICTORIA POR TIEMPO: 12 turnos completados
   if (turnNumber >= 12) {
     console.log(`Time limit reached (12 turns). Determining winner...`);
-    await declareWinnerByTimeLimit(gameId, players, units, db, context);
+    await declareWinnerByTimeLimit(gameId, players, units, db, context, context.map);
     return;
   }
 
@@ -51,7 +50,7 @@ export async function checkVictoryConditions(context: ResolutionContext): Promis
 /**
  * Contar ciudades controladas por cada jugador
  */
-function countCitiesPerPlayer(players: Player[], units: any[]): Record<string, number> {
+function countCitiesPerPlayer(players: Player[], units: any[], map: GameMap): Record<string, number> {
   const cityCounts: Record<string, number> = {};
 
   // Inicializar contadores
@@ -63,7 +62,7 @@ function countCitiesPerPlayer(players: Player[], units: any[]): Record<string, n
   for (const unit of units) {
     if (unit.type === 'garrison') {
       const provinceId = unit.currentPosition;
-      const provinceInfo = PROVINCE_INFO[provinceId];
+      const provinceInfo = map.provinces[provinceId];
 
       // Verificar que la provincia tenga ciudad
       if (provinceInfo?.hasCity) {
@@ -136,9 +135,10 @@ async function declareWinnerByTimeLimit(
   players: Player[],
   units: any[],
   db: admin.firestore.Firestore,
-  context: ResolutionContext
+  context: ResolutionContext,
+  map: GameMap
 ): Promise<void> {
-  const cityCounts = countCitiesPerPlayer(players, units);
+  const cityCounts = countCitiesPerPlayer(players, units, map);
 
   // Encontrar el jugador con más ciudades
   let maxCities = 0;
@@ -156,7 +156,7 @@ async function declareWinnerByTimeLimit(
 
   // Si hay empate, desempatar por valor total de ciudades
   if (potentialWinners.length > 1) {
-    potentialWinners = resolveTieByValue(potentialWinners, units);
+    potentialWinners = resolveTieByValue(potentialWinners, units, map);
   }
 
   // Si hay un único ganador
@@ -193,7 +193,7 @@ async function declareWinnerByTimeLimit(
 /**
  * Desempatar por valor total de ciudades (ducados)
  */
-function resolveTieByValue(players: Player[], units: any[]): Player[] {
+function resolveTieByValue(players: Player[], units: any[], map: GameMap): Player[] {
   const cityValues: Record<string, number> = {};
 
   // Calcular valor total de ciudades por jugador
@@ -203,7 +203,7 @@ function resolveTieByValue(players: Player[], units: any[]): Player[] {
     for (const unit of units) {
       if (unit.type === 'garrison' && unit.owner === player.id) {
         const provinceId = unit.currentPosition;
-        const provinceInfo = PROVINCE_INFO[provinceId];
+        const provinceInfo = map.provinces[provinceId];
 
         if (provinceInfo?.hasCity) {
           totalValue += provinceInfo.income || 0;

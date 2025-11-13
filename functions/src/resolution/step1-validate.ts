@@ -11,7 +11,7 @@
  */
 
 import { ResolutionContext, Order, Unit } from '../types';
-import { isAdjacent, isPort, isLand, isSea } from '../data/provinceData';
+import { isAdjacent, isPort, isLand, isSea } from '../utils/mapHelpers';
 
 export async function validateOrders(context: ResolutionContext): Promise<void> {
   console.log('Validating orders...');
@@ -26,7 +26,7 @@ export async function validateOrders(context: ResolutionContext): Promise<void> 
       continue;
     }
 
-    const validation = validateOrder(order, unit, context.units);
+    const validation = validateOrder(context.map, order, unit, context.units);
 
     if (!validation.isValid) {
       // Cambiar orden a "Mantener"
@@ -56,7 +56,7 @@ export async function validateOrders(context: ResolutionContext): Promise<void> 
 /**
  * Validar una orden individual
  */
-function validateOrder(order: Order, unit: Unit, allUnits: Unit[]): { isValid: boolean; error?: string } {
+function validateOrder(map: any, order: Order, unit: Unit, allUnits: Unit[]): { isValid: boolean; error?: string } {
   switch (order.action) {
     case 'hold':
       return { isValid: true };
@@ -72,13 +72,13 @@ function validateOrder(order: Order, unit: Unit, allUnits: Unit[]): { isValid: b
       }
 
       // Verificar adyacencia
-      if (!isAdjacent(unit.currentPosition, order.targetProvince)) {
+      if (!isAdjacent(map, unit.currentPosition, order.targetProvince)) {
         return { isValid: false, error: 'Provincia no es adyacente' };
       }
 
       // Verificar tipo de terreno
       if (unit.type === 'army') {
-        if (!isLand(order.targetProvince)) {
+        if (!isLand(map, order.targetProvince) && !isPort(map, order.targetProvince)) {
           // Ejército a zona marítima sin convoy → Inválido
           // TODO: Verificar si hay convoy válido en Paso 3.1
           return { isValid: false, error: 'Ejércitos no pueden ir a zona marítima sin convoy' };
@@ -86,7 +86,7 @@ function validateOrder(order: Order, unit: Unit, allUnits: Unit[]): { isValid: b
       }
 
       if (unit.type === 'fleet') {
-        if (!isSea(order.targetProvince) && !isPort(order.targetProvince)) {
+        if (!isSea(map, order.targetProvince) && !isPort(map, order.targetProvince)) {
           return { isValid: false, error: 'Flotas solo pueden moverse al mar o puertos' };
         }
       }
@@ -101,7 +101,7 @@ function validateOrder(order: Order, unit: Unit, allUnits: Unit[]): { isValid: b
       if (!supportedUnit) {
         return { isValid: false, error: 'Unidad a apoyar no encontrada' };
       }
-      if (!isAdjacent(unit.currentPosition, supportedUnit.currentPosition)) {
+      if (!isAdjacent(map, unit.currentPosition, supportedUnit.currentPosition)) {
         return { isValid: false, error: 'No puedes apoyar esa provincia (no es adyacente)' };
       }
       return { isValid: true };
@@ -110,7 +110,7 @@ function validateOrder(order: Order, unit: Unit, allUnits: Unit[]): { isValid: b
       if (unit.type !== 'fleet') {
         return { isValid: false, error: 'Solo las flotas pueden transportar' };
       }
-      if (!isSea(unit.currentPosition)) {
+      if (!isSea(map, unit.currentPosition)) {
         return { isValid: false, error: 'La flota debe estar en el mar para transportar' };
       }
       if (!order.supportedUnit) {
@@ -146,14 +146,14 @@ function validateOrder(order: Order, unit: Unit, allUnits: Unit[]): { isValid: b
         if (targetType !== 'army') {
           return { isValid: false, error: 'Flotas solo pueden convertirse a ejércitos' };
         }
-        if (!isPort(unit.currentPosition)) {
+        if (!isPort(map, unit.currentPosition)) {
           return { isValid: false, error: 'Flotas solo pueden convertirse en puertos' };
         }
       } else if (unit.type === 'army') {
         if (targetType !== 'fleet') {
           return { isValid: false, error: 'Ejércitos solo pueden convertirse a flotas' };
         }
-        if (!isPort(unit.currentPosition)) {
+        if (!isPort(map, unit.currentPosition)) {
           return { isValid: false, error: 'Ejércitos solo pueden convertirse en puertos' };
         }
       } else if (unit.type === 'garrison') {

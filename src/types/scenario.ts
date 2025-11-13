@@ -1,5 +1,5 @@
 import { Timestamp } from 'firebase/firestore'
-import { ProvinceType } from '@/data/provinceData'
+import { ProvinceType } from '@/types/game'
 
 /**
  * Datos editables de una provincia en el editor de escenarios

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ScenarioFormData, ScenarioListItem } from '@/types/scenario'
-import { FACTIONS } from '@/data/factions'
+import { FactionDocument } from '@/types/faction'
+import { getAllFactions } from '@/lib/factionService'
 
 interface ScenarioInfoPanelProps {
   formData: ScenarioFormData
@@ -26,6 +27,26 @@ export default function ScenarioInfoPanel({
   saving,
 }: ScenarioInfoPanelProps) {
   const [citiesConfig, setCitiesConfig] = useState('')
+  const [factions, setFactions] = useState<FactionDocument[]>([])
+  const [loadingFactions, setLoadingFactions] = useState(true)
+
+  // Load factions from Firestore
+  useEffect(() => {
+    loadFactions()
+  }, [])
+
+  const loadFactions = async () => {
+    try {
+      setLoadingFactions(true)
+      const loadedFactions = await getAllFactions()
+      setFactions(loadedFactions.filter((f) => f.id !== 'NEUTRAL'))
+    } catch (error) {
+      console.error('Error loading factions:', error)
+      // Keep empty array if error
+    } finally {
+      setLoadingFactions(false)
+    }
+  }
 
   // Actualizar citiesConfig cuando cambie formData
   useEffect(() => {
@@ -160,7 +181,7 @@ export default function ScenarioInfoPanel({
         />
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         {/* Min Players */}
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-1">
@@ -188,109 +209,35 @@ export default function ScenarioInfoPanel({
             className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
-
-        {/* Difficulty */}
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">
-            Dificultad
-          </label>
-          <select
-            value={formData.difficulty}
-            onChange={(e) =>
-              onChange({
-                ...formData,
-                difficulty: e.target.value as 'tutorial' | 'medium' | 'hard',
-              })
-            }
-            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="tutorial">Tutorial</option>
-            <option value="medium">Media</option>
-            <option value="hard">Difícil</option>
-          </select>
-        </div>
       </div>
 
-      {/* Duración estimada */}
+      {/* Límite de turnos */}
       <div>
         <label className="block text-sm font-medium text-gray-300 mb-1">
-          Duración Estimada
+          Límite de Turnos
         </label>
         <input
-          type="text"
-          value={formData.estimatedDuration}
-          onChange={(e) => onChange({ ...formData, estimatedDuration: e.target.value })}
+          type="number"
+          min={1}
+          value={formData.victoryConditions.timeLimit}
+          onChange={(e) =>
+            onChange({
+              ...formData,
+              victoryConditions: {
+                ...formData.victoryConditions,
+                timeLimit: parseInt(e.target.value) || 12,
+              },
+            })
+          }
           className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="8-15 turnos (2-4 años)"
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        {/* Ciudades requeridas */}
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">
-            Ciudades Requeridas (jugadores:ciudades)
-          </label>
-          <input
-            type="text"
-            value={citiesConfig}
-            onChange={(e) => handleCitiesConfigChange(e.target.value)}
-            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="5:8, 6:9, 7:10"
-          />
-          <p className="text-xs text-gray-400 mt-1">
-            Formato: jugadores:ciudades, separados por comas
-          </p>
-        </div>
-
-        {/* Límite de tiempo */}
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">
-            Límite de Turnos
-          </label>
-          <input
-            type="number"
-            min={1}
-            value={formData.victoryConditions.timeLimit}
-            onChange={(e) =>
-              onChange({
-                ...formData,
-                victoryConditions: {
-                  ...formData.victoryConditions,
-                  timeLimit: parseInt(e.target.value) || 12,
-                },
-              })
-            }
-            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-      </div>
-
-      {/* Facciones disponibles */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">
-          Facciones Disponibles
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {Object.values(FACTIONS)
-            .filter((f) => f.id !== 'NEUTRAL')
-            .map((faction) => (
-              <button
-                key={faction.id}
-                onClick={() => toggleFaction(faction.id)}
-                className={`px-3 py-1 rounded text-sm transition-colors ${
-                  formData.availableFactions.includes(faction.id)
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
-                style={{
-                  borderLeft: `4px solid ${faction.color}`,
-                }}
-              >
-                {faction.name}
-              </button>
-            ))}
-        </div>
+      {/* Separador visual */}
+      <div className="border-t border-gray-600 pt-4">
+        <p className="text-xs text-gray-400 text-center">
+          Selecciona una provincia en el mapa para editarla
+        </p>
       </div>
     </div>
   )

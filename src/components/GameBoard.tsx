@@ -1,25 +1,61 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 import { getProvinceCoordinates } from '@/data/provinceCoordinates'
-import { getFactionColor } from '@/data/factions'
+import { getFactionColor as getLegacyFactionColor } from '@/data/factions'
+import { FactionDocument } from '@/types/faction'
+import { getFactionColor as getDynamicFactionColor } from '@/lib/factionService'
 
 interface GameBoardProps {
   onProvinceClick?: (provinceId: string) => void
   selectedProvince?: string | null
   famineProvinces?: string[] // Provincias con marcador de hambre
   provinceFaction?: Record<string, string> // Map de provinceId → factionId (para colorear provincias)
+  factions?: FactionDocument[] // Optional: dynamic factions from Firestore
+  adjacencyEditMode?: boolean // Modo de edición de adyacencias
+  highlightedAdjacencies?: string[] // Provincias adyacentes a resaltar
+  onAdjacencyToggle?: (provinceId: string) => void // Callback para añadir/quitar adyacencia
 }
 
 export default function GameBoard({
   onProvinceClick,
   selectedProvince,
   famineProvinces = [],
-  provinceFaction = {}
+  provinceFaction = {},
+  factions = [],
+  adjacencyEditMode = false,
+  highlightedAdjacencies = [],
+  onAdjacencyToggle
 }: GameBoardProps) {
   const [svgContent, setSvgContent] = useState<string>('')
   const [hoveredProvince, setHoveredProvince] = useState<string | null>(null)
+  const [ctrlPressed, setCtrlPressed] = useState(false)
   const svgContainerRef = useRef<HTMLDivElement>(null)
   const hoveredProvinceRef = useRef<string | null>(null) // Ref para evitar re-renders del useEffect
+  const ctrlPressedRef = useRef<boolean>(false) // Ref para acceso inmediato sin depender de state
+
+  // Detectar tecla Ctrl
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Control') {
+        console.log('🎹 Ctrl pressed')
+        ctrlPressedRef.current = true
+        setCtrlPressed(true)
+      }
+    }
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Control') {
+        console.log('🎹 Ctrl released')
+        ctrlPressedRef.current = false
+        setCtrlPressed(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [])
 
   // FIX DEFINITIVO: Setear el SVG innerHTML solo una vez en useEffect
   // NO usar dangerouslySetInnerHTML en el JSX porque se ejecuta en cada render
@@ -95,11 +131,28 @@ export default function GameBoard({
     if (target.classList.contains('land') || target.classList.contains('sea')) {
       const provinceId = target.id
 
+      console.log('🖱️ Click detected:', {
+        provinceId,
+        adjacencyEditMode,
+        ctrlPressed: ctrlPressedRef.current,
+        hasToggleCallback: !!onAdjacencyToggle
+      })
+
+      // Modo edición de adyacencias: Ctrl + Click para añadir/quitar adyacencia
+      if (adjacencyEditMode && ctrlPressedRef.current && onAdjacencyToggle && provinceId) {
+        console.log('✅ Toggling adjacency for:', provinceId)
+        onAdjacencyToggle(provinceId)
+        e.stopPropagation()
+        return
+      }
+
+      // Click normal: seleccionar provincia
       if (provinceId && onProvinceClick) {
+        console.log('📍 Selecting province:', provinceId)
         onProvinceClick(provinceId)
       }
     }
-  }, [onProvinceClick])
+  }, [onProvinceClick, adjacencyEditMode, onAdjacencyToggle])
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     const target = e.target as SVGElement
@@ -125,6 +178,21 @@ export default function GameBoard({
 
     if (target.classList.contains('land') || target.classList.contains('sea')) {
       const element = target as HTMLElement
+      const provinceId = element.id
+
+      // Cambiar cursor en modo edición de adyacencias + Ctrl presionado
+      if (adjacencyEditMode && ctrlPressedRef.current && provinceId) {
+        const isAdjacent = highlightedAdjacencies.includes(provinceId)
+
+        // Cursor con + (verde) si no es adyacente, - (rojo) si ya es adyacente
+        if (isAdjacent) {
+          element.style.cursor = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="rgb(239, 68, 68)" opacity="0.8"/><text x="12" y="17" text-anchor="middle" font-size="18" fill="white" font-weight="bold">−</text></svg>') 12 12, pointer`
+        } else {
+          element.style.cursor = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="rgb(34, 197, 94)" opacity="0.8"/><text x="12" y="17" text-anchor="middle" font-size="18" fill="white" font-weight="bold">+</text></svg>') 12 12, pointer`
+        }
+      } else {
+        element.style.cursor = 'pointer'
+      }
 
       // Aplicar efecto hover manualmente con JavaScript
       // Si la provincia tiene facción, aumentar opacidad en vez de brightness
@@ -142,7 +210,7 @@ export default function GameBoard({
       element.style.stroke = '#ffffff'
       element.style.strokeWidth = '2'
     }
-  }, [])
+  }, [adjacencyEditMode, highlightedAdjacencies])
 
   const handleMouseLeave = useCallback((e: MouseEvent) => {
     const target = e.target as SVGElement
@@ -188,6 +256,16 @@ export default function GameBoard({
     }
   }, [svgContent, handleClick, handleMouseMove, handleMouseEnter, handleMouseLeave]) // Handlers estables con useCallback
 
+  // Helper function to get faction color (dynamic or legacy)
+  const getFactionColor = useCallback((factionId: string): string => {
+    // If dynamic factions are provided, use them
+    if (factions.length > 0) {
+      return getDynamicFactionColor(factionId, factions)
+    }
+    // Otherwise, use legacy hardcoded factions
+    return getLegacyFactionColor(factionId)
+  }, [factions])
+
   // Colorear provincias según facción controladora
   useEffect(() => {
     if (!svgContainerRef.current || !svgContent) return
@@ -213,7 +291,50 @@ export default function GameBoard({
         element.removeAttribute('data-faction-color')
       }
     })
-  }, [svgContent, provinceFaction])
+  }, [svgContent, provinceFaction, getFactionColor])
+
+  // Pintar provincias adyacentes en verde cuando el modo de edición está activo
+  useEffect(() => {
+    if (!svgContainerRef.current || !svgContent) return
+
+    const container = svgContainerRef.current
+    const allProvinces = container.querySelectorAll('.land, .sea')
+
+    // SIEMPRE restaurar colores originales primero (para limpiar verdes anteriores)
+    allProvinces.forEach((el) => {
+      const element = el as HTMLElement
+      element.removeAttribute('data-adjacent-highlight')
+
+      const provinceId = element.id
+      const factionId = provinceFaction[provinceId]
+
+      if (factionId) {
+        const factionColor = getFactionColor(factionId)
+        element.style.setProperty('fill', factionColor, 'important')
+        element.style.setProperty('fill-opacity', '0.4', 'important')
+      } else {
+        // Provincia neutral: aplicar color default del SVG
+        if (element.classList.contains('land')) {
+          element.style.setProperty('fill', '#c4b896', 'important')
+        } else if (element.classList.contains('sea')) {
+          element.style.setProperty('fill', '#8ab4d6', 'important')
+        }
+        element.style.setProperty('fill-opacity', '1', 'important')
+      }
+    })
+
+    // DESPUÉS, si el modo está activo, pintar las adyacencias actuales en verde
+    if (adjacencyEditMode && highlightedAdjacencies.length > 0) {
+      highlightedAdjacencies.forEach((provinceId) => {
+        const provinceElement = container.querySelector(`#${provinceId}`) as HTMLElement
+        if (provinceElement) {
+          provinceElement.setAttribute('data-adjacent-highlight', 'true')
+          provinceElement.style.setProperty('fill', '#22c55e', 'important') // Verde
+          provinceElement.style.setProperty('fill-opacity', '0.5', 'important')
+        }
+      })
+    }
+  }, [adjacencyEditMode, highlightedAdjacencies, svgContent, provinceFaction, getFactionColor])
 
   // Resaltar provincia seleccionada
   useEffect(() => {

@@ -15,7 +15,6 @@ import VictoryScreen from '@/components/VictoryScreen'
 import FamineMitigationPanel from '@/components/FamineMitigationPanel'
 import InactivePlayerVoting from '@/components/InactivePlayerVoting'
 import ProvinceInfoPanel from '@/components/ProvinceInfoPanel'
-import { getScenario, SCENARIO_SETUPS } from '@/data/scenarios'
 
 export default function Game() {
   const { gameId } = useParams<{ gameId: string }>()
@@ -149,17 +148,12 @@ export default function Game() {
     })
 
     // Agregar facciones sin jugador asignado al mapeo
-    if (game) {
-      const scenarioToLookup = game.scenarioId || game.scenario
-      const scenario = getScenario(scenarioToLookup)
-
-      if (scenario) {
-        scenario.availableFactions.forEach((factionId) => {
-          if (!players.some((p) => p.faction === factionId)) {
-            result[factionId] = factionId
-          }
-        })
-      }
+    if (game?.scenarioData) {
+      game.scenarioData.availableFactions.forEach((factionId) => {
+        if (!players.some((p) => p.faction === factionId)) {
+          result[factionId] = factionId
+        }
+      })
     }
 
     return result
@@ -170,42 +164,28 @@ export default function Game() {
 
     if (!game) return result
 
-    const scenarioToLookup = game.scenarioId || game.scenario
-    const scenario = getScenario(scenarioToLookup)
-
-    if (scenario) {
-      const scenarioId = game.scenarioId || scenario.id
-
-      scenario.availableFactions.forEach((factionId) => {
-        const setup = SCENARIO_SETUPS[scenarioId]?.[factionId]
-        if (setup) {
-          setup.cities.forEach((cityId) => {
-            result[cityId] = factionId
-          })
-          setup.garrison.forEach((provinceId) => {
-            result[provinceId] = factionId
-          })
-          setup.armies.forEach((provinceId) => {
-            result[provinceId] = factionId
-          })
-          setup.fleets.forEach((provinceId) => {
-            result[provinceId] = factionId
-          })
-        }
+    // Usar scenarioData para obtener el control inicial de provincias
+    if (game.scenarioData) {
+      game.scenarioData.factionSetups.forEach((factionSetup) => {
+        factionSetup.provinces.forEach((provinceId) => {
+          result[provinceId] = factionSetup.factionId
+        })
       })
     }
 
+    // Actualizar con la posición actual de las unidades
     units.forEach((unit) => {
       const playerId = unit.owner
       const player = players.find((p) => p.id === playerId)
 
       if (player && player.faction) {
         result[unit.currentPosition] = player.faction
-      } else if (scenario && scenario.availableFactions.includes(unit.owner)) {
+      } else if (game.scenarioData && game.scenarioData.availableFactions.includes(unit.owner)) {
         result[unit.currentPosition] = unit.owner
       }
     })
 
+    // Actualizar con las ciudades controladas por jugadores
     players.forEach((p) => {
       if (p.cities) {
         p.cities.forEach((cityId) => {
@@ -368,10 +348,6 @@ export default function Game() {
     )
   }
 
-  // Obtener scenario para usar en el render
-  const scenarioToLookup = game.scenarioId || game.scenario
-  const scenario = getScenario(scenarioToLookup)
-
   // Si el juego está terminado, mostrar pantalla de victoria
   if (game.status === 'finished') {
     return (
@@ -458,6 +434,7 @@ export default function Game() {
           {(game as any).famineProvinces && (game as any).famineProvinces.length > 0 && (
             <div className="p-4 border-b border-gray-700">
               <FamineMitigationPanel
+                game={game}
                 player={player}
                 units={visibleUnits}
                 famineProvinces={(game as any).famineProvinces}
@@ -480,6 +457,7 @@ export default function Game() {
 
           {/* Información de provincia seleccionada */}
           <ProvinceInfoPanel
+            game={game}
             provinceId={selectedProvince}
             visibleUnits={visibleUnits}
             players={players}
@@ -526,7 +504,7 @@ export default function Game() {
           <div className="flex-1 flex flex-col overflow-hidden">
             {activeTab === 'orders' ? (
               <OrdersPanel
-                gameId={gameId!}
+                game={game}
                 player={player}
                 units={visibleUnits}
                 selectedUnit={selectedUnit}

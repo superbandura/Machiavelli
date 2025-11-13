@@ -74,6 +74,7 @@ export async function resolveTurn(gameId: string): Promise<void> {
     const context = {
       gameId,
       gameData,
+      map: gameData.map, // Mapa del juego (incluye provincias y adyacencias)
       players,
       units,
       orders,

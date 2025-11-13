@@ -9,7 +9,7 @@
  */
 
 import { ResolutionContext, Unit } from '../types';
-import { PROVINCE_INFO } from '../data/provinceData';
+import { hasCity } from '../utils/mapHelpers';
 
 /**
  * Procesar ingresos y mantenimiento (solo Primavera)
@@ -22,7 +22,7 @@ async function processMaintenanceAndIncome(context: ResolutionContext): Promise<
     const controlledCities = context.units
       .filter(u => u.type === 'garrison' && u.owner === player.id)
       .map(u => u.currentPosition)
-      .filter(provinceId => PROVINCE_INFO[provinceId]?.hasCity);
+      .filter(provinceId => hasCity(context.map, provinceId));
 
     const income = controlledCities.length * 3; // 3 ducados por ciudad
 

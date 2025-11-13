@@ -165,5 +165,14 @@ service cloud.firestore {
       // Solo admins pueden crear, actualizar o eliminar escenarios
       allow create, update, delete: if isAdmin();
     }
+
+    // ==================== FACTIONS ====================
+    match /factions/{factionId} {
+      // Todos los usuarios autenticados pueden leer facciones
+      allow read: if isAuthenticated();
+
+      // Solo admins pueden crear, actualizar o eliminar facciones
+      allow create, update, delete: if isAdmin();
+    }
   }
 }

@@ -1,11 +1,21 @@
-import { Unit, Player } from '@/types'
-import { PROVINCE_ADJACENCIES, PROVINCE_INFO } from '@/data/provinceData'
+/**
+ * Helpers para trabajar con el mapa del juego
+ *
+ * Estas funciones reciben el GameMap como parámetro en lugar de usar
+ * datos hardcoded, lo que permite que cada partida tenga su propio mapa
+ */
+
+import { Unit } from '@/types'
+import { GameMap, ProvinceInfo } from '@/types/game'
 
 /**
  * Obtiene las provincias adyacentes a una provincia dada
  */
-export function getAdjacentProvinces(provinceId: string): string[] {
-  return PROVINCE_ADJACENCIES[provinceId] || []
+export function getAdjacentProvinces(
+  map: GameMap,
+  provinceId: string
+): string[] {
+  return map.adjacencies[provinceId] || []
 }
 
 /**
@@ -15,6 +25,7 @@ export function getAdjacentProvinces(provinceId: string): string[] {
  * - Garrisons: No se mueven
  */
 export function getValidAdjacentProvinces(
+  map: GameMap,
   provinceId: string,
   unitType: 'army' | 'fleet' | 'garrison'
 ): string[] {
@@ -22,10 +33,10 @@ export function getValidAdjacentProvinces(
     return [] // Las guarniciones no se mueven
   }
 
-  const adjacent = getAdjacentProvinces(provinceId)
+  const adjacent = getAdjacentProvinces(map, provinceId)
 
   return adjacent.filter((adjId) => {
-    const province = PROVINCE_INFO[adjId]
+    const province = map.provinces[adjId]
     if (!province) return false
 
     if (unitType === 'army') {
@@ -125,23 +136,26 @@ export function groupUnitsByProvince(units: Unit[]): Record<string, Unit[]> {
 /**
  * Obtiene información de una provincia
  */
-export function getProvinceInfo(provinceId: string) {
-  return PROVINCE_INFO[provinceId]
+export function getProvinceInfo(
+  map: GameMap,
+  provinceId: string
+): ProvinceInfo | undefined {
+  return map.provinces[provinceId]
 }
 
 /**
  * Verifica si una provincia tiene ciudad
  */
-export function hasCity(provinceId: string): boolean {
-  const province = PROVINCE_INFO[provinceId]
+export function hasCity(map: GameMap, provinceId: string): boolean {
+  const province = map.provinces[provinceId]
   return province?.hasCity || false
 }
 
 /**
  * Obtiene el nombre de la provincia
  */
-export function getProvinceName(provinceId: string): string {
-  const province = PROVINCE_INFO[provinceId]
+export function getProvinceName(map: GameMap, provinceId: string): string {
+  const province = map.provinces[provinceId]
   return province?.name || provinceId
 }
 
@@ -149,10 +163,11 @@ export function getProvinceName(provinceId: string): string {
  * Verifica si dos provincias son adyacentes
  */
 export function areAdjacentProvinces(
+  map: GameMap,
   provinceId1: string,
   provinceId2: string
 ): boolean {
-  const adjacencies = PROVINCE_ADJACENCIES[provinceId1]
+  const adjacencies = map.adjacencies[provinceId1]
   return adjacencies?.includes(provinceId2) || false
 }
 
@@ -161,6 +176,7 @@ export function areAdjacentProvinces(
  * Retorna -1 si no hay camino
  */
 export function getProvinceDistance(
+  map: GameMap,
   fromProvince: string,
   toProvince: string
 ): number {
@@ -181,7 +197,7 @@ export function getProvinceDistance(
     if (visited.has(province)) continue
     visited.add(province)
 
-    const adjacencies = PROVINCE_ADJACENCIES[province] || []
+    const adjacencies = map.adjacencies[province] || []
     for (const adjacent of adjacencies) {
       if (!visited.has(adjacent)) {
         queue.push({ province: adjacent, distance: distance + 1 })
@@ -190,4 +206,109 @@ export function getProvinceDistance(
   }
 
   return -1 // No hay camino
+}
+
+/**
+ * Verifica si una provincia es de tipo tierra
+ */
+export function isLand(map: GameMap, provinceId: string): boolean {
+  const province = map.provinces[provinceId]
+  return province?.type === 'land'
+}
+
+/**
+ * Verifica si una provincia es de tipo mar
+ */
+export function isSea(map: GameMap, provinceId: string): boolean {
+  const province = map.provinces[provinceId]
+  return province?.type === 'sea'
+}
+
+/**
+ * Verifica si una provincia es un puerto
+ */
+export function isPort(map: GameMap, provinceId: string): boolean {
+  const province = map.provinces[provinceId]
+  return province?.type === 'port'
+}
+
+/**
+ * Obtiene el ingreso de una provincia (si tiene ciudad)
+ */
+export function getProvinceIncome(map: GameMap, provinceId: string): number {
+  const province = map.provinces[provinceId]
+  return province?.income || 0
+}
+
+/**
+ * Obtiene todas las ciudades controladas por un jugador
+ */
+export function getPlayerCities(
+  map: GameMap,
+  playerId: string,
+  units: Unit[]
+): string[] {
+  const controlledProvinces = getControlledProvinces(playerId, units)
+  return controlledProvinces.filter(provinceId => hasCity(map, provinceId))
+}
+
+/**
+ * Calcula el ingreso total de un jugador
+ */
+export function calculatePlayerIncome(
+  map: GameMap,
+  playerId: string,
+  units: Unit[]
+): number {
+  const cities = getPlayerCities(map, playerId, units)
+  return cities.reduce((total, cityId) => {
+    return total + getProvinceIncome(map, cityId)
+  }, 0)
+}
+
+/**
+ * Verifica si una unidad puede moverse a una provincia destino
+ */
+export function canUnitMoveTo(
+  map: GameMap,
+  unit: Unit,
+  targetProvinceId: string
+): boolean {
+  if (unit.type === 'garrison') {
+    return false // Las guarniciones no se mueven
+  }
+
+  const validDestinations = getValidAdjacentProvinces(
+    map,
+    unit.currentPosition,
+    unit.type
+  )
+
+  return validDestinations.includes(targetProvinceId)
+}
+
+/**
+ * Obtiene las provincias válidas para retreat de una unidad
+ */
+export function getValidRetreatDestinations(
+  map: GameMap,
+  unit: Unit,
+  units: Unit[]
+): string[] {
+  if (unit.type === 'garrison') {
+    return [] // Las guarniciones no se retiran
+  }
+
+  const validAdjacent = getValidAdjacentProvinces(
+    map,
+    unit.currentPosition,
+    unit.type
+  )
+
+  // Filtrar provincias que ya están ocupadas por otras unidades
+  return validAdjacent.filter(provinceId => {
+    const unitsInProvince = getUnitsInProvince(provinceId, units)
+    // Puede retirarse si no hay unidades enemigas
+    return !unitsInProvince.some(u => u.owner !== unit.owner)
+  })
 }

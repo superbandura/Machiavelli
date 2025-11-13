@@ -5,7 +5,7 @@
  */
 
 import { ResolutionContext } from '../types';
-import { getValidDestinations } from '../data/provinceData';
+import { getValidDestinations } from '../utils/mapHelpers';
 
 export async function processRetreats(context: ResolutionContext): Promise<void> {
   console.log('Processing retreats...');
@@ -27,7 +27,7 @@ export async function processRetreats(context: ResolutionContext): Promise<void>
     }
 
     // Obtener destinos válidos según el tipo de unidad
-    const validDestinations = getValidDestinations(fromProvince, unit.type);
+    const validDestinations = getValidDestinations(context.map, fromProvince, unit.type);
 
     // Intentar cada opción de retirada en orden de preferencia
     let retreatSuccessful = false;

@@ -16,6 +16,7 @@ Bienvenido a la documentación de **Machiavelli**, un juego de estrategia por tu
 - **[Guía de Despliegue](dev/DEPLOYMENT.md)** - Despliegue a producción paso a paso
 - **[Referencia API](dev/API_REFERENCE.md)** - Documentación de Cloud Functions
 - **[Guía de Testing](dev/TESTING.md)** - Estrategia y ejecución de pruebas
+- **[Sincronización de Código](dev/CODE_SYNCHRONIZATION.md)** - Guía de sync frontend/backend 🆕
 
 ### 🔧 Para Operaciones
 
@@ -25,10 +26,10 @@ Bienvenido a la documentación de **Machiavelli**, un juego de estrategia por tu
 ### 📚 Documentación de Referencia
 
 #### Arquitectura y Sistema
-- **[Arquitectura del Sistema](reference/arquitectura.md)** - Diseño técnico completo
-- **[Base de Datos](reference/database.md)** - Esquema de Firestore y consultas
+- **[Arquitectura del Sistema](reference/arquitectura.md)** - Diseño técnico completo 🆕
+- **[Base de Datos](reference/database.md)** - Esquema de Firestore y consultas 🆕
 - **[Fases del Juego](reference/GAME_PHASES.md)** - Sistema de turnos y fases
-- **[Glosario](reference/glosario.md)** - Términos oficiales del juego
+- **[Glosario](reference/glosario.md)** - Términos oficiales del juego 🆕
 
 #### Mecánicas de Juego
 - **[Órdenes Militares](reference/ordenes-militares.md)** - Todas las órdenes detalladas

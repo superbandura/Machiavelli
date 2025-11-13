@@ -10,7 +10,7 @@
  */
 
 import { ResolutionContext } from '../types';
-import { isAdjacent, isSea } from '../data/provinceData';
+import { isAdjacent, isSea } from '../utils/mapHelpers';
 
 interface ProvinceForces {
   province: string;
@@ -66,7 +66,7 @@ function calculateConvoyRoutes(context: ResolutionContext): void {
     const to = moveOrder.targetProvince;
 
     // Si el destino es adyacente por tierra, no necesita convoy
-    if (isAdjacent(from, to) && !isSea(to)) {
+    if (isAdjacent(context.map, from, to) && !isSea(context.map, to)) {
       continue;
     }
 
@@ -77,8 +77,8 @@ function calculateConvoyRoutes(context: ResolutionContext): void {
 
       // Simplificación: aceptar convoy si hay una flota en zona marítima adyacente
       const fleetPosition = fleet.currentPosition;
-      return isSea(fleetPosition) &&
-             (isAdjacent(from, fleetPosition) && isAdjacent(fleetPosition, to));
+      return isSea(context.map, fleetPosition) &&
+             (isAdjacent(context.map, from, fleetPosition) && isAdjacent(context.map, fleetPosition, to));
     });
 
     if (!hasValidConvoy) {

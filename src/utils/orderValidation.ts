@@ -1,12 +1,13 @@
 import { Order, Unit } from '@/types'
+import { GameMap } from '@/types/game'
 import {
-  isAdjacent,
+  areAdjacentProvinces,
   isPort,
   isLand,
   isSea,
-  getValidDestinations,
+  getValidAdjacentProvinces,
   getProvinceInfo
-} from '@/data/provinceData'
+} from '@/utils/gameMapHelpers'
 
 export interface ValidationResult {
   isValid: boolean
@@ -17,6 +18,7 @@ export interface ValidationResult {
  * Valida una orden dada a una unidad
  */
 export const validateOrder = (
+  map: GameMap,
   order: Order,
   unit: Unit,
   allUnits: Unit[]
@@ -27,19 +29,19 @@ export const validateOrder = (
       return validateHoldOrder()
 
     case 'move':
-      return validateMoveOrder(order, unit)
+      return validateMoveOrder(map, order, unit)
 
     case 'support':
-      return validateSupportOrder(order, unit, allUnits)
+      return validateSupportOrder(map, order, unit, allUnits)
 
     case 'convoy':
-      return validateConvoyOrder(order, unit, allUnits)
+      return validateConvoyOrder(map, order, unit, allUnits)
 
     case 'besiege':
-      return validateBesiegeOrder(order, unit)
+      return validateBesiegeOrder(map, order, unit)
 
     case 'convert':
-      return validateConvertOrder(order, unit)
+      return validateConvertOrder(map, order, unit)
 
     default:
       return { isValid: false, error: 'Tipo de orden desconocido' }
@@ -57,7 +59,7 @@ const validateHoldOrder = (): ValidationResult => {
 /**
  * Validar orden de Avanzar (Move)
  */
-const validateMoveOrder = (order: Order, unit: Unit): ValidationResult => {
+const validateMoveOrder = (map: GameMap, order: Order, unit: Unit): ValidationResult => {
   if (!order.targetProvince) {
     return { isValid: false, error: 'Debe especificar provincia destino' }
   }
@@ -68,19 +70,19 @@ const validateMoveOrder = (order: Order, unit: Unit): ValidationResult => {
   }
 
   // Verificar que el destino sea adyacente
-  if (!isAdjacent(unit.currentPosition, order.targetProvince)) {
+  if (!areAdjacentProvinces(map, unit.currentPosition, order.targetProvince)) {
     return { isValid: false, error: 'Provincia no es adyacente' }
   }
 
   // Verificar tipo de terreno según unidad
   if (unit.type === 'army') {
-    if (!isLand(order.targetProvince)) {
-      return { isValid: false, error: 'Ejércitos solo pueden moverse a tierra' }
+    if (!isLand(map, order.targetProvince) && !isPort(map, order.targetProvince)) {
+      return { isValid: false, error: 'Ejércitos solo pueden moverse a tierra o puertos' }
     }
   }
 
   if (unit.type === 'fleet') {
-    if (!isSea(order.targetProvince) && !isPort(order.targetProvince)) {
+    if (!isSea(map, order.targetProvince) && !isPort(map, order.targetProvince)) {
       return { isValid: false, error: 'Flotas solo pueden moverse al mar o puertos' }
     }
   }
@@ -92,6 +94,7 @@ const validateMoveOrder = (order: Order, unit: Unit): ValidationResult => {
  * Validar orden de Apoyar (Support)
  */
 const validateSupportOrder = (
+  map: GameMap,
   order: Order,
   unit: Unit,
   allUnits: Unit[]
@@ -107,7 +110,7 @@ const validateSupportOrder = (
   }
 
   // La unidad que apoya debe poder alcanzar la provincia de la unidad apoyada
-  if (!isAdjacent(unit.currentPosition, supportedUnit.currentPosition)) {
+  if (!areAdjacentProvinces(map, unit.currentPosition, supportedUnit.currentPosition)) {
     return { isValid: false, error: 'No puedes apoyar esa provincia (no es adyacente)' }
   }
 
@@ -121,6 +124,7 @@ const validateSupportOrder = (
  * Validar orden de Convoy (Transport)
  */
 const validateConvoyOrder = (
+  map: GameMap,
   order: Order,
   unit: Unit,
   allUnits: Unit[]
@@ -131,7 +135,7 @@ const validateConvoyOrder = (
   }
 
   // La flota debe estar en zona marítima
-  if (!isSea(unit.currentPosition)) {
+  if (!isSea(map, unit.currentPosition)) {
     return { isValid: false, error: 'La flota debe estar en el mar para transportar' }
   }
 
@@ -158,7 +162,7 @@ const validateConvoyOrder = (
 /**
  * Validar orden de Asediar (Siege)
  */
-const validateBesiegeOrder = (order: Order, unit: Unit): ValidationResult => {
+const validateBesiegeOrder = (map: GameMap, order: Order, unit: Unit): ValidationResult => {
   // Las guarniciones no pueden asediar
   if (unit.type === 'garrison') {
     return { isValid: false, error: 'Las guarniciones no pueden asediar' }
@@ -174,7 +178,7 @@ const validateBesiegeOrder = (order: Order, unit: Unit): ValidationResult => {
   }
 
   // Verificar que la provincia tenga una ciudad
-  const provinceInfo = getProvinceInfo(order.targetProvince)
+  const provinceInfo = getProvinceInfo(map, order.targetProvince)
   if (!provinceInfo?.hasCity) {
     return { isValid: false, error: 'La provincia no tiene ciudad para asediar' }
   }
@@ -188,7 +192,7 @@ const validateBesiegeOrder = (order: Order, unit: Unit): ValidationResult => {
 /**
  * Validar orden de Convertirse (Convert)
  */
-const validateConvertOrder = (order: Order, unit: Unit): ValidationResult => {
+const validateConvertOrder = (map: GameMap, order: Order, unit: Unit): ValidationResult => {
   if (!order.targetProvince) {
     return { isValid: false, error: 'Debe especificar tipo de unidad destino' }
   }
@@ -201,7 +205,7 @@ const validateConvertOrder = (order: Order, unit: Unit): ValidationResult => {
       return { isValid: false, error: 'Flotas solo pueden convertirse a ejércitos' }
     }
     // Debe estar en un puerto
-    if (!isPort(unit.currentPosition)) {
+    if (!isPort(map, unit.currentPosition)) {
       return { isValid: false, error: 'Flotas solo pueden convertirse en puertos' }
     }
   }
@@ -211,7 +215,7 @@ const validateConvertOrder = (order: Order, unit: Unit): ValidationResult => {
       return { isValid: false, error: 'Ejércitos solo pueden convertirse a flotas' }
     }
     // Debe estar en un puerto
-    if (!isPort(unit.currentPosition)) {
+    if (!isPort(map, unit.currentPosition)) {
       return { isValid: false, error: 'Ejércitos solo pueden convertirse en puertos' }
     }
   }
@@ -229,14 +233,15 @@ const validateConvertOrder = (order: Order, unit: Unit): ValidationResult => {
 /**
  * Obtener provincias válidas como destino para una orden de movimiento
  */
-export const getValidMoveDestinations = (unit: Unit): string[] => {
-  return getValidDestinations(unit.currentPosition, unit.type)
+export const getValidMoveDestinations = (map: GameMap, unit: Unit): string[] => {
+  return getValidAdjacentProvinces(map, unit.currentPosition, unit.type)
 }
 
 /**
  * Obtener unidades válidas para apoyar
  */
 export const getValidSupportTargets = (
+  map: GameMap,
   unit: Unit,
   allUnits: Unit[]
 ): Unit[] => {
@@ -245,6 +250,6 @@ export const getValidSupportTargets = (
     if (u.id === unit.id) return false
 
     // Debe poder alcanzar la provincia de la unidad
-    return isAdjacent(unit.currentPosition, u.currentPosition)
+    return areAdjacentProvinces(map, unit.currentPosition, u.currentPosition)
   })
 }

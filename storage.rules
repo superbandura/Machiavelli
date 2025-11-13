@@ -1,0 +1,25 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return request.auth != null &&
+             firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // ==================== FACTION EMBLEMS ====================
+    match /factions/{factionId}/emblem {
+      // All authenticated users can read faction emblems
+      allow read: if request.auth != null;
+
+      // Only admins can create/update/delete faction emblems
+      allow write: if isAdmin();
+    }
+
+    // Default: deny all access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

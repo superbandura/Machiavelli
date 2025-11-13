@@ -6,7 +6,7 @@
  */
 
 import { Game, Player, Unit } from '@/types'
-import { PROVINCE_INFO } from '@/data/provinceData'
+import { hasCity, getProvinceIncome } from '@/utils/gameMapHelpers'
 
 interface VictoryScreenProps {
   game: Game
@@ -39,15 +39,11 @@ export default function VictoryScreen({
   const playerStats = players.map(player => {
     const playerUnits = units.filter(u => u.owner === player.id)
     const garrisons = playerUnits.filter(u => u.type === 'garrison')
-    const cities = garrisons.filter(g => {
-      const provinceInfo = PROVINCE_INFO[g.currentPosition]
-      return provinceInfo?.hasCity
-    })
+    const cities = garrisons.filter(g => hasCity(game.map, g.currentPosition))
 
     let totalValue = 0
     cities.forEach(city => {
-      const provinceInfo = PROVINCE_INFO[city.currentPosition]
-      totalValue += provinceInfo?.income || 0
+      totalValue += getProvinceIncome(game.map, city.currentPosition)
     })
 
     return {

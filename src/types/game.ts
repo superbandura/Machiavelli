@@ -1,5 +1,40 @@
 import { Timestamp } from 'firebase/firestore'
 
+// ==================== MAP DATA ====================
+export type ProvinceType = 'land' | 'sea' | 'port'
+
+export interface ProvinceInfo {
+  id: string
+  name: string
+  type: ProvinceType
+  adjacencies: string[] // IDs de provincias adyacentes
+  hasCity?: boolean
+  cityName?: string
+  isPort?: boolean
+  income?: number // Ducados que produce la ciudad (solo si hasCity)
+}
+
+export interface GameMap {
+  provinces: Record<string, ProvinceInfo> // Información completa de cada provincia
+  adjacencies: Record<string, string[]> // Mapa de adyacencias
+}
+
+export interface FactionSetup {
+  factionId: string
+  treasury: number // Ducados iniciales
+  provinces: string[] // IDs de provincias controladas inicialmente
+}
+
+export interface ScenarioData {
+  availableFactions: string[] // Facciones disponibles en este escenario
+  neutralTerritories: string[] // Territorios neutrales al inicio
+  victoryConditions: {
+    citiesRequired: Record<number, number> // Mapa de jugadores -> ciudades requeridas
+    timeLimit: number // Límite de turnos para victoria
+  }
+  factionSetups: FactionSetup[] // Setup inicial de cada facción
+}
+
 // ==================== GAME ====================
 export interface Game {
   id: string
@@ -13,6 +48,12 @@ export interface Game {
   turnNumber: number
   maxPlayers: number
   playersCount: number
+
+  // ========== DATOS DEL MAPA Y ESCENARIO ==========
+  // Estos campos contienen TODA la información necesaria para jugar
+  // Se copian del escenario al crear la partida y ya no se consulta el escenario
+  map: GameMap // Mapa completo con provincias y adyacencias
+  scenarioData: ScenarioData // Facciones, neutrales, condiciones de victoria, setups
 
   // Sistema asíncrono: Deadlines temporales
   phaseDeadline: Timestamp

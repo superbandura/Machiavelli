@@ -5,11 +5,12 @@
  * el marcador de hambre de provincias que controlan
  */
 
-import { Player, Unit } from '@/types'
-import { PROVINCE_INFO } from '@/data/provinceData'
+import { Player, Unit, Game } from '@/types'
+import { getProvinceName } from '@/utils/gameMapHelpers'
 import { useState } from 'react'
 
 interface FamineMitigationPanelProps {
+  game: Game
   player: Player
   units: Unit[]
   famineProvinces: string[]
@@ -18,6 +19,7 @@ interface FamineMitigationPanelProps {
 }
 
 export default function FamineMitigationPanel({
+  game,
   player,
   units,
   famineProvinces,
@@ -59,7 +61,7 @@ export default function FamineMitigationPanel({
           pero no controlas ninguna de ellas.
         </p>
         <div className="mt-2 text-xs text-gray-500">
-          Provincias afectadas: {famineProvinces.map(p => PROVINCE_INFO[p]?.name || p).join(', ')}
+          Provincias afectadas: {famineProvinces.map(p => getProvinceName(game.map, p)).join(', ')}
         </div>
       </div>
     )
@@ -87,7 +89,7 @@ export default function FamineMitigationPanel({
       // Marcar como mitigada en esta sesión
       setMitigatedProvinces(prev => new Set(prev).add(provinceId))
 
-      alert(`Has pagado 3 ducados para mitigar la hambruna en ${PROVINCE_INFO[provinceId]?.name}`)
+      alert(`Has pagado 3 ducados para mitigar la hambruna en ${getProvinceName(game.map, provinceId)}`)
     } catch (error) {
       console.error('Error mitigating famine:', error)
       alert('Error al procesar el pago. Intenta de nuevo.')
@@ -115,7 +117,6 @@ export default function FamineMitigationPanel({
 
       <div className="space-y-2">
         {controlledFamineProvinces.map(provinceId => {
-          const provinceInfo = PROVINCE_INFO[provinceId]
           const isMitigated = mitigatedProvinces.has(provinceId)
           const isProcessing = mitigating === provinceId
           const canAfford = player.treasury >= FAMINE_MITIGATION_COST
@@ -127,7 +128,7 @@ export default function FamineMitigationPanel({
             >
               <div>
                 <div className="font-bold text-white">
-                  {provinceInfo?.name || provinceId}
+                  {getProvinceName(game.map, provinceId)}
                 </div>
                 <div className="text-xs text-orange-400">
                   {isMitigated ? '✓ Pago realizado' : '⚠️ Hambruna activa'}

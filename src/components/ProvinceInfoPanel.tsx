@@ -1,8 +1,9 @@
-import { Unit, Player } from '@/types'
+import { Unit, Player, Game } from '@/types'
 import { UnitIconWithLabel } from './UnitIcon'
-import { getProvinceInfo } from '@/utils/provinceHelpers'
+import { getProvinceInfo } from '@/utils/gameMapHelpers'
 
 interface ProvinceInfoPanelProps {
+  game: Game
   provinceId: string | null
   visibleUnits: Unit[]
   players: Player[]
@@ -12,6 +13,7 @@ interface ProvinceInfoPanelProps {
 }
 
 export default function ProvinceInfoPanel({
+  game,
   provinceId,
   visibleUnits,
   players,
@@ -30,7 +32,7 @@ export default function ProvinceInfoPanel({
     )
   }
 
-  const provinceInfo = getProvinceInfo(provinceId)
+  const provinceInfo = getProvinceInfo(game.map, provinceId)
   const unitsInProvince = visibleUnits.filter(u => u.currentPosition === provinceId)
   const myUnits = unitsInProvince.filter(u => u.owner === currentPlayer?.id)
   const otherUnits = unitsInProvince.filter(u => u.owner !== currentPlayer?.id)

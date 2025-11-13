@@ -1,6 +1,5 @@
 // Map and Province types
-
-export type ProvinceType = 'land' | 'sea'
+import { ProvinceType } from './game'
 
 export interface Province {
   id: string // Código de 3 letras (ej: "FLO", "MIL", "ROM")

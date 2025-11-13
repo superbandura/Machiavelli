@@ -4,6 +4,7 @@ import { useAuthStore } from '@/store/authStore'
 import GameBoard from '@/components/GameBoard'
 import ScenarioInfoPanel from '@/components/scenario-editor/ScenarioInfoPanel'
 import ProvinceEditorPanel from '@/components/scenario-editor/ProvinceEditorPanel'
+import FactionEditorModal from '@/components/scenario-editor/FactionEditorModal'
 import {
   ScenarioFormData,
   ScenarioListItem,
@@ -21,6 +22,8 @@ import {
   validateFleetPlacements,
   calculateFactionSetups,
 } from '@/lib/scenarioService'
+import { FactionDocument } from '@/types/faction'
+import { getAllFactions } from '@/lib/factionService'
 
 const DEFAULT_FORM_DATA: ScenarioFormData = {
   name: 'Nuevo Escenario',
@@ -44,16 +47,30 @@ export default function ScenarioEditor() {
   const [scenarios, setScenarios] = useState<ScenarioListItem[]>([])
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(null)
   const [formData, setFormData] = useState<ScenarioFormData>(DEFAULT_FORM_DATA)
-  const [provinces, setProvinces] = useState<EditableProvinceData[]>([])
+  const [provinces, setProvinces] = useState<EditableProvinceData[]>(initializeProvincesData())
   const [selectedProvinceId, setSelectedProvinceId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isFactionModalOpen, setIsFactionModalOpen] = useState(false)
+  const [factions, setFactions] = useState<FactionDocument[]>([])
+  const [adjacencyEditMode, setAdjacencyEditMode] = useState(false)
 
-  // Cargar lista de escenarios al montar
+  // Cargar lista de escenarios y facciones al montar
   useEffect(() => {
     loadScenarios()
+    loadFactions()
   }, [])
+
+  const loadFactions = async () => {
+    try {
+      const loadedFactions = await getAllFactions()
+      setFactions(loadedFactions)
+    } catch (err) {
+      console.error('Error loading factions:', err)
+      // No mostrar error, simplemente continuar con facciones vacías
+    }
+  }
 
   const loadScenarios = async () => {
     try {
@@ -189,6 +206,37 @@ export default function ScenarioEditor() {
     )
   }
 
+  // Toggle adyacencia bidireccional (añadir/quitar)
+  const handleAdjacencyToggle = (targetId: string) => {
+    if (!selectedProvinceId) return
+
+    setProvinces((prevProvinces) => {
+      return prevProvinces.map((province) => {
+        // Actualizar provincia seleccionada
+        if (province.id === selectedProvinceId) {
+          const isCurrentlyAdjacent = province.adjacencies.includes(targetId)
+          const updatedAdjacencies = isCurrentlyAdjacent
+            ? province.adjacencies.filter((id) => id !== targetId) // Quitar
+            : [...province.adjacencies, targetId] // Añadir
+
+          return { ...province, adjacencies: updatedAdjacencies }
+        }
+
+        // Actualizar provincia target (bidireccional)
+        if (province.id === targetId) {
+          const isCurrentlyAdjacent = province.adjacencies.includes(selectedProvinceId)
+          const updatedAdjacencies = isCurrentlyAdjacent
+            ? province.adjacencies.filter((id) => id !== selectedProvinceId) // Quitar
+            : [...province.adjacencies, selectedProvinceId] // Añadir
+
+          return { ...province, adjacencies: updatedAdjacencies }
+        }
+
+        return province
+      })
+    })
+  }
+
   // Mapear provincias a facciones para el GameBoard
   const provinceFactionMap: Record<string, string> = {}
   provinces.forEach((province) => {
@@ -218,12 +266,20 @@ export default function ScenarioEditor() {
             <h1 className="text-2xl font-bold">Editor de Escenarios</h1>
             <p className="text-sm text-gray-400">Crea y edita escenarios personalizados</p>
           </div>
-          <button
-            onClick={() => navigate('/lobby')}
-            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded transition-colors"
-          >
-            Volver al Lobby
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setIsFactionModalOpen(true)}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded transition-colors"
+            >
+              Facciones
+            </button>
+            <button
+              onClick={() => navigate('/lobby')}
+              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded transition-colors"
+            >
+              Volver al Lobby
+            </button>
+          </div>
         </div>
       </div>
 
@@ -247,6 +303,10 @@ export default function ScenarioEditor() {
                 onProvinceClick={setSelectedProvinceId}
                 selectedProvince={selectedProvinceId}
                 provinceFaction={provinceFactionMap}
+                factions={factions}
+                adjacencyEditMode={adjacencyEditMode}
+                highlightedAdjacencies={selectedProvince?.adjacencies || []}
+                onAdjacencyToggle={handleAdjacencyToggle}
               />
             </div>
           </div>
@@ -270,11 +330,24 @@ export default function ScenarioEditor() {
             <ProvinceEditorPanel
               province={selectedProvince}
               onChange={handleProvinceChange}
-              availableFactions={formData.availableFactions}
+              factions={factions}
+              onAdjacencyModeChange={setAdjacencyEditMode}
+              allProvinces={provinces}
             />
           </div>
         </div>
       </div>
+
+      {/* Faction Editor Modal */}
+      <FactionEditorModal
+        isOpen={isFactionModalOpen}
+        onClose={() => setIsFactionModalOpen(false)}
+        onFactionChanged={() => {
+          // Reload factions and scenarios to reflect changes
+          loadFactions()
+          loadScenarios()
+        }}
+      />
     </div>
   )
 }

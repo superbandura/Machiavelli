@@ -19,28 +19,25 @@ import {
   EditableProvinceData,
   FactionSetup,
 } from '@/types/scenario'
-import { PROVINCE_INFO } from '@/data/provinceData'
 
 const SCENARIOS_COLLECTION = 'scenarios'
 
 /**
- * Inicializa los datos de provincias con valores por defecto desde PROVINCE_INFO
+ * Inicializa un array vacío para datos de provincias.
+ *
+ * NOTA: Esta función ya no usa datos hardcoded (PROVINCE_INFO fue eliminado).
+ * Para crear un nuevo escenario, el usuario debe:
+ *
+ * 1. Crear provincias manualmente en el Editor de Escenarios
+ * 2. Clonar un escenario existente desde Firestore
+ * 3. Cargar un template de escenario desde Firestore
+ *
+ * @returns Array vacío de provincias editables
  */
 export function initializeProvincesData(): EditableProvinceData[] {
-  return Object.values(PROVINCE_INFO).map((province) => ({
-    id: province.id,
-    name: province.name,
-    type: province.type,
-    adjacencies: [...province.adjacencies],
-    hasCity: province.hasCity || false,
-    cityName: province.cityName || '',
-    isPort: province.isPort || false,
-    income: province.income || 0,
-    controlledBy: null, // Neutral por defecto
-    garrisons: 0,
-    armies: 0,
-    fleets: 0,
-  }))
+  // Retornar array vacío - el usuario debe crear provincias manualmente
+  // o cargar desde un escenario template en Firestore
+  return []
 }
 
 /**

@@ -8,7 +8,6 @@
  */
 
 import { ResolutionContext } from '../types';
-import { PROVINCE_INFO } from '../data/provinceData';
 
 interface SiegeInfo {
   besiegerId: string | null;
@@ -25,7 +24,7 @@ export async function processSieges(context: ResolutionContext): Promise<void> {
   const siegeStatus: Record<string, SiegeInfo> = gameData.siegeStatus || {};
 
   // Obtener todas las provincias con ciudades
-  const cityProvinces = Object.values(PROVINCE_INFO).filter(p => p.hasCity);
+  const cityProvinces = Object.values(context.map.provinces).filter(p => p.hasCity);
 
   for (const province of cityProvinces) {
     const provinceId = province.id;
