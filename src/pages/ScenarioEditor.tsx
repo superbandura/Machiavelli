@@ -156,15 +156,32 @@ export default function ScenarioEditor() {
       setSaving(true)
       setError(null)
 
-      const factionSetups = calculateFactionSetups(provinces, formData.availableFactions)
+      // Auto-detectar facciones disponibles desde provincias
+      const detectedFactions = Array.from(
+        new Set(
+          provinces
+            .filter(p => p.controlledBy !== null && p.controlledBy !== 'NEUTRAL')
+            .map(p => p.controlledBy!)
+        )
+      )
+
+      console.log('[ScenarioEditor] Facciones detectadas:', detectedFactions)
+
+      // Actualizar formData con facciones detectadas
+      const updatedFormData = {
+        ...formData,
+        availableFactions: detectedFactions
+      }
+
+      const factionSetups = calculateFactionSetups(provinces, updatedFormData.availableFactions)
 
       if (selectedScenarioId) {
         // Actualizar existente
-        await updateScenario(selectedScenarioId, formData, provinces, factionSetups)
+        await updateScenario(selectedScenarioId, updatedFormData, provinces, factionSetups)
         alert('Escenario actualizado correctamente')
       } else {
         // Crear nuevo
-        const newId = await createScenario(formData, user.uid, provinces, factionSetups)
+        const newId = await createScenario(updatedFormData, user.uid, provinces, factionSetups)
         setSelectedScenarioId(newId)
         alert('Escenario creado correctamente')
       }
