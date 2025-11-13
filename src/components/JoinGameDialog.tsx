@@ -3,7 +3,6 @@ import { collection, query, where, getDocs, addDoc, updateDoc, doc, getDoc, serv
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/store/authStore'
 import { FACTIONS } from '@/data/factions'
-import { getInitialSetup } from '@/data/scenarios'
 
 interface JoinGameDialogProps {
   isOpen: boolean
@@ -43,7 +42,15 @@ export default function JoinGameDialog({
     const loadAvailableFactions = async () => {
       setLoadingFactions(true)
       try {
-        // Consultar jugadores ya unidos a la partida
+        // 1. Obtener el documento del juego para acceder a scenarioData
+        const gameDoc = await getDoc(doc(db, 'games', gameId))
+        if (!gameDoc.exists()) {
+          throw new Error('Partida no encontrada')
+        }
+        const game = gameDoc.data()
+        const availableFactionIds = game.scenarioData?.availableFactions || []
+
+        // 2. Consultar jugadores ya unidos a la partida
         const playersQuery = query(
           collection(db, 'players'),
           where('gameId', '==', gameId)
@@ -54,9 +61,15 @@ export default function JoinGameDialog({
           takenFactions.add(doc.data().faction)
         })
 
-        // Crear lista de facciones con disponibilidad (excluir NEUTRAL)
+        // 3. Crear lista de facciones con disponibilidad
+        // - Excluir NEUTRAL
+        // - Solo incluir facciones del escenario
         const factionOptions: FactionOption[] = Object.entries(FACTIONS)
-          .filter(([id]) => id !== 'NEUTRAL')
+          .filter(([id]) => {
+            if (id === 'NEUTRAL') return false
+            // Solo incluir si está en availableFactions del escenario
+            return availableFactionIds.includes(id)
+          })
           .map(([id, faction]) => ({
             id,
             name: faction.name,
@@ -94,13 +107,14 @@ export default function JoinGameDialog({
       if (!gameDoc.exists()) {
         throw new Error('Partida no encontrada')
       }
-      const gameData = gameDoc.data()
-      const scenarioId = gameData.scenarioId
+      const game = gameDoc.data()
 
       // 2. Obtener configuración inicial del escenario para esta facción
-      const initialSetup = getInitialSetup(scenarioId, selectedFaction)
-      if (!initialSetup) {
-        console.warn(`[JoinGameDialog] No se encontró setup inicial para ${scenarioId}:${selectedFaction}`)
+      const factionSetup = game.scenarioData?.factionSetups.find(
+        (f: any) => f.factionId === selectedFaction
+      )
+      if (!factionSetup) {
+        console.warn(`[JoinGameDialog] No se encontró setup inicial para ${selectedFaction}`)
       }
 
       // 3. Crear documento de jugador
@@ -116,12 +130,12 @@ export default function JoinGameDialog({
         hasSubmittedOrders: false,
 
         // Recursos iniciales (según el escenario)
-        treasury: initialSetup?.treasury || 10,
+        treasury: factionSetup?.treasury || 10,
         income: 0,
         expenses: 0,
 
         // Ciudades iniciales
-        cities: initialSetup?.cities || [],
+        cities: factionSetup?.provinces || [],
 
         // Fichas de asesino (vacío al inicio)
         assassinTokens: {},
@@ -159,50 +173,58 @@ export default function JoinGameDialog({
       } else {
         console.warn(`[JoinGameDialog] No se encontraron unidades para ${selectedFaction}, creando nuevas...`)
 
-        // Fallback: Si no hay unidades (juego antiguo), crearlas
-        if (initialSetup) {
+        // Fallback: Si no hay unidades (juego antiguo), crearlas desde scenarioData
+        if (game.scenarioData) {
           const unitPromises: Promise<any>[] = []
+          const provincesData = game.scenarioData.provinces || []
 
-          initialSetup.garrison.forEach((provinceId) => {
-            unitPromises.push(
-              addDoc(collection(db, 'units'), {
-                gameId,
-                owner: playerId,
-                type: 'garrison',
-                currentPosition: provinceId,
-                status: 'active',
-                siegeTurns: 0,
-                createdAt: serverTimestamp()
-              })
-            )
-          })
+          provincesData.forEach((province: any) => {
+            if (province.controlledBy === selectedFaction) {
+              // Crear garrisons
+              for (let i = 0; i < (province.garrisons || 0); i++) {
+                unitPromises.push(
+                  addDoc(collection(db, 'units'), {
+                    gameId,
+                    owner: playerId,
+                    type: 'garrison',
+                    currentPosition: province.provinceId,
+                    status: 'active',
+                    siegeTurns: 0,
+                    createdAt: serverTimestamp()
+                  })
+                )
+              }
 
-          initialSetup.armies.forEach((provinceId) => {
-            unitPromises.push(
-              addDoc(collection(db, 'units'), {
-                gameId,
-                owner: playerId,
-                type: 'army',
-                currentPosition: provinceId,
-                status: 'active',
-                siegeTurns: 0,
-                createdAt: serverTimestamp()
-              })
-            )
-          })
+              // Crear armies
+              for (let i = 0; i < (province.armies || 0); i++) {
+                unitPromises.push(
+                  addDoc(collection(db, 'units'), {
+                    gameId,
+                    owner: playerId,
+                    type: 'army',
+                    currentPosition: province.provinceId,
+                    status: 'active',
+                    siegeTurns: 0,
+                    createdAt: serverTimestamp()
+                  })
+                )
+              }
 
-          initialSetup.fleets.forEach((provinceId) => {
-            unitPromises.push(
-              addDoc(collection(db, 'units'), {
-                gameId,
-                owner: playerId,
-                type: 'fleet',
-                currentPosition: provinceId,
-                status: 'active',
-                siegeTurns: 0,
-                createdAt: serverTimestamp()
-              })
-            )
+              // Crear fleets
+              for (let i = 0; i < (province.fleets || 0); i++) {
+                unitPromises.push(
+                  addDoc(collection(db, 'units'), {
+                    gameId,
+                    owner: playerId,
+                    type: 'fleet',
+                    currentPosition: province.provinceId,
+                    status: 'active',
+                    siegeTurns: 0,
+                    createdAt: serverTimestamp()
+                  })
+                )
+              }
+            }
           })
 
           await Promise.all(unitPromises)

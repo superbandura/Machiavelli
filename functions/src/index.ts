@@ -16,3 +16,4 @@ export { checkDeadlines } from './checkDeadlines';
 export { resolveTurn } from './resolveTurn';
 export { forcePhaseAdvance } from './forcePhaseAdvance';
 export { setAdminRole } from './setAdminRole';
+export { deleteGame } from './deleteGame';

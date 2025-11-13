@@ -2,14 +2,19 @@ import { useEffect, useState } from 'react'
 import { collection, query, where, onSnapshot, doc, getDoc, Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/store/authStore'
+import { useIsAdmin } from '@/hooks/useIsAdmin'
 import { Game, Player } from '@/types'
 import { useNavigate } from 'react-router-dom'
+import DeleteGameDialog from './DeleteGameDialog'
 
 export default function MyGamesList() {
   const { user } = useAuthStore()
+  const isAdmin = useIsAdmin()
   const navigate = useNavigate()
   const [myGames, setMyGames] = useState<(Game & { playerFaction: string })[]>([])
   const [loading, setLoading] = useState(true)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [gameToDelete, setGameToDelete] = useState<Game | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -100,6 +105,25 @@ export default function MyGamesList() {
     }
   }
 
+  const handleOpenDeleteDialog = (game: Game) => {
+    setGameToDelete(game)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleCloseDeleteDialog = () => {
+    setDeleteDialogOpen(false)
+    setGameToDelete(null)
+  }
+
+  const handleGameDeleted = () => {
+    // El listener de onSnapshot se encargará de actualizar la lista automáticamente
+    console.log('[MyGamesList] Partida eliminada correctamente')
+  }
+
+  const canDeleteGame = (game: Game) => {
+    return user?.uid === game.createdBy || isAdmin
+  }
+
   if (loading) {
     return (
       <div className="bg-gray-800 rounded-lg p-6">
@@ -154,12 +178,23 @@ export default function MyGamesList() {
                     Última actualización: {formatDate(game.updatedAt as Timestamp)}
                   </p>
                 </div>
-                <button
-                  onClick={() => navigate(`/game/${game.id}`)}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium transition-colors"
-                >
-                  {game.status === 'finished' ? 'Ver Resultados' : 'Continuar'}
-                </button>
+                <div className="flex gap-2">
+                  {canDeleteGame(game) && (
+                    <button
+                      onClick={() => handleOpenDeleteDialog(game)}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-medium transition-colors"
+                      title="Eliminar partida"
+                    >
+                      Eliminar
+                    </button>
+                  )}
+                  <button
+                    onClick={() => navigate(`/game/${game.id}`)}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium transition-colors"
+                  >
+                    {game.status === 'finished' ? 'Ver Resultados' : 'Continuar'}
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4 text-sm mt-3">
@@ -202,6 +237,19 @@ export default function MyGamesList() {
           )
         })}
       </div>
+
+      {/* Dialog de eliminación */}
+      {gameToDelete && (
+        <DeleteGameDialog
+          isOpen={deleteDialogOpen}
+          onClose={handleCloseDeleteDialog}
+          gameId={gameToDelete.id}
+          gameName={gameToDelete.name || gameToDelete.scenario}
+          gameStatus={gameToDelete.status}
+          playerCount={gameToDelete.playersCount}
+          onDeleted={handleGameDeleted}
+        />
+      )}
     </div>
   )
 }
