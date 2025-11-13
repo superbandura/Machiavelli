@@ -61,22 +61,40 @@ export default function JoinGameDialog({
           takenFactions.add(doc.data().faction)
         })
 
-        // 3. Crear lista de facciones con disponibilidad
-        // - Excluir NEUTRAL
-        // - Solo incluir facciones del escenario
-        const factionOptions: FactionOption[] = Object.entries(FACTIONS)
-          .filter(([id]) => {
-            if (id === 'NEUTRAL') return false
-            // Solo incluir si está en availableFactions del escenario
-            return availableFactionIds.includes(id)
-          })
-          .map(([id, faction]) => ({
-            id,
-            name: faction.name,
-            color: faction.color,
-            available: !takenFactions.has(id)
-          }))
+        // 3. Cargar datos de facciones desde Firestore (con fallback a hardcoded)
+        const factionPromises = availableFactionIds.map(async (factionId) => {
+          // Intentar cargar desde Firestore
+          const factionDoc = await getDoc(doc(db, 'factions', factionId))
 
+          if (factionDoc.exists()) {
+            // Facción dinámica desde Firestore
+            const factionData = factionDoc.data()
+            return {
+              id: factionId,
+              name: factionData.name,
+              color: factionData.color,
+              available: !takenFactions.has(factionId)
+            }
+          } else if (FACTIONS[factionId]) {
+            // Fallback: facción hardcoded (compatibilidad legacy)
+            const faction = FACTIONS[factionId]
+            return {
+              id: factionId,
+              name: faction.name,
+              color: faction.color,
+              available: !takenFactions.has(factionId)
+            }
+          } else {
+            // Facción no encontrada
+            console.warn(`[JoinGameDialog] Facción no encontrada: ${factionId}`)
+            return null
+          }
+        })
+
+        const factionResults = await Promise.all(factionPromises)
+        const factionOptions = factionResults.filter(f => f !== null) as FactionOption[]
+
+        console.log('[JoinGameDialog] Facciones cargadas:', factionOptions)
         setAvailableFactions(factionOptions)
 
         // Seleccionar automáticamente la primera facción disponible
