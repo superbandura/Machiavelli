@@ -66,9 +66,29 @@ export async function resolveTurn(gameId: string): Promise<void> {
       .where('gameId', '==', gameId)
       .where('turnNumber', '==', turnNumber)
       .get();
-    const orders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+    const orders = ordersSnapshot.docs.flatMap(doc => {
+      const docData = doc.data();
+      return (docData.orders || []).map((order: any) => ({
+        id: `${doc.id}-${order.unitId}`,
+        gameId: docData.gameId,
+        playerId: docData.playerId,
+        turnNumber: docData.turnNumber,
+        unitId: order.unitId,
+        action: order.action,
+        targetProvince: order.targetProvince,
+        supportedUnit: order.supportedUnit,
+        convoyRoute: order.convoyRoute,
+        retreatList: order.retreatList,
+        isValid: order.isValid,
+        validationError: order.validationError
+      }));
+    });
 
-    console.log(`Loaded: ${players.length} players, ${units.length} units, ${orders.length} orders`);
+    console.log(`Loaded: ${players.length} players, ${units.length} units, ${orders.length} individual orders from ${ordersSnapshot.docs.length} order documents`);
+    console.log('[resolveTurn] Orders loaded:');
+    orders.forEach(order => {
+      console.log(`  - Unit ${order.unitId}: ${order.action}${order.targetProvince ? ` → ${order.targetProvince}` : ''}`);
+    });
 
     // Contexto de resolución
     const context = {

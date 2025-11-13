@@ -59,7 +59,15 @@
       "Bash(if exist \"node_modules\\.vite\" rmdir /s /q \"node_modules\\.vite\")",
       "Bash(find:*)",
       "Bash(firebase firestore:update:*)",
-      "Bash(firebase functions:log:*)"
+      "Bash(firebase functions:log:*)",
+      "Bash(git config:*)",
+      "Bash(git pull:*)",
+      "Bash(taskkill:*)",
+      "Bash(test:*)",
+      "WebSearch",
+      "WebFetch(domain:bettertyped.github.io)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.npmjs.com)"
     ],
     "deny": [],
     "ask": []

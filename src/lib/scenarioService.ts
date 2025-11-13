@@ -19,25 +19,49 @@ import {
   EditableProvinceData,
   FactionSetup,
 } from '@/types/scenario'
+import { PROVINCE_TEMPLATE } from '@/data/provinceTemplate'
 
 const SCENARIOS_COLLECTION = 'scenarios'
 
 /**
- * Inicializa un array vacío para datos de provincias.
+ * Hace que todas las adyacencias sean bidireccionales automáticamente
+ */
+function makeBidirectional(provinces: EditableProvinceData[]): EditableProvinceData[] {
+  const provinceMap = new Map(provinces.map(p => [p.id, p]))
+
+  // Para cada provincia, asegurarse de que sus adyacencias también la incluyan
+  for (const province of provinces) {
+    for (const adjId of province.adjacencies) {
+      const adjacent = provinceMap.get(adjId)
+      if (adjacent && !adjacent.adjacencies.includes(province.id)) {
+        adjacent.adjacencies.push(province.id)
+      }
+    }
+  }
+
+  return provinces
+}
+
+/**
+ * Inicializa un array con el template base de provincias italianas.
  *
- * NOTA: Esta función ya no usa datos hardcoded (PROVINCE_INFO fue eliminado).
- * Para crear un nuevo escenario, el usuario debe:
+ * NOTA: Retorna una copia del template para que el usuario pueda editarla.
+ * Todas las provincias inician como neutrales (controlledBy: null).
+ * Las adyacencias se hacen bidireccionales automáticamente.
  *
- * 1. Crear provincias manualmente en el Editor de Escenarios
- * 2. Clonar un escenario existente desde Firestore
- * 3. Cargar un template de escenario desde Firestore
+ * Alternativas disponibles:
+ * 1. Usar este template base (por defecto)
+ * 2. Clonar provincias de un escenario existente
+ * 3. Resetear a template si se cometen errores
  *
- * @returns Array vacío de provincias editables
+ * @returns Array de provincias editables basado en el template de Italia
  */
 export function initializeProvincesData(): EditableProvinceData[] {
-  // Retornar array vacío - el usuario debe crear provincias manualmente
-  // o cargar desde un escenario template en Firestore
-  return []
+  // Retornar copia profunda del template para que sea editable
+  const provinces = JSON.parse(JSON.stringify(PROVINCE_TEMPLATE)) as EditableProvinceData[]
+
+  // Hacer todas las adyacencias bidireccionales automáticamente
+  return makeBidirectional(provinces)
 }
 
 /**
@@ -49,19 +73,18 @@ export async function createScenario(
   provinces: EditableProvinceData[],
   factionSetups: FactionSetup[]
 ): Promise<string> {
-  const scenarioData: Omit<ScenarioDocument, 'id'> = {
-    ...formData,
-    factionSetups,
+  const scenarioDocument: Omit<ScenarioDocument, 'id'> = {
+    scenarioData: {
+      ...formData,
+      factionSetups,
+      createdBy: userId,
+      createdAt: serverTimestamp() as Timestamp,
+      updatedAt: serverTimestamp() as Timestamp,
+    },
     provinces,
-    neutralTerritories: provinces
-      .filter((p) => p.controlledBy === null && p.hasCity)
-      .map((p) => p.id),
-    createdBy: userId,
-    createdAt: serverTimestamp() as Timestamp,
-    updatedAt: serverTimestamp() as Timestamp,
   }
 
-  const docRef = await addDoc(collection(db, SCENARIOS_COLLECTION), scenarioData)
+  const docRef = await addDoc(collection(db, SCENARIOS_COLLECTION), scenarioDocument)
   return docRef.id
 }
 
@@ -77,13 +100,12 @@ export async function updateScenario(
   const scenarioRef = doc(db, SCENARIOS_COLLECTION, scenarioId)
 
   await updateDoc(scenarioRef, {
-    ...formData,
-    factionSetups,
+    scenarioData: {
+      ...formData,
+      factionSetups,
+      updatedAt: serverTimestamp(),
+    },
     provinces,
-    neutralTerritories: provinces
-      .filter((p) => p.controlledBy === null && p.hasCity)
-      .map((p) => p.id),
-    updatedAt: serverTimestamp(),
   })
 }
 
@@ -116,18 +138,17 @@ export async function getScenario(scenarioId: string): Promise<ScenarioDocument 
  * Lista todos los escenarios disponibles
  */
 export async function listScenarios(): Promise<ScenarioListItem[]> {
-  const scenariosQuery = query(collection(db, SCENARIOS_COLLECTION), orderBy('year', 'asc'))
+  const scenariosQuery = query(collection(db, SCENARIOS_COLLECTION), orderBy('scenarioData.year', 'asc'))
   const querySnapshot = await getDocs(scenariosQuery)
 
   return querySnapshot.docs.map((doc) => {
     const data = doc.data()
     return {
       id: doc.id,
-      name: data.name,
-      year: data.year,
-      difficulty: data.difficulty,
-      minPlayers: data.minPlayers,
-      maxPlayers: data.maxPlayers,
+      name: data.scenarioData?.name || '',
+      year: data.scenarioData?.year || 0,
+      minPlayers: data.scenarioData?.minPlayers || 0,
+      maxPlayers: data.scenarioData?.maxPlayers || 0,
     }
   })
 }
@@ -165,7 +186,9 @@ export function validateFleetPlacements(provinces: EditableProvinceData[]): stri
   const errors: string[] = []
 
   for (const province of provinces) {
-    if (province.fleets > 0 && !province.isPort) {
+    // Verificar si tiene flotas en el nuevo sistema de units
+    const hasFleets = province.units.some(unit => 'ships' in unit)
+    if (hasFleets && !province.isPort) {
       errors.push(`${province.name}: tiene flotas pero no es puerto`)
     }
   }
@@ -205,4 +228,83 @@ export function calculateFactionSetups(
   }
 
   return Array.from(setupMap.values()).filter((setup) => setup.provinces.length > 0)
+}
+
+/**
+ * Clona las provincias de un escenario existente
+ */
+export async function cloneProvincesFromScenario(
+  scenarioId: string
+): Promise<EditableProvinceData[] | null> {
+  try {
+    const scenario = await getScenario(scenarioId)
+    if (!scenario || !scenario.provinces) {
+      return null
+    }
+
+    // Retornar copia profunda para que sea editable
+    return JSON.parse(JSON.stringify(scenario.provinces))
+  } catch (error) {
+    console.error('Error cloning provinces:', error)
+    return null
+  }
+}
+
+/**
+ * Resetea las provincias al template base
+ */
+export function resetProvinceTemplate(): EditableProvinceData[] {
+  return initializeProvincesData()
+}
+
+/**
+ * Exporta las provincias actuales como archivo JSON descargable
+ */
+export function exportProvinceTemplate(provinces: EditableProvinceData[]): void {
+  // Crear JSON formateado
+  const jsonContent = JSON.stringify(provinces, null, 2)
+
+  // Crear blob y URL
+  const blob = new Blob([jsonContent], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+
+  // Crear elemento de descarga temporal
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `province-template-${new Date().toISOString().slice(0, 10)}.json`
+
+  // Trigger download
+  document.body.appendChild(link)
+  link.click()
+
+  // Cleanup
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+/**
+ * Importa provincias desde un archivo JSON
+ */
+export async function importProvinceTemplate(file: File): Promise<EditableProvinceData[] | null> {
+  try {
+    const text = await file.text()
+    const data = JSON.parse(text)
+
+    // Validar que sea un array
+    if (!Array.isArray(data)) {
+      throw new Error('El archivo debe contener un array de provincias')
+    }
+
+    // Validar estructura básica de cada provincia
+    for (const province of data) {
+      if (!province.id || !province.name || !province.type || !Array.isArray(province.adjacencies)) {
+        throw new Error(`Provincia inválida: falta información requerida (id, name, type, adjacencies)`)
+      }
+    }
+
+    return data as EditableProvinceData[]
+  } catch (error) {
+    console.error('Error importing province template:', error)
+    throw error
+  }
 }

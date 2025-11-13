@@ -10,7 +10,7 @@ import { GameMap, ProvinceInfo } from '../types'
  * Verifica si dos provincias son adyacentes
  */
 export function isAdjacent(map: GameMap, province1: string, province2: string): boolean {
-  const adjacencies = map.adjacencies[province1]
+  const adjacencies = map.provinces[province1]?.adjacencies
   return adjacencies?.includes(province2) || false
 }
 
@@ -49,7 +49,7 @@ export function getProvinceInfo(map: GameMap, provinceId: string): ProvinceInfo 
  * Obtiene las provincias adyacentes a una provincia
  */
 export function getAdjacentProvinces(map: GameMap, provinceId: string): string[] {
-  return map.adjacencies[provinceId] || []
+  return map.provinces[provinceId]?.adjacencies || []
 }
 
 /**

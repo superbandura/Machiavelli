@@ -17,7 +17,6 @@ interface CreateGameModalProps {
  */
 function buildGameMapFromFirestore(scenarioDoc: ScenarioDocument): GameMap {
   const provinces: Record<string, ProvinceInfo> = {}
-  const adjacencies: Record<string, string[]> = {}
 
   scenarioDoc.provinces.forEach(province => {
     provinces[province.id] = {
@@ -25,15 +24,15 @@ function buildGameMapFromFirestore(scenarioDoc: ScenarioDocument): GameMap {
       name: province.name,
       type: province.type,
       adjacencies: province.adjacencies,
+      controlledBy: province.controlledBy, // Copiar control inicial de la provincia
       hasCity: province.hasCity,
       cityName: province.cityName,
       isPort: province.isPort,
       income: province.income
     }
-    adjacencies[province.id] = province.adjacencies
   })
 
-  return { provinces, adjacencies }
+  return { provinces }
 }
 
 /**
@@ -41,10 +40,9 @@ function buildGameMapFromFirestore(scenarioDoc: ScenarioDocument): GameMap {
  */
 function buildScenarioDataFromFirestore(scenarioDoc: ScenarioDocument): ScenarioData {
   return {
-    availableFactions: scenarioDoc.availableFactions,
-    neutralTerritories: scenarioDoc.neutralTerritories,
-    victoryConditions: scenarioDoc.victoryConditions,
-    factionSetups: scenarioDoc.factionSetups
+    availableFactions: scenarioDoc.scenarioData.availableFactions,
+    victoryConditions: scenarioDoc.scenarioData.victoryConditions,
+    factionSetups: scenarioDoc.scenarioData.factionSetups
   }
 }
 
@@ -58,47 +56,35 @@ async function initializeFirestoreScenarioUnits(gameId: string, scenarioDoc: Sce
   for (const province of scenarioDoc.provinces) {
     if (!province.controlledBy) continue // Skip neutral provinces
 
-    // Crear guarniciones
-    for (let i = 0; i < province.garrisons; i++) {
-      unitPromises.push(
-        addDoc(collection(db, 'units'), {
-          gameId,
-          owner: province.controlledBy,
-          type: 'garrison',
-          currentPosition: province.id,
-          status: 'active',
-          siegeTurns: 0,
-          createdAt: serverTimestamp(),
-        })
-      )
-    }
+    // Iterar sobre las unidades detalladas de la provincia
+    for (const unit of province.units) {
+      // Determinar el tipo de unidad
+      let unitType: 'army' | 'fleet' | 'garrison'
 
-    // Crear ejércitos
-    for (let i = 0; i < province.armies; i++) {
-      unitPromises.push(
-        addDoc(collection(db, 'units'), {
-          gameId,
-          owner: province.controlledBy,
-          type: 'army',
-          currentPosition: province.id,
-          status: 'active',
-          siegeTurns: 0,
-          createdAt: serverTimestamp(),
-        })
-      )
-    }
+      if ('ships' in unit) {
+        // Es una flota
+        unitType = 'fleet'
+      } else if ('troops' in unit && 'lightCavalry' in unit.troops) {
+        // Es un ejército (tiene tipos de caballería)
+        unitType = 'army'
+      } else {
+        // Es una guarnición (sin caballería)
+        unitType = 'garrison'
+      }
 
-    // Crear flotas
-    for (let i = 0; i < province.fleets; i++) {
+      // Crear la unidad en Firestore
       unitPromises.push(
         addDoc(collection(db, 'units'), {
           gameId,
           owner: province.controlledBy,
-          type: 'fleet',
+          type: unitType,
           currentPosition: province.id,
           status: 'active',
           siegeTurns: 0,
           createdAt: serverTimestamp(),
+          // Campos adicionales para el nuevo sistema
+          name: unit.name,
+          composition: 'troops' in unit ? unit.troops : unit.ships,
         })
       )
     }
@@ -328,16 +314,6 @@ export default function CreateGameModal({ isOpen, onClose, onGameCreated }: Crea
                   <div className="flex gap-4 text-xs">
                     <span>
                       {selectedScenarioInfo.minPlayers}-{selectedScenarioInfo.maxPlayers} jugadores
-                    </span>
-                    <span>•</span>
-                    <span className={`font-medium ${
-                      selectedScenarioInfo.difficulty === 'tutorial' ? 'text-green-400' :
-                      selectedScenarioInfo.difficulty === 'medium' ? 'text-yellow-400' :
-                      'text-red-400'
-                    }`}>
-                      {selectedScenarioInfo.difficulty === 'tutorial' ? 'Tutorial' :
-                       selectedScenarioInfo.difficulty === 'medium' ? 'Medio' :
-                       'Difícil'}
                     </span>
                   </div>
                 </div>

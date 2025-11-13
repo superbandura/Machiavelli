@@ -2,6 +2,50 @@ import { Timestamp } from 'firebase/firestore'
 import { ProvinceType } from '@/types/game'
 
 /**
+ * Tipos de tropas terrestres para ejércitos (incluye caballería)
+ */
+export type ArmyTroopType = 'militia' | 'lancers' | 'pikemen' | 'archers' | 'crossbowmen' | 'lightCavalry' | 'heavyCavalry'
+
+/**
+ * Tipos de tropas para guarniciones (sin caballería)
+ */
+export type GarrisonTroopType = 'militia' | 'lancers' | 'pikemen' | 'archers' | 'crossbowmen'
+
+/**
+ * Tipos de naves para flotas
+ */
+export type FleetShipType = 'galley' | 'cog'
+
+/**
+ * Composición de un ejército con tipos de tropas
+ */
+export interface ArmyComposition {
+  name: string
+  troops: Record<ArmyTroopType, number>
+}
+
+/**
+ * Composición de una guarnición (sin caballería)
+ */
+export interface GarrisonComposition {
+  name: string
+  troops: Record<GarrisonTroopType, number>
+}
+
+/**
+ * Composición de una flota con tipos de naves
+ */
+export interface FleetComposition {
+  name: string
+  ships: Record<FleetShipType, number>
+}
+
+/**
+ * Union type para todas las unidades detalladas
+ */
+export type DetailedUnit = ArmyComposition | GarrisonComposition | FleetComposition
+
+/**
  * Datos editables de una provincia en el editor de escenarios
  */
 export interface EditableProvinceData {
@@ -14,9 +58,7 @@ export interface EditableProvinceData {
   isPort: boolean
   income: number
   controlledBy: string | null // Facción que controla (null = neutral)
-  garrisons: number // Cantidad de guarniciones iniciales
-  armies: number // Cantidad de ejércitos iniciales
-  fleets: number // Cantidad de flotas iniciales
+  units: DetailedUnit[] // Unidades iniciales con composición detallada
 }
 
 /**
@@ -33,28 +75,26 @@ export interface FactionSetup {
  */
 export interface ScenarioDocument {
   id: string
-  name: string
-  description: string
-  year: number
-  minPlayers: number
-  maxPlayers: number
-  difficulty: 'tutorial' | 'medium' | 'hard'
-  estimatedDuration: string
-  victoryConditions: {
-    citiesRequired: Record<number, number>
-    timeLimit: number
+
+  // Metadatos y configuración del escenario agrupados
+  scenarioData: {
+    name: string
+    description: string
+    year: number
+    minPlayers: number
+    maxPlayers: number
+    availableFactions: string[]
+    victoryConditions: {
+      victoryPoints: number // Puntos de victoria (ciudades) requeridos para ganar
+    }
+    factionSetups: FactionSetup[] // Setup de cada facción
+    createdBy: string
+    createdAt: Timestamp
+    updatedAt: Timestamp
   }
-  availableFactions: string[]
-  neutralTerritories: string[]
 
-  // Datos extendidos para el editor
-  factionSetups: FactionSetup[] // Setup de cada facción
-  provinces: EditableProvinceData[] // Datos completos de provincias
-
-  // Metadata
-  createdBy: string
-  createdAt: Timestamp
-  updatedAt: Timestamp
+  // Datos de provincias (separado para facilitar consultas)
+  provinces: EditableProvinceData[] // Datos completos de provincias (controlledBy indica neutrales)
 }
 
 /**
@@ -66,11 +106,8 @@ export interface ScenarioFormData {
   year: number
   minPlayers: number
   maxPlayers: number
-  difficulty: 'tutorial' | 'medium' | 'hard'
-  estimatedDuration: string
   victoryConditions: {
-    citiesRequired: Record<number, number>
-    timeLimit: number
+    victoryPoints: number // Puntos de victoria (ciudades) requeridos para ganar
   }
   availableFactions: string[]
 }
@@ -82,7 +119,6 @@ export interface ScenarioListItem {
   id: string
   name: string
   year: number
-  difficulty: 'tutorial' | 'medium' | 'hard'
   minPlayers: number
   maxPlayers: number
 }

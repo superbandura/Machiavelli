@@ -45,7 +45,7 @@ export default function OrdersPanel({
         const ordersQuery = query(
           collection(db, 'orders'),
           where('gameId', '==', gameId),
-          where('playerId', '==', player.id),
+          where('playerId', '==', player.userId),
           where('turnNumber', '==', turnNumber)
         )
         const snapshot = await getDocs(ordersQuery)
@@ -118,7 +118,7 @@ export default function OrdersPanel({
       const existingOrdersQuery = query(
         collection(db, 'orders'),
         where('gameId', '==', gameId),
-        where('playerId', '==', player.id),
+        where('playerId', '==', player.userId),
         where('turnNumber', '==', turnNumber)
       )
       const existingSnapshot = await getDocs(existingOrdersQuery)
@@ -128,7 +128,7 @@ export default function OrdersPanel({
       // Guardar nuevas órdenes
       await addDoc(collection(db, 'orders'), {
         gameId,
-        playerId: player.id,
+        playerId: player.userId,
         turnNumber,
         phase: 'orders',
         orders: ordersList,

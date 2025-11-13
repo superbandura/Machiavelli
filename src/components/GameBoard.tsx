@@ -28,33 +28,37 @@ export default function GameBoard({
 }: GameBoardProps) {
   const [svgContent, setSvgContent] = useState<string>('')
   const [hoveredProvince, setHoveredProvince] = useState<string | null>(null)
-  const [ctrlPressed, setCtrlPressed] = useState(false)
+  const [initialScale, setInitialScale] = useState(0.6) // Escala inicial calculada dinámicamente
   const svgContainerRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null) // Ref para calcular dimensiones
   const hoveredProvinceRef = useRef<string | null>(null) // Ref para evitar re-renders del useEffect
-  const ctrlPressedRef = useRef<boolean>(false) // Ref para acceso inmediato sin depender de state
 
-  // Detectar tecla Ctrl
+  // Calcular initialScale dinámicamente para que el mapa llene la altura del contenedor
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Control') {
-        console.log('🎹 Ctrl pressed')
-        ctrlPressedRef.current = true
-        setCtrlPressed(true)
-      }
+    if (!containerRef.current) return
+
+    const updateScale = () => {
+      const containerHeight = containerRef.current!.clientHeight
+      const mapHeight = 1400 // Altura del SVG mapa-italia.svg
+
+      // Calcular escala para que el mapa llene toda la altura
+      const scaleToFitHeight = containerHeight / mapHeight
+
+      console.log('[GameBoard] Calculando initialScale:', {
+        containerHeight,
+        mapHeight,
+        scaleToFitHeight
+      })
+
+      setInitialScale(scaleToFitHeight)
     }
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Control') {
-        console.log('🎹 Ctrl released')
-        ctrlPressedRef.current = false
-        setCtrlPressed(false)
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('keyup', handleKeyUp)
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('keyup', handleKeyUp)
-    }
+
+    // Calcular escala inicial
+    updateScale()
+
+    // Re-calcular si el tamaño de la ventana cambia
+    window.addEventListener('resize', updateScale)
+    return () => window.removeEventListener('resize', updateScale)
   }, [])
 
   // FIX DEFINITIVO: Setear el SVG innerHTML solo una vez en useEffect
@@ -134,12 +138,11 @@ export default function GameBoard({
       console.log('🖱️ Click detected:', {
         provinceId,
         adjacencyEditMode,
-        ctrlPressed: ctrlPressedRef.current,
         hasToggleCallback: !!onAdjacencyToggle
       })
 
-      // Modo edición de adyacencias: Ctrl + Click para añadir/quitar adyacencia
-      if (adjacencyEditMode && ctrlPressedRef.current && onAdjacencyToggle && provinceId) {
+      // Modo edición de adyacencias: Click directo para añadir/quitar adyacencia
+      if (adjacencyEditMode && onAdjacencyToggle && provinceId && selectedProvince && provinceId !== selectedProvince) {
         console.log('✅ Toggling adjacency for:', provinceId)
         onAdjacencyToggle(provinceId)
         e.stopPropagation()
@@ -152,7 +155,7 @@ export default function GameBoard({
         onProvinceClick(provinceId)
       }
     }
-  }, [onProvinceClick, adjacencyEditMode, onAdjacencyToggle])
+  }, [onProvinceClick, adjacencyEditMode, onAdjacencyToggle, selectedProvince])
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     const target = e.target as SVGElement
@@ -180,11 +183,11 @@ export default function GameBoard({
       const element = target as HTMLElement
       const provinceId = element.id
 
-      // Cambiar cursor en modo edición de adyacencias + Ctrl presionado
-      if (adjacencyEditMode && ctrlPressedRef.current && provinceId) {
+      // Cambiar cursor en modo edición de adyacencias (sin Ctrl)
+      if (adjacencyEditMode && provinceId && selectedProvince && provinceId !== selectedProvince) {
         const isAdjacent = highlightedAdjacencies.includes(provinceId)
 
-        // Cursor con + (verde) si no es adyacente, - (rojo) si ya es adyacente
+        // Cursor con - (rojo) si ya es adyacente, + (verde) si no es adyacente
         if (isAdjacent) {
           element.style.cursor = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="rgb(239, 68, 68)" opacity="0.8"/><text x="12" y="17" text-anchor="middle" font-size="18" fill="white" font-weight="bold">−</text></svg>') 12 12, pointer`
         } else {
@@ -210,7 +213,7 @@ export default function GameBoard({
       element.style.stroke = '#ffffff'
       element.style.strokeWidth = '2'
     }
-  }, [adjacencyEditMode, highlightedAdjacencies])
+  }, [adjacencyEditMode, highlightedAdjacencies, selectedProvince])
 
   const handleMouseLeave = useCallback((e: MouseEvent) => {
     const target = e.target as SVGElement
@@ -303,9 +306,15 @@ export default function GameBoard({
     // SIEMPRE restaurar colores originales primero (para limpiar verdes anteriores)
     allProvinces.forEach((el) => {
       const element = el as HTMLElement
+      const provinceId = element.id
+
+      // NO restaurar la provincia seleccionada - mantener su amarillo
+      if (provinceId === selectedProvince) {
+        return
+      }
+
       element.removeAttribute('data-adjacent-highlight')
 
-      const provinceId = element.id
       const factionId = provinceFaction[provinceId]
 
       if (factionId) {
@@ -334,7 +343,7 @@ export default function GameBoard({
         }
       })
     }
-  }, [adjacencyEditMode, highlightedAdjacencies, svgContent, provinceFaction, getFactionColor])
+  }, [adjacencyEditMode, highlightedAdjacencies, svgContent, provinceFaction, getFactionColor, selectedProvince])
 
   // Resaltar provincia seleccionada
   useEffect(() => {
@@ -381,7 +390,7 @@ export default function GameBoard({
   }, [selectedProvince])
 
   return (
-    <div className="relative w-full h-full bg-gray-800 rounded-lg overflow-hidden">
+    <div ref={containerRef} className="relative w-full h-full bg-gray-800 rounded-lg overflow-hidden">
       {/* Controles */}
         <div className="absolute top-4 right-4 z-10 bg-gray-900/90 rounded-lg p-2 space-y-2">
         <div className="text-white text-sm font-medium px-2">Controles</div>
@@ -410,11 +419,14 @@ export default function GameBoard({
 
       {/* Mapa con zoom y pan */}
       <TransformWrapper
-        initialScale={0.6}
+        initialScale={initialScale}
         minScale={0.3}
         maxScale={4}
         centerOnInit
         limitToBounds={false}
+        centerZoomedOut={true}
+        alignmentAnimation={{ sizeX: 0, sizeY: 0 }}
+        disablePadding={true}
         wheel={{ step: 0.1 }}
         doubleClick={{ mode: 'reset' }}
         panning={{

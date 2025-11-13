@@ -68,19 +68,46 @@ export async function updateGameState(context: ResolutionContext): Promise<void>
     });
   }
 
-  // 3. Actualizar jugadores (tesorería y otros campos)
+  // 3. Calcular ciudades controladas por cada jugador (basándose en guarniciones)
+  const playerCities: Record<string, string[]> = {};
+
+  // Inicializar arrays vacíos para cada jugador
+  players.forEach(player => {
+    playerCities[player.id] = [];
+  });
+
+  // Iterar sobre todas las guarniciones y asignar ciudades
+  units
+    .filter(unit => unit.type === 'garrison')
+    .forEach(garrison => {
+      const province = context.map.provinces[garrison.currentPosition];
+      // Solo contar provincias con ciudad
+      if (province && province.hasCity) {
+        if (!playerCities[garrison.owner]) {
+          playerCities[garrison.owner] = [];
+        }
+        playerCities[garrison.owner].push(garrison.currentPosition);
+      }
+    });
+
+  console.log('Calculated player cities:', playerCities);
+
+  // 4. Actualizar jugadores (tesorería, ciudades y otros campos)
   for (const player of players) {
     const playerRef = db.collection('players').doc(player.id);
+    const cities = playerCities[player.id] || [];
+
     addOperation(() => {
       batches[currentBatch].update(playerRef, {
         treasury: player.treasury || 0,
+        cities: cities,
         isAlive: player.isAlive !== false,
         updatedAt: new Date(),
       });
     });
   }
 
-  // 4. Actualizar estado del juego (incluyendo siegeStatus y famine mitigation)
+  // 5. Actualizar estado del juego (incluyendo siegeStatus y famine mitigation)
   const gameRef = db.collection('games').doc(gameId);
 
   // Preparar actualización del juego
@@ -112,7 +139,7 @@ export async function updateGameState(context: ResolutionContext): Promise<void>
 
   console.log('Game state updated in Firestore');
 
-  // 5. Actualizar visibilidad de unidades (fog of war)
+  // 6. Actualizar visibilidad de unidades (fog of war)
   console.log('Updating unit visibility (fog of war)...');
   await updateUnitVisibility(db, gameId, units, players);
   console.log('Unit visibility updated');

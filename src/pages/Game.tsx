@@ -5,6 +5,8 @@ import { getFunctions, httpsCallable } from 'firebase/functions'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/store/authStore'
 import { Game as GameType, Player, Unit, ExtraExpense } from '@/types'
+import { FactionDocument } from '@/types/faction'
+import { getAllFactions } from '@/lib/factionService'
 import GameBoard from '@/components/GameBoard'
 import OrdersPanel from '@/components/OrdersPanel'
 import TurnIndicator from '@/components/TurnIndicator'
@@ -26,6 +28,7 @@ export default function Game() {
   const [player, setPlayer] = useState<Player | null>(null)
   const [units, setUnits] = useState<Unit[]>([])
   const [players, setPlayers] = useState<Player[]>([])
+  const [factions, setFactions] = useState<FactionDocument[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -98,6 +101,21 @@ export default function Game() {
 
     return () => unsubscribe()
   }, [gameId])
+
+  // Cargar facciones dinámicas desde Firestore
+  useEffect(() => {
+    const loadFactions = async () => {
+      try {
+        const loadedFactions = await getAllFactions()
+        console.log('[Game] Facciones cargadas:', loadedFactions.length)
+        setFactions(loadedFactions)
+      } catch (err) {
+        console.error('[Game] Error cargando facciones:', err)
+      }
+    }
+
+    loadFactions()
+  }, [])
 
   // Suscribirse a jugadores
   useEffect(() => {
@@ -173,19 +191,7 @@ export default function Game() {
       })
     }
 
-    // Actualizar con la posición actual de las unidades
-    units.forEach((unit) => {
-      const playerId = unit.owner
-      const player = players.find((p) => p.id === playerId)
-
-      if (player && player.faction) {
-        result[unit.currentPosition] = player.faction
-      } else if (game.scenarioData && game.scenarioData.availableFactions.includes(unit.owner)) {
-        result[unit.currentPosition] = unit.owner
-      }
-    })
-
-    // Actualizar con las ciudades controladas por jugadores
+    // Actualizar con las ciudades controladas por jugadores (basándose en player.cities)
     players.forEach((p) => {
       if (p.cities) {
         p.cities.forEach((cityId) => {
@@ -195,7 +201,7 @@ export default function Game() {
     })
 
     return result
-  }, [units, players, game])
+  }, [players, game])
 
   // Calcular provincias controladas por el jugador (basado en guarniciones)
   const myControlledProvinces = useMemo(() => {
@@ -362,7 +368,7 @@ export default function Game() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col">
+    <div className="h-screen overflow-hidden bg-gray-900 text-white flex flex-col">
       {/* Header */}
       <header className="bg-gray-800 border-b border-gray-700 p-4">
         <div className="container mx-auto flex justify-between items-center">
@@ -403,71 +409,76 @@ export default function Game() {
       </header>
 
       {/* Main content */}
-      <main className="flex-1 flex">
+      <main className="flex-1 flex overflow-hidden">
         {/* Mapa */}
-        <div className="flex-1 p-4">
+        <div className="flex-1 p-4 overflow-hidden">
           <GameBoard
             onProvinceClick={handleProvinceClick}
             selectedProvince={selectedProvince}
             famineProvinces={(game as any).famineProvinces || []}
             provinceFaction={provinceFaction}
+            factions={factions}
           />
         </div>
 
         {/* Panel lateral */}
-        <aside className="w-96 bg-gray-800 border-l border-gray-700 flex flex-col overflow-hidden">
-          {/* TurnIndicator con información de turno y countdown */}
-          <div className="p-4 border-b border-gray-700">
-            <TurnIndicator game={game} />
-          </div>
+        <aside className="w-96 bg-gray-800 border-l border-gray-700 flex flex-col overflow-y-auto">
+          {/* Paneles superiores - agrupados para no colapsar */}
+          <div className="flex-shrink-0">
+            {/* TurnIndicator con información de turno y countdown */}
+            <div className="p-4 border-b border-gray-700">
+              <TurnIndicator game={game} />
+            </div>
 
-          {/* TreasuryPanel - Información económica */}
-          <div className="p-4 border-b border-gray-700">
-            <TreasuryPanel
-              player={player}
-              units={visibleUnits}
-              currentSeason={game.currentSeason}
+            {/* TreasuryPanel - Información económica */}
+            <div className="p-4 border-b border-gray-700">
+              <TreasuryPanel
+                player={player}
+                units={visibleUnits}
+                currentSeason={game.currentSeason}
+                gameMap={game.map || { provinces: {}, adjacencies: {} }}
+              />
+            </div>
+
+            {/* FamineMitigationPanel - Mitigar hambrunas */}
+            {(game as any).famineProvinces && (game as any).famineProvinces.length > 0 && (
+              <div className="p-4 border-b border-gray-700">
+                <FamineMitigationPanel
+                  game={game}
+                  player={player}
+                  units={visibleUnits}
+                  famineProvinces={(game as any).famineProvinces}
+                  currentPhase={game.currentPhase}
+                  onMitigateFamine={handleMitigateFamine}
+                />
+              </div>
+            )}
+
+            {/* InactivePlayerVoting - Votar sobre jugadores inactivos */}
+            {players.some(p => p.status === 'inactive') && (
+              <div className="p-4 border-b border-gray-700">
+                <InactivePlayerVoting
+                  gameId={gameId!}
+                  currentPlayer={player}
+                  players={players}
+                />
+              </div>
+            )}
+
+            {/* Información de provincia seleccionada */}
+            <ProvinceInfoPanel
+              game={game}
+              provinceId={selectedProvince}
+              visibleUnits={visibleUnits}
+              players={players}
+              currentPlayer={player}
+              controlledProvinces={myControlledProvinces}
+              provinceFaction={provinceFaction}
             />
           </div>
 
-          {/* FamineMitigationPanel - Mitigar hambrunas */}
-          {(game as any).famineProvinces && (game as any).famineProvinces.length > 0 && (
-            <div className="p-4 border-b border-gray-700">
-              <FamineMitigationPanel
-                game={game}
-                player={player}
-                units={visibleUnits}
-                famineProvinces={(game as any).famineProvinces}
-                currentPhase={game.currentPhase}
-                onMitigateFamine={handleMitigateFamine}
-              />
-            </div>
-          )}
-
-          {/* InactivePlayerVoting - Votar sobre jugadores inactivos */}
-          {players.some(p => p.status === 'inactive') && (
-            <div className="p-4 border-b border-gray-700">
-              <InactivePlayerVoting
-                gameId={gameId!}
-                currentPlayer={player}
-                players={players}
-              />
-            </div>
-          )}
-
-          {/* Información de provincia seleccionada */}
-          <ProvinceInfoPanel
-            game={game}
-            provinceId={selectedProvince}
-            visibleUnits={visibleUnits}
-            players={players}
-            currentPlayer={player}
-            controlledProvinces={myControlledProvinces}
-            provinceFaction={provinceFaction}
-          />
-
           {/* Tabs de navegación */}
-          <div className="flex border-b border-gray-700">
+          <div className="flex border-b border-gray-700 flex-shrink-0">
             <button
               onClick={() => setActiveTab('orders')}
               className={`flex-1 px-3 py-3 font-medium text-sm transition-colors ${
@@ -526,7 +537,7 @@ export default function Game() {
           </div>
 
           {/* Jugadores */}
-          <div className="p-4 border-t border-gray-700">
+          <div className="p-4 border-t border-gray-700 flex-shrink-0">
             <h3 className="font-bold mb-2">Jugadores ({players.length})</h3>
             <div className="space-y-1 text-sm">
               {players.map((p) => (

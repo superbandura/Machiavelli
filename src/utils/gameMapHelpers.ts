@@ -15,7 +15,7 @@ export function getAdjacentProvinces(
   map: GameMap,
   provinceId: string
 ): string[] {
-  return map.adjacencies[provinceId] || []
+  return map.provinces[provinceId]?.adjacencies || []
 }
 
 /**
@@ -167,7 +167,7 @@ export function areAdjacentProvinces(
   provinceId1: string,
   provinceId2: string
 ): boolean {
-  const adjacencies = map.adjacencies[provinceId1]
+  const adjacencies = map.provinces[provinceId1]?.adjacencies
   return adjacencies?.includes(provinceId2) || false
 }
 
@@ -197,7 +197,7 @@ export function getProvinceDistance(
     if (visited.has(province)) continue
     visited.add(province)
 
-    const adjacencies = map.adjacencies[province] || []
+    const adjacencies = map.provinces[province]?.adjacencies || []
     for (const adjacent of adjacencies) {
       if (!visited.has(adjacent)) {
         queue.push({ province: adjacent, distance: distance + 1 })

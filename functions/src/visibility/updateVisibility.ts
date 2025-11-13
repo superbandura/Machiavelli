@@ -29,23 +29,33 @@ export async function updateUnitVisibility(
 ): Promise<void> {
   console.log(`[Visibility] Updating visibility for ${units.length} units in game ${gameId}`);
 
-  // Mapa de provincia -> jugadores que la controlan
+  // Mapa de provincia -> userIds que la controlan
   const provinceControllers: Record<string, string[]> = {};
+
+  // Crear mapa de playerId -> userId para conversión
+  const playerIdToUserId: Record<string, string> = {};
+  players.forEach(player => {
+    playerIdToUserId[player.id] = player.userId;
+  });
 
   // Identificar qué jugadores controlan cada provincia (basado en guarniciones)
   units.forEach((unit) => {
     if (unit.type === 'garrison' && unit.owner) {
       const province = unit.currentPosition;
-      if (!provinceControllers[province]) {
-        provinceControllers[province] = [];
-      }
-      if (!provinceControllers[province].includes(unit.owner)) {
-        provinceControllers[province].push(unit.owner);
+      const userId = playerIdToUserId[unit.owner];
+
+      if (userId) {
+        if (!provinceControllers[province]) {
+          provinceControllers[province] = [];
+        }
+        if (!provinceControllers[province].includes(userId)) {
+          provinceControllers[province].push(userId);
+        }
       }
     }
   });
 
-  console.log(`[Visibility] Province controllers map:`, provinceControllers);
+  console.log(`[Visibility] Province controllers map (userIds):`, provinceControllers);
 
   // Actualizar cada unidad
   const batch = db.batch();
@@ -54,16 +64,19 @@ export async function updateUnitVisibility(
   for (const unit of units) {
     const visibleTo: string[] = [];
 
-    // Regla 1: El propietario siempre ve su unidad
-    if (unit.owner && !visibleTo.includes(unit.owner)) {
-      visibleTo.push(unit.owner);
+    // Regla 1: El propietario siempre ve su unidad (convertir playerId a userId)
+    if (unit.owner) {
+      const ownerUserId = playerIdToUserId[unit.owner];
+      if (ownerUserId && !visibleTo.includes(ownerUserId)) {
+        visibleTo.push(ownerUserId);
+      }
     }
 
-    // Regla 2: Jugadores que controlan la provincia pueden ver la unidad
+    // Regla 2: Jugadores que controlan la provincia pueden ver la unidad (ya son userIds)
     const controllersInProvince = provinceControllers[unit.currentPosition] || [];
-    for (const controllerId of controllersInProvince) {
-      if (!visibleTo.includes(controllerId)) {
-        visibleTo.push(controllerId);
+    for (const userId of controllersInProvince) {
+      if (!visibleTo.includes(userId)) {
+        visibleTo.push(userId);
       }
     }
 
@@ -93,28 +106,28 @@ export async function updateUnitVisibility(
  * Verifica si un jugador puede ver una unidad específica
  *
  * @param unit - La unidad a verificar
- * @param playerId - ID del jugador
+ * @param userId - ID del usuario (Firebase Auth UID)
  * @returns boolean - true si el jugador puede ver la unidad
  */
-export function canPlayerSeeUnit(unit: Unit, playerId: string): boolean {
+export function canPlayerSeeUnit(unit: Unit, userId: string): boolean {
   // Si la unidad no tiene campo visibleTo, es visible para todos (backwards compatibility)
   if (!unit.visibleTo || unit.visibleTo.length === 0) {
     return true;
   }
 
-  // Verificar si el jugador está en la lista de visibilidad
-  return unit.visibleTo.includes(playerId);
+  // Verificar si el usuario está en la lista de visibilidad
+  return unit.visibleTo.includes(userId);
 }
 
 /**
  * Filtra unidades visibles para un jugador específico
  *
  * @param units - Array de todas las unidades
- * @param playerId - ID del jugador
+ * @param userId - ID del usuario (Firebase Auth UID)
  * @returns Unit[] - Array de unidades visibles para el jugador
  */
-export function filterVisibleUnits(units: Unit[], playerId: string): Unit[] {
-  return units.filter((unit) => canPlayerSeeUnit(unit, playerId));
+export function filterVisibleUnits(units: Unit[], userId: string): Unit[] {
+  return units.filter((unit) => canPlayerSeeUnit(unit, userId));
 }
 
 /**
@@ -128,10 +141,25 @@ export function filterVisibleUnits(units: Unit[], playerId: string): Unit[] {
 export async function initializeUnitVisibility(
   db: admin.firestore.Firestore,
   unit: Unit,
-  gameId: string
+  gameId: string,
+  userId?: string
 ): Promise<void> {
-  // Por defecto, una nueva unidad es visible solo para su propietario
-  const visibleTo = unit.owner ? [unit.owner] : [];
+  // Por defecto, una nueva unidad es visible solo para su propietario (como userId)
+  // Si no se proporciona userId, necesitamos buscarlo desde el player
+  let visibleTo: string[] = [];
+
+  if (userId) {
+    visibleTo = [userId];
+  } else if (unit.owner) {
+    // Buscar userId desde playerId (requiere consulta adicional)
+    const playerDoc = await db.collection('players').doc(unit.owner).get();
+    if (playerDoc.exists) {
+      const playerData = playerDoc.data();
+      if (playerData && playerData.userId) {
+        visibleTo = [playerData.userId];
+      }
+    }
+  }
 
   const unitRef = db.collection('units').doc(unit.id);
   await unitRef.update({ visibleTo });

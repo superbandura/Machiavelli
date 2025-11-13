@@ -12,6 +12,7 @@ export interface ProvinceInfo {
   name: string;
   type: ProvinceType;
   adjacencies: string[]; // IDs de provincias adyacentes
+  controlledBy?: string | null; // ID de la facción que controla la provincia (null = neutral)
   hasCity?: boolean;
   cityName?: string;
   isPort?: boolean;
@@ -19,8 +20,7 @@ export interface ProvinceInfo {
 }
 
 export interface GameMap {
-  provinces: Record<string, ProvinceInfo>; // Información completa de cada provincia
-  adjacencies: Record<string, string[]>; // Mapa de adyacencias
+  provinces: Record<string, ProvinceInfo>; // Información completa de cada provincia (incluye adjacencies)
 }
 
 export interface FactionSetup {
@@ -31,10 +31,8 @@ export interface FactionSetup {
 
 export interface ScenarioData {
   availableFactions: string[]; // Facciones disponibles en este escenario
-  neutralTerritories: string[]; // Territorios neutrales al inicio
   victoryConditions: {
-    citiesRequired: Record<number, number>; // Mapa de jugadores -> ciudades requeridas
-    timeLimit: number; // Límite de turnos para victoria
+    victoryPoints: number; // Puntos de victoria (ciudades) requeridos para ganar
   };
   factionSetups: FactionSetup[]; // Setup inicial de cada facción
 }

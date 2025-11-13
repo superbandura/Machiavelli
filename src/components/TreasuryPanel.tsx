@@ -20,6 +20,12 @@ interface TreasuryPanelProps {
 export default function TreasuryPanel({ player, units, currentSeason, gameMap }: TreasuryPanelProps) {
   // Calcular ciudades controladas (provincias con guarnición del jugador)
   const citiesControlled = useMemo(() => {
+    // Validación defensiva: si no hay gameMap, retornar array vacío
+    if (!gameMap || !gameMap.provinces) {
+      console.warn('[TreasuryPanel] gameMap no disponible');
+      return [];
+    }
+
     const garrisonProvinces = units
       .filter(u => u.type === 'garrison' && u.owner === player.id)
       .map(u => u.currentPosition);
@@ -30,7 +36,7 @@ export default function TreasuryPanel({ player, units, currentSeason, gameMap }:
         return province?.hasCity ? { id: provinceId, name: province.cityName || province.name } : null;
       })
       .filter(Boolean);
-  }, [units, player.id, gameMap.provinces]);
+  }, [units, player.id, gameMap]);
 
   // Calcular ingresos estimados (3 ducados por ciudad)
   const estimatedIncome = citiesControlled.length * 3;

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { ScenarioFormData, ScenarioListItem } from '@/types/scenario'
+import { ScenarioFormData, ScenarioListItem, FactionSetup, EditableProvinceData } from '@/types/scenario'
 import { FactionDocument } from '@/types/faction'
 import { getAllFactions } from '@/lib/factionService'
+import FactionTreasuryPanel from './FactionTreasuryPanel'
 
 interface ScenarioInfoPanelProps {
   formData: ScenarioFormData
@@ -13,6 +14,14 @@ interface ScenarioInfoPanelProps {
   onDelete: () => void
   onNew: () => void
   saving: boolean
+  onCloneProvinces: () => void
+  onResetProvinces: () => void
+  onExportTemplate: () => void
+  onImportTemplate: (event: React.ChangeEvent<HTMLInputElement>) => void
+  factionSetups: FactionSetup[]
+  onFactionSetupsChange: (setups: FactionSetup[]) => void
+  provinces: EditableProvinceData[]
+  factions: FactionDocument[]
 }
 
 export default function ScenarioInfoPanel({
@@ -25,62 +34,15 @@ export default function ScenarioInfoPanel({
   onDelete,
   onNew,
   saving,
+  onCloneProvinces,
+  onResetProvinces,
+  onExportTemplate,
+  onImportTemplate,
+  factionSetups,
+  onFactionSetupsChange,
+  provinces,
+  factions,
 }: ScenarioInfoPanelProps) {
-  const [citiesConfig, setCitiesConfig] = useState('')
-  const [factions, setFactions] = useState<FactionDocument[]>([])
-  const [loadingFactions, setLoadingFactions] = useState(true)
-
-  // Load factions from Firestore
-  useEffect(() => {
-    loadFactions()
-  }, [])
-
-  const loadFactions = async () => {
-    try {
-      setLoadingFactions(true)
-      const loadedFactions = await getAllFactions()
-      setFactions(loadedFactions.filter((f) => f.id !== 'NEUTRAL'))
-    } catch (error) {
-      console.error('Error loading factions:', error)
-      // Keep empty array if error
-    } finally {
-      setLoadingFactions(false)
-    }
-  }
-
-  // Actualizar citiesConfig cuando cambie formData
-  useEffect(() => {
-    const config = Object.entries(formData.victoryConditions.citiesRequired)
-      .map(([players, cities]) => `${players}:${cities}`)
-      .join(',')
-    setCitiesConfig(config)
-  }, [formData.victoryConditions.citiesRequired])
-
-  const handleCitiesConfigChange = (value: string) => {
-    setCitiesConfig(value)
-    try {
-      const citiesRequired: Record<number, number> = {}
-      if (value.trim()) {
-        const pairs = value.split(',').map((s) => s.trim())
-        for (const pair of pairs) {
-          const [players, cities] = pair.split(':').map((s) => parseInt(s.trim()))
-          if (!isNaN(players) && !isNaN(cities)) {
-            citiesRequired[players] = cities
-          }
-        }
-      }
-      onChange({
-        ...formData,
-        victoryConditions: {
-          ...formData.victoryConditions,
-          citiesRequired,
-        },
-      })
-    } catch (error) {
-      // Ignorar errores de parsing
-    }
-  }
-
   const toggleFaction = (factionId: string) => {
     const current = formData.availableFactions
     const updated = current.includes(factionId)
@@ -211,33 +173,88 @@ export default function ScenarioInfoPanel({
         </div>
       </div>
 
-      {/* Límite de turnos */}
+      {/* Puntos de Victoria */}
       <div>
         <label className="block text-sm font-medium text-gray-300 mb-1">
-          Límite de Turnos
+          Puntos de Victoria
         </label>
         <input
           type="number"
           min={1}
-          value={formData.victoryConditions.timeLimit}
+          max={20}
+          value={formData.victoryConditions.victoryPoints}
           onChange={(e) =>
             onChange({
               ...formData,
               victoryConditions: {
-                ...formData.victoryConditions,
-                timeLimit: parseInt(e.target.value) || 12,
+                victoryPoints: parseInt(e.target.value) || 9,
               },
             })
           }
           className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
+        <p className="text-xs text-gray-400 mt-1">
+          Número de ciudades necesarias para ganar en Otoño
+        </p>
       </div>
 
       {/* Separador visual */}
       <div className="border-t border-gray-600 pt-4">
-        <p className="text-xs text-gray-400 text-center">
+        {/* Panel de Tesoro de Facciones */}
+        <div className="mb-4">
+          <FactionTreasuryPanel
+            factionSetups={factionSetups}
+            provinces={provinces}
+            factions={factions}
+            onChange={onFactionSetupsChange}
+          />
+        </div>
+
+        <p className="text-xs text-gray-400 text-center mb-3">
           Selecciona una provincia en el mapa para editarla
         </p>
+
+        {/* Province Management Buttons */}
+        <div className="space-y-2">
+          <button
+            onClick={onCloneProvinces}
+            className="w-full px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm transition-colors flex items-center justify-center gap-2"
+          >
+            <span>📋</span>
+            <span>Clonar Provincias desde Escenario</span>
+          </button>
+          <button
+            onClick={onResetProvinces}
+            className="w-full px-3 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-sm transition-colors flex items-center justify-center gap-2"
+          >
+            <span>🔄</span>
+            <span>Resetear a Template Base</span>
+          </button>
+
+          {/* Separador */}
+          <div className="border-t border-gray-600 pt-2 mt-2">
+            <p className="text-xs text-gray-400 text-center mb-2">Exportar/Importar Template</p>
+          </div>
+
+          <button
+            onClick={onExportTemplate}
+            className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors flex items-center justify-center gap-2"
+          >
+            <span>📤</span>
+            <span>Exportar Template JSON</span>
+          </button>
+
+          <label className="w-full px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer">
+            <span>📥</span>
+            <span>Importar Template JSON</span>
+            <input
+              type="file"
+              accept=".json"
+              onChange={onImportTemplate}
+              className="hidden"
+            />
+          </label>
+        </div>
       </div>
     </div>
   )

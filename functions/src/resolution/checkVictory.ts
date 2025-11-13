@@ -24,13 +24,13 @@ export async function checkVictoryConditions(context: ResolutionContext): Promis
 
   // 1. VICTORIA ESTÁNDAR: X ciudades al final de Otoño
   if (currentSeason === 'Otoño') {
-    const requiredCities = getRequiredCitiesForVictory(players.length);
+    const requiredCities = gameData.scenarioData.victoryConditions.victoryPoints;
 
     for (const player of players) {
       const citiesControlled = cityCounts[player.id] || 0;
 
       if (citiesControlled >= requiredCities) {
-        console.log(`🏆 Victory! ${player.faction} controls ${citiesControlled} cities`);
+        console.log(`🏆 Victory! ${player.faction} controls ${citiesControlled}/${requiredCities} cities`);
         await declareWinner(gameId, player, 'standard', db, context);
         return;
       }
@@ -38,8 +38,9 @@ export async function checkVictoryConditions(context: ResolutionContext): Promis
   }
 
   // 2. VICTORIA POR TIEMPO: 12 turnos completados
-  if (turnNumber >= 12) {
-    console.log(`Time limit reached (12 turns). Determining winner...`);
+  const GAME_TIME_LIMIT = 12; // Límite de turnos fijo
+  if (turnNumber >= GAME_TIME_LIMIT) {
+    console.log(`Time limit reached (${GAME_TIME_LIMIT} turns). Determining winner...`);
     await declareWinnerByTimeLimit(gameId, players, units, db, context, context.map);
     return;
   }
@@ -74,19 +75,8 @@ function countCitiesPerPlayer(players: Player[], units: any[], map: GameMap): Re
   return cityCounts;
 }
 
-/**
- * Determinar número de ciudades requeridas según número de jugadores
- */
-function getRequiredCitiesForVictory(playerCount: number): number {
-  const victoryMap: Record<number, number> = {
-    5: 8,
-    6: 9,  // Estándar
-    7: 10,
-    8: 11,
-  };
-
-  return victoryMap[playerCount] || 9; // Default a 9 si no se especifica
-}
+// ELIMINADO: getRequiredCitiesForVictory() - Ya no es necesario
+// Los puntos de victoria ahora se leen directamente desde gameData.scenarioData.victoryConditions.victoryPoints
 
 /**
  * Declarar ganador

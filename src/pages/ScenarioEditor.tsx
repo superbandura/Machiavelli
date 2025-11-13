@@ -21,6 +21,10 @@ import {
   validateAdjacencies,
   validateFleetPlacements,
   calculateFactionSetups,
+  cloneProvincesFromScenario,
+  resetProvinceTemplate,
+  exportProvinceTemplate,
+  importProvinceTemplate,
 } from '@/lib/scenarioService'
 import { FactionDocument } from '@/types/faction'
 import { getAllFactions } from '@/lib/factionService'
@@ -31,11 +35,8 @@ const DEFAULT_FORM_DATA: ScenarioFormData = {
   year: 1454,
   minPlayers: 3,
   maxPlayers: 6,
-  difficulty: 'medium',
-  estimatedDuration: '8-15 turnos',
   victoryConditions: {
-    citiesRequired: { 3: 5, 4: 6, 5: 8, 6: 9 },
-    timeLimit: 12,
+    victoryPoints: 9, // Valor estándar para 6 jugadores
   },
   availableFactions: ['FLORENCE', 'VENICE', 'MILAN', 'NAPLES', 'PAPAL'],
 }
@@ -55,12 +56,48 @@ export default function ScenarioEditor() {
   const [isFactionModalOpen, setIsFactionModalOpen] = useState(false)
   const [factions, setFactions] = useState<FactionDocument[]>([])
   const [adjacencyEditMode, setAdjacencyEditMode] = useState(false)
+  const [factionSetups, setFactionSetups] = useState<FactionSetup[]>([])
 
   // Cargar lista de escenarios y facciones al montar
   useEffect(() => {
     loadScenarios()
     loadFactions()
   }, [])
+
+  // Sincronizar factionSetups con las provincias
+  useEffect(() => {
+    // Obtener facciones que tienen provincias asignadas
+    const factionsInMap = new Set<string>()
+    provinces.forEach(p => {
+      if (p.controlledBy) {
+        factionsInMap.add(p.controlledBy)
+      }
+    })
+
+    setFactionSetups(prev => {
+      // Mantener facciones existentes que aún tienen provincias
+      const updated = prev.filter(setup => factionsInMap.has(setup.factionId))
+
+      // Añadir facciones nuevas con tesoro = 0
+      factionsInMap.forEach(factionId => {
+        if (!updated.find(s => s.factionId === factionId)) {
+          updated.push({
+            factionId,
+            treasury: 0,
+            provinces: provinces.filter(p => p.controlledBy === factionId).map(p => p.id)
+          })
+        } else {
+          // Actualizar lista de provincias de facciones existentes
+          const existingSetup = updated.find(s => s.factionId === factionId)
+          if (existingSetup) {
+            existingSetup.provinces = provinces.filter(p => p.controlledBy === factionId).map(p => p.id)
+          }
+        }
+      })
+
+      return updated
+    })
+  }, [provinces])
 
   const loadFactions = async () => {
     try {
@@ -103,17 +140,16 @@ export default function ScenarioEditor() {
       if (scenario) {
         setSelectedScenarioId(scenarioId)
         setFormData({
-          name: scenario.name,
-          description: scenario.description,
-          year: scenario.year,
-          minPlayers: scenario.minPlayers,
-          maxPlayers: scenario.maxPlayers,
-          difficulty: scenario.difficulty,
-          estimatedDuration: scenario.estimatedDuration,
-          victoryConditions: scenario.victoryConditions,
-          availableFactions: scenario.availableFactions,
+          name: scenario.scenarioData.name,
+          description: scenario.scenarioData.description,
+          year: scenario.scenarioData.year,
+          minPlayers: scenario.scenarioData.minPlayers,
+          maxPlayers: scenario.scenarioData.maxPlayers,
+          victoryConditions: scenario.scenarioData.victoryConditions,
+          availableFactions: scenario.scenarioData.availableFactions,
         })
         setProvinces(scenario.provinces)
+        setFactionSetups(scenario.scenarioData.factionSetups || [])
         setSelectedProvinceId(null)
         setError(null)
       }
@@ -173,15 +209,18 @@ export default function ScenarioEditor() {
         availableFactions: detectedFactions
       }
 
-      const factionSetups = calculateFactionSetups(provinces, updatedFormData.availableFactions)
+      // Usar factionSetups del estado, o calcular si está vacío (primera vez)
+      const finalFactionSetups = factionSetups.length > 0
+        ? factionSetups
+        : calculateFactionSetups(provinces, updatedFormData.availableFactions)
 
       if (selectedScenarioId) {
         // Actualizar existente
-        await updateScenario(selectedScenarioId, updatedFormData, provinces, factionSetups)
+        await updateScenario(selectedScenarioId, updatedFormData, provinces, finalFactionSetups)
         alert('Escenario actualizado correctamente')
       } else {
         // Crear nuevo
-        const newId = await createScenario(updatedFormData, user.uid, provinces, factionSetups)
+        const newId = await createScenario(updatedFormData, user.uid, provinces, finalFactionSetups)
         setSelectedScenarioId(newId)
         alert('Escenario creado correctamente')
       }
@@ -221,6 +260,103 @@ export default function ScenarioEditor() {
     setProvinces((prev) =>
       prev.map((p) => (p.id === updatedProvince.id ? updatedProvince : p))
     )
+  }
+
+  // Clonar provincias desde otro escenario
+  const handleCloneProvinces = async () => {
+    const scenarioId = prompt(
+      'Ingresa el ID del escenario desde el que quieres clonar las provincias:\n\n' +
+        'Escenarios disponibles:\n' +
+        scenarios.map((s) => `- ${s.name} (${s.year}): ${s.id}`).join('\n')
+    )
+
+    if (!scenarioId) return
+
+    try {
+      const clonedProvinces = await cloneProvincesFromScenario(scenarioId)
+      if (clonedProvinces) {
+        setProvinces(clonedProvinces)
+        setSelectedProvinceId(null)
+        alert(`${clonedProvinces.length} provincias clonadas correctamente`)
+      } else {
+        alert('No se pudieron clonar las provincias. Verifica el ID del escenario.')
+      }
+    } catch (err) {
+      console.error('Error cloning provinces:', err)
+      alert('Error al clonar provincias')
+    }
+  }
+
+  // Resetear provincias al template base
+  const handleResetProvinces = () => {
+    if (!confirm('¿Estás seguro de resetear todas las provincias al template base?')) return
+
+    const resetProvinces = resetProvinceTemplate()
+    setProvinces(resetProvinces)
+    setSelectedProvinceId(null)
+    alert(`${resetProvinces.length} provincias reseteadas al template base`)
+  }
+
+  // Auto-corregir bidireccionalidad
+  const handleAutoCorrectBidirectionality = () => {
+    const provinceMap = new Map(provinces.map(p => [p.id, p]))
+
+    // Hacer una copia profunda de las provincias
+    const correctedProvinces = provinces.map(province => ({
+      ...province,
+      adjacencies: [...province.adjacencies]
+    }))
+
+    // Corregir bidireccionalidad
+    for (const province of correctedProvinces) {
+      for (const adjId of province.adjacencies) {
+        const adjacent = correctedProvinces.find(p => p.id === adjId)
+        if (adjacent && !adjacent.adjacencies.includes(province.id)) {
+          adjacent.adjacencies.push(province.id)
+        }
+      }
+    }
+
+    setProvinces(correctedProvinces)
+    alert('Bidireccionalidad corregida automáticamente')
+  }
+
+  // Exportar template de provincias
+  const handleExportTemplate = () => {
+    // Validar antes de exportar
+    const adjacencyErrors = validateAdjacencies(provinces)
+    if (adjacencyErrors.length > 0) {
+      const confirmed = confirm(
+        `Se encontraron ${adjacencyErrors.length} errores de bidireccionalidad.\n\n` +
+        `¿Deseas exportar de todas formas?\n\n` +
+        `Se recomienda usar "Auto-Corregir" primero.`
+      )
+      if (!confirmed) return
+    }
+
+    exportProvinceTemplate(provinces)
+    alert(`Template exportado exitosamente con ${provinces.length} provincias`)
+  }
+
+  // Importar template de provincias
+  const handleImportTemplate = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    try {
+      const importedProvinces = await importProvinceTemplate(file)
+      if (importedProvinces) {
+        setProvinces(importedProvinces)
+        setSelectedProvinceId(null)
+        alert(`${importedProvinces.length} provincias importadas exitosamente`)
+      }
+    } catch (error) {
+      console.error('Error importing template:', error)
+      alert(`Error al importar template: ${error instanceof Error ? error.message : 'Error desconocido'}`)
+    }
+
+    // Reset file input
+    event.target.value = ''
   }
 
   // Toggle adyacencia bidireccional (añadir/quitar)
@@ -310,10 +446,22 @@ export default function ScenarioEditor() {
       )}
 
       {/* Main Content */}
-      <div className="container mx-auto p-4">
+      <div className="w-full px-4 py-4">
         <div className="grid grid-cols-12 gap-4">
-          {/* Mapa - Columna izquierda (8 cols) */}
-          <div className="col-span-8">
+          {/* Panel izquierdo - Province Editor (3 cols) */}
+          <div className="col-span-3">
+            <ProvinceEditorPanel
+              province={selectedProvince}
+              onChange={handleProvinceChange}
+              factions={factions}
+              onAdjacencyModeChange={setAdjacencyEditMode}
+              allProvinces={provinces}
+              onAutoCorrectBidirectionality={handleAutoCorrectBidirectionality}
+            />
+          </div>
+
+          {/* Mapa - Columna central (6 cols) */}
+          <div className="col-span-6">
             <div className="bg-gray-800 rounded-lg p-4">
               <h2 className="text-lg font-bold mb-2">Mapa de Italia</h2>
               <GameBoard
@@ -328,9 +476,8 @@ export default function ScenarioEditor() {
             </div>
           </div>
 
-          {/* Panel derecho - Info + Province Editor (4 cols) */}
-          <div className="col-span-4 space-y-4">
-            {/* Panel de información del escenario */}
+          {/* Panel derecho - Scenario Info (3 cols) */}
+          <div className="col-span-3">
             <ScenarioInfoPanel
               formData={formData}
               onChange={setFormData}
@@ -341,15 +488,14 @@ export default function ScenarioEditor() {
               onDelete={handleDelete}
               onNew={handleNew}
               saving={saving}
-            />
-
-            {/* Panel de edición de provincia */}
-            <ProvinceEditorPanel
-              province={selectedProvince}
-              onChange={handleProvinceChange}
+              onCloneProvinces={handleCloneProvinces}
+              onResetProvinces={handleResetProvinces}
+              onExportTemplate={handleExportTemplate}
+              onImportTemplate={handleImportTemplate}
+              factionSetups={factionSetups}
+              onFactionSetupsChange={setFactionSetups}
+              provinces={provinces}
               factions={factions}
-              onAdjacencyModeChange={setAdjacencyEditMode}
-              allProvinces={provinces}
             />
           </div>
         </div>
