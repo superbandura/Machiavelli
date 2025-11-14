@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { collection, query, where, getDocs, addDoc, updateDoc, doc, getDoc, serverTimestamp, increment } from 'firebase/firestore'
+import { collection, query, where, getDocs, setDoc, updateDoc, doc, getDoc, serverTimestamp, increment } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/store/authStore'
 import { FACTIONS } from '@/data/factions'
@@ -62,7 +62,7 @@ export default function JoinGameDialog({
         })
 
         // 3. Cargar datos de facciones desde Firestore (con fallback a hardcoded)
-        const factionPromises = availableFactionIds.map(async (factionId) => {
+        const factionPromises = availableFactionIds.map(async (factionId: string) => {
           // Intentar cargar desde Firestore
           const factionDoc = await getDoc(doc(db, 'factions', factionId))
 
@@ -163,101 +163,31 @@ export default function JoinGameDialog({
         lastActiveAt: serverTimestamp()
       }
 
-      const playerDocRef = await addDoc(collection(db, 'players'), playerData)
-      const playerId = playerDocRef.id
+      // Usar ID compuesto según convención: userId_gameId
+      const playerId = `${user.uid}_${gameId}`
+      const playerDocRef = doc(db, 'players', playerId)
+      await setDoc(playerDocRef, playerData)
 
-      // 4. Actualizar las unidades existentes de esta facción
-      // Las unidades ya fueron creadas al inicializar el juego con owner=factionId
-      // Ahora actualizamos el owner de factionId a playerId
-      const unitsQuery = query(
-        collection(db, 'units'),
-        where('gameId', '==', gameId),
-        where('owner', '==', selectedFaction) // Las unidades tienen owner=factionId
-      )
-      const unitsSnapshot = await getDocs(unitsQuery)
-
-      const updatePromises: Promise<any>[] = []
-      unitsSnapshot.forEach((unitDoc) => {
-        updatePromises.push(
-          updateDoc(doc(db, 'units', unitDoc.id), {
+      // 4. Actualizar ownership de unidades embebidas
+      // Las unidades están en game.units[] con owner=factionId
+      // Actualizamos owner de factionId a playerId
+      const updatedUnits = (game.units || []).map((unit: any) => {
+        if (unit.owner === selectedFaction) {
+          return {
+            ...unit,
             owner: playerId // Cambiar de factionId a playerId
-          })
-        )
+          }
+        }
+        return unit
       })
 
-      if (updatePromises.length > 0) {
-        await Promise.all(updatePromises)
-        console.log(`[JoinGameDialog] Actualizadas ${updatePromises.length} unidades de ${selectedFaction} a jugador ${playerId}`)
-      } else {
-        console.warn(`[JoinGameDialog] No se encontraron unidades para ${selectedFaction}, creando nuevas...`)
-
-        // Fallback: Si no hay unidades (juego antiguo), crearlas desde scenarioData
-        if (game.scenarioData) {
-          const unitPromises: Promise<any>[] = []
-          const provincesData = game.scenarioData.provinces || []
-
-          provincesData.forEach((province: any) => {
-            if (province.controlledBy === selectedFaction) {
-              // Crear garrisons
-              for (let i = 0; i < (province.garrisons || 0); i++) {
-                unitPromises.push(
-                  addDoc(collection(db, 'units'), {
-                    gameId,
-                    owner: playerId,
-                    type: 'garrison',
-                    currentPosition: province.provinceId,
-                    status: 'active',
-                    siegeTurns: 0,
-                    createdAt: serverTimestamp()
-                  })
-                )
-              }
-
-              // Crear armies
-              for (let i = 0; i < (province.armies || 0); i++) {
-                unitPromises.push(
-                  addDoc(collection(db, 'units'), {
-                    gameId,
-                    owner: playerId,
-                    type: 'army',
-                    currentPosition: province.provinceId,
-                    status: 'active',
-                    siegeTurns: 0,
-                    createdAt: serverTimestamp()
-                  })
-                )
-              }
-
-              // Crear fleets
-              for (let i = 0; i < (province.fleets || 0); i++) {
-                unitPromises.push(
-                  addDoc(collection(db, 'units'), {
-                    gameId,
-                    owner: playerId,
-                    type: 'fleet',
-                    currentPosition: province.provinceId,
-                    status: 'active',
-                    siegeTurns: 0,
-                    createdAt: serverTimestamp()
-                  })
-                )
-              }
-            }
-          })
-
-          await Promise.all(unitPromises)
-          console.log(`[JoinGameDialog] Creadas ${unitPromises.length} unidades para ${selectedFaction}`)
-        }
-      }
-
-      // 5. Incrementar contador de jugadores en la partida
+      // 5. Incrementar contador de jugadores y actualizar unidades en la partida
       const gameRef = doc(db, 'games', gameId)
       await updateDoc(gameRef, {
+        units: updatedUnits, // Actualizar array de unidades embebido
         playersCount: increment(1),
         updatedAt: serverTimestamp()
       })
-
-      console.log('[JoinGameDialog] Unido a la partida correctamente')
 
       // Reset
       setSelectedFaction(null)

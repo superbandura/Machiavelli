@@ -24,11 +24,13 @@ service cloud.firestore {
       // Solo usuarios autenticados pueden crear partidas
       allow create: if isAuthenticated() && request.resource.data.createdBy == request.auth.uid;
 
-      // Los jugadores pueden actualizar el contador de jugadores y updatedAt al unirse
+      // Los jugadores pueden actualizar ciertos campos al unirse:
+      // - playersCount, updatedAt: al unirse
+      // - units: actualizar ownership de factionId a playerId al unirse
       // Cloud Functions usan Admin SDK y bypasean estas reglas
       allow update: if isAuthenticated() &&
         resource.data.status == 'waiting' &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['playersCount', 'updatedAt']);
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['playersCount', 'updatedAt', 'units']);
     }
 
     // ==================== PLAYERS ====================
@@ -55,26 +57,9 @@ service cloud.firestore {
     }
 
     // ==================== UNITS ====================
-    match /units/{unitId} {
-      // REGLA DE VISIBILIDAD (FOG OF WAR):
-      // Un jugador puede leer una unidad si:
-      // 1. El juego está en fase de lobby (waiting), O
-      // 2. No tiene campo visibleTo (visible para todos - backwards compatibility), O
-      // 3. Está en la lista visibleTo de la unidad (fog of war durante el juego)
-      allow read: if isAuthenticated() && (
-        get(/databases/$(database)/documents/games/$(resource.data.gameId)).data.status == 'waiting' ||
-        (!('visibleTo' in resource.data)) ||
-        (request.auth.uid in resource.data.visibleTo)
-      );
-
-      // Permitir crear/actualizar unidades durante la fase de lobby (cuando jugadores se unen)
-      // Cloud Functions pueden modificar unidades usando Admin SDK
-      allow create, update: if isAuthenticated() &&
-        get(/databases/$(database)/documents/games/$(request.resource.data.gameId)).data.status == 'waiting';
-
-      // Solo Cloud Functions pueden eliminar unidades
-      allow delete: if false;
-    }
+    // NOTA: Las unidades ahora están embebidas en el documento /games/{gameId}.units[]
+    // El fog of war se maneja filtrando en el cliente según unit.visibleTo
+    // Cloud Functions actualizan el array completo usando Admin SDK
 
     // ==================== ORDERS ====================
     match /orders/{orderId} {

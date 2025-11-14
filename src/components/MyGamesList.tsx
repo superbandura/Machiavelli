@@ -29,11 +29,19 @@ export default function MyGamesList() {
       console.log('[MyGamesList] Jugador encontrado en', snapshot.size, 'partidas')
 
       const gamesData: (Game & { playerFaction: string })[] = []
+      const seenGameIds = new Set<string>()
 
       // Por cada partida donde el usuario es jugador
       for (const playerDoc of snapshot.docs) {
         const playerData = playerDoc.data() as Player
         const gameId = playerData.gameId
+
+        // Evitar duplicados (múltiples documentos de player con mismo gameId)
+        if (seenGameIds.has(gameId)) {
+          console.warn('[MyGamesList] Documento de player duplicado para gameId:', gameId)
+          continue
+        }
+        seenGameIds.add(gameId)
 
         try {
           // Obtener datos de la partida
