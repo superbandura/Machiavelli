@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { EditableProvinceData, DetailedUnit } from '@/types/scenario'
+import { EditableProvinceData } from '@/types/scenario'
 import { FactionDocument } from '@/types/faction'
 import UnitBuilderModal from './UnitBuilderModal'
 

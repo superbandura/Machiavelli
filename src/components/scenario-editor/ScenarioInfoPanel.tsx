@@ -1,7 +1,5 @@
-import { useState, useEffect } from 'react'
 import { ScenarioFormData, ScenarioListItem, FactionSetup, EditableProvinceData } from '@/types/scenario'
 import { FactionDocument } from '@/types/faction'
-import { getAllFactions } from '@/lib/factionService'
 import FactionTreasuryPanel from './FactionTreasuryPanel'
 
 interface ScenarioInfoPanelProps {
@@ -43,13 +41,14 @@ export default function ScenarioInfoPanel({
   provinces,
   factions,
 }: ScenarioInfoPanelProps) {
-  const toggleFaction = (factionId: string) => {
-    const current = formData.availableFactions
-    const updated = current.includes(factionId)
-      ? current.filter((id) => id !== factionId)
-      : [...current, factionId]
-    onChange({ ...formData, availableFactions: updated })
-  }
+  // toggleFaction comentado (no usado actualmente)
+  // const toggleFaction = (factionId: string) => {
+  //   const current = formData.availableFactions
+  //   const updated = current.includes(factionId)
+  //     ? current.filter((id) => id !== factionId)
+  //     : [...current, factionId]
+  //   onChange({ ...formData, availableFactions: updated })
+  // }
 
   return (
     <div className="bg-gray-800 p-4 rounded-lg space-y-4">

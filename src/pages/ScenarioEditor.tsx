@@ -299,8 +299,6 @@ export default function ScenarioEditor() {
 
   // Auto-corregir bidireccionalidad
   const handleAutoCorrectBidirectionality = () => {
-    const provinceMap = new Map(provinces.map(p => [p.id, p]))
-
     // Hacer una copia profunda de las provincias
     const correctedProvinces = provinces.map(province => ({
       ...province,

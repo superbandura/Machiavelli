@@ -89,6 +89,7 @@ export default function Game() {
   }, [gameId, user, navigate])
 
   // Suscribirse al juego (en tiempo real)
+  // Las unidades ahora están embebidas en el documento de la partida
   useEffect(() => {
     if (!gameId) return
 
@@ -96,6 +97,9 @@ export default function Game() {
       if (snapshot.exists()) {
         const gameData = { id: snapshot.id, ...snapshot.data() } as GameType
         setGame(gameData)
+
+        // Extraer unidades embebidas
+        setUnits(gameData.units || [])
       }
     })
 
@@ -137,45 +141,26 @@ export default function Game() {
     return () => unsubscribe()
   }, [gameId])
 
-  // Suscribirse a unidades
-  useEffect(() => {
-    if (!gameId) return
-
-    const unitsQuery = query(
-      collection(db, 'units'),
-      where('gameId', '==', gameId)
-    )
-
-    const unsubscribe = onSnapshot(unitsQuery, (snapshot) => {
-      const unitsData: Unit[] = []
-      snapshot.forEach((doc) => {
-        unitsData.push({ id: doc.id, ...doc.data() } as Unit)
-      })
-      setUnits(unitsData)
-    })
-
-    return () => unsubscribe()
-  }, [gameId])
-
   // Calcular mapeo de jugadores a facciones y control de provincias
   // IMPORTANTE: Esto debe estar ANTES de cualquier return early (reglas de hooks)
-  const playerFactions: Record<string, string> = useMemo(() => {
-    const result: Record<string, string> = {}
-    players.forEach((p) => {
-      result[p.id] = p.faction
-    })
+  // NOTA: playerFactions comentado temporalmente (no usado actualmente)
+  // const playerFactions: Record<string, string> = useMemo(() => {
+  //   const result: Record<string, string> = {}
+  //   players.forEach((p) => {
+  //     result[p.id] = p.faction
+  //   })
 
-    // Agregar facciones sin jugador asignado al mapeo
-    if (game?.scenarioData) {
-      game.scenarioData.availableFactions.forEach((factionId) => {
-        if (!players.some((p) => p.faction === factionId)) {
-          result[factionId] = factionId
-        }
-      })
-    }
+  //   // Agregar facciones sin jugador asignado al mapeo
+  //   if (game?.scenarioData) {
+  //     game.scenarioData.availableFactions.forEach((factionId) => {
+  //       if (!players.some((p) => p.faction === factionId)) {
+  //         result[factionId] = factionId
+  //       }
+  //     })
+  //   }
 
-    return result
-  }, [players, game])
+  //   return result
+  // }, [players, game])
 
   const provinceFaction = useMemo(() => {
     const result: Record<string, string> = {}

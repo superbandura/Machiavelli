@@ -120,14 +120,14 @@ export default function MapTest() {
     }
   ], [])
 
-  // Mapeo de jugadores a facciones
-  const playerFactions = useMemo(() => ({
-    'player-florence': 'FLORENCE',
-    'player-venice': 'VENICE',
-    'player-milan': 'MILAN',
-    'player-naples': 'NAPLES',
-    'player-papal': 'PAPAL'
-  }), [])
+  // Mapeo de jugadores a facciones (comentado - no usado tras migración)
+  // const playerFactions = useMemo(() => ({
+  //   'player-florence': 'FLORENCE',
+  //   'player-venice': 'VENICE',
+  //   'player-milan': 'MILAN',
+  //   'player-naples': 'NAPLES',
+  //   'player-papal': 'PAPAL'
+  // }), [])
 
   // Mapeo de provincias a facciones (para colorear el mapa)
   const provinceFaction = useMemo(() => ({
@@ -164,9 +164,10 @@ export default function MapTest() {
     setSelectedProvince(provinceId)
   }
 
-  const handleUnitClick = (unit: Unit) => {
-    console.log('Unidad clickeada:', unit)
-  }
+  // handleUnitClick comentado (no usado tras migración)
+  // const handleUnitClick = (unit: Unit) => {
+  //   console.log('Unidad clickeada:', unit)
+  // }
 
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col">
@@ -194,9 +195,6 @@ export default function MapTest() {
             <GameBoard
               onProvinceClick={handleProvinceClick}
               selectedProvince={selectedProvince}
-              units={exampleUnits}
-              playerFactions={playerFactions}
-              onUnitClick={handleUnitClick}
               provinceFaction={provinceFaction}
             />
           </div>

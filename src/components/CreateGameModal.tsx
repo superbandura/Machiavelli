@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/store/authStore'
 import { listScenarios, getScenario as getFirestoreScenario } from '@/lib/scenarioService'
-import { ScenarioListItem, ScenarioDocument } from '@/types/scenario'
-import { GameMap, ScenarioData, ProvinceInfo } from '@/types/game'
+import { ScenarioListItem, ScenarioDocument, ArmyComposition, GarrisonComposition, FleetComposition } from '@/types/scenario'
+import { GameMap, ScenarioData, ProvinceInfo, Unit } from '@/types/game'
 
 interface CreateGameModalProps {
   isOpen: boolean
@@ -47,10 +47,10 @@ function buildScenarioDataFromFirestore(scenarioDoc: ScenarioDocument): Scenario
 }
 
 /**
- * Inicializa unidades desde un escenario de Firestore
+ * Construye array de unidades desde un escenario de Firestore
  */
-async function initializeFirestoreScenarioUnits(gameId: string, scenarioDoc: ScenarioDocument) {
-  const unitPromises: Promise<any>[] = []
+function buildUnitsFromScenario(scenarioDoc: ScenarioDocument): Unit[] {
+  const units: Unit[] = []
 
   // Crear unidades según los datos de las provincias
   for (const province of scenarioDoc.provinces) {
@@ -72,26 +72,24 @@ async function initializeFirestoreScenarioUnits(gameId: string, scenarioDoc: Sce
         unitType = 'garrison'
       }
 
-      // Crear la unidad en Firestore
-      unitPromises.push(
-        addDoc(collection(db, 'units'), {
-          gameId,
-          owner: province.controlledBy,
-          type: unitType,
-          currentPosition: province.id,
-          status: 'active',
-          siegeTurns: 0,
-          createdAt: serverTimestamp(),
-          // Campos adicionales para el nuevo sistema
-          name: unit.name,
-          composition: 'troops' in unit ? unit.troops : unit.ships,
-        })
-      )
+      // Construir unidad con composición detallada
+      units.push({
+        id: crypto.randomUUID(), // Generar ID único
+        owner: province.controlledBy, // factionId inicial (se actualiza al unirse el jugador)
+        type: unitType,
+        currentPosition: province.id,
+        status: 'active',
+        siegeTurns: 0,
+        createdAt: Timestamp.now(),
+        // Composición detallada
+        name: unit.name,
+        composition: unit as ArmyComposition | GarrisonComposition | FleetComposition,
+      })
     }
   }
 
-  await Promise.all(unitPromises)
-  console.log(`[initializeFirestoreScenarioUnits] Creadas ${unitPromises.length} unidades`)
+  console.log(`[buildUnitsFromScenario] Construidas ${units.length} unidades`)
+  return units
 }
 
 export default function CreateGameModal({ isOpen, onClose, onGameCreated }: CreateGameModalProps) {
@@ -159,10 +157,11 @@ export default function CreateGameModal({ isOpen, onClose, onGameCreated }: Crea
         throw new Error('Escenario no encontrado')
       }
 
-      const scenarioName = scenarioDoc.name
-      const scenarioYear = scenarioDoc.year
+      const scenarioName = scenarioDoc.scenarioData.name
+      const scenarioYear = scenarioDoc.scenarioData.year
       const gameMap = buildGameMapFromFirestore(scenarioDoc)
       const scenarioData = buildScenarioDataFromFirestore(scenarioDoc)
+      const units = buildUnitsFromScenario(scenarioDoc)
 
       // Crear documento de partida en Firestore
       const gameData = {
@@ -180,6 +179,9 @@ export default function CreateGameModal({ isOpen, onClose, onGameCreated }: Crea
         // Datos del mapa y escenario
         map: gameMap,
         scenarioData: scenarioData,
+
+        // Unidades embebidas con composición detallada
+        units: units,
 
         // Deadlines (se calculan al empezar)
         phaseDeadline: null,
@@ -212,9 +214,7 @@ export default function CreateGameModal({ isOpen, onClose, onGameCreated }: Crea
 
       const docRef = await addDoc(collection(db, 'games'), gameData)
       console.log('[CreateGameModal] Partida creada con ID:', docRef.id)
-
-      // Inicializar unidades desde Firestore
-      await initializeFirestoreScenarioUnits(docRef.id, scenarioDoc)
+      console.log('[CreateGameModal] Unidades embebidas:', units.length)
 
       // Cerrar modal primero
       onClose()

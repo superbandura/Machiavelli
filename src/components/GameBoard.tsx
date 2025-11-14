@@ -119,7 +119,9 @@ export default function GameBoard({
 
         // Setear innerHTML directamente en el ref, NO en el JSX
         // Esto previene que React reemplace el contenido en cada render
-        svgContainerRef.current.innerHTML = cleanedSvg
+        if (svgContainerRef.current) {
+          svgContainerRef.current.innerHTML = cleanedSvg
+        }
 
         // Notificar que el SVG está listo
         setSvgContent(cleanedSvg)
@@ -180,7 +182,7 @@ export default function GameBoard({
     const target = e.target as SVGElement
 
     if (target.classList.contains('land') || target.classList.contains('sea')) {
-      const element = target as HTMLElement
+      const element = target as unknown as HTMLElement
       const provinceId = element.id
 
       // Cambiar cursor en modo edición de adyacencias (sin Ctrl)
@@ -219,7 +221,7 @@ export default function GameBoard({
     const target = e.target as SVGElement
 
     if (target.classList.contains('land') || target.classList.contains('sea')) {
-      const element = target as HTMLElement
+      const element = target as unknown as HTMLElement
 
       // Remover efecto hover
       const hasFaction = element.hasAttribute('data-faction-color')
