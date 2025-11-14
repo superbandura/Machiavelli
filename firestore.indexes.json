@@ -29,20 +29,6 @@
       ]
     },
     {
-      "collectionGroup": "units",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "gameId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "owner",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "orders",
       "queryScope": "COLLECTION",
       "fields": [

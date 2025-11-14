@@ -86,16 +86,21 @@ Listeners    Scheduler (cron 1 min)
 ### Colecciones Firestore (Flat)
 
 ```
-/games/{gameId}              # Estado del juego, fase, deadline
+/games/{gameId}              # Estado del juego, fase, deadline, unidades embebidas
+  └─ units: Unit[]           # Unidades con composición detallada (embebidas)
 /players/{playerId}          # Tesoro, facción, userId
-/units/{unitId}              # Tipo, owner, province, visibleTo
 /orders/{orderId}            # Órdenes secretas (gameId, playerId, turnNumber)
 /diplomatic_messages/{id}    # Chat (from, to, content)
 /votes/{voteId}              # Votos para jugadores inactivos
 /turns/{turnId}              # Historial de turnos resueltos
+/scenarios/{scenarioId}      # Escenarios con provincias y unidades detalladas
+/factions/{factionId}        # Facciones dinámicas
 ```
 
-**Importante:** Usa campo `gameId` para filtrar (NO colecciones anidadas).
+**Importante:**
+- Las unidades están **embebidas** en `game.units[]` (NO colección separada)
+- Cada unidad incluye `name` y `composition` (tropas/naves detalladas)
+- Usa campo `gameId` para filtrar otras colecciones
 
 ### Cloud Functions
 
