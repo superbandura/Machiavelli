@@ -14,10 +14,11 @@ import { Unit, Player } from '../types';
 
 /**
  * Actualiza la visibilidad de todas las unidades en un juego
+ * Modifica el array de unidades en memoria (no escribe a Firestore)
  *
- * @param db - Instancia de Firestore
+ * @param db - Instancia de Firestore (no usado, mantenido por compatibilidad)
  * @param gameId - ID del juego
- * @param units - Array de unidades del juego
+ * @param units - Array de unidades del juego (se modifica in-place)
  * @param players - Array de jugadores del juego
  * @returns Promise<void>
  */
@@ -57,8 +58,7 @@ export async function updateUnitVisibility(
 
   console.log(`[Visibility] Province controllers map (userIds):`, provinceControllers);
 
-  // Actualizar cada unidad
-  const batch = db.batch();
+  // Actualizar cada unidad en memoria
   let updatedCount = 0;
 
   for (const unit of units) {
@@ -87,16 +87,15 @@ export async function updateUnitVisibility(
       !visibleTo.every((id) => currentVisibleTo.includes(id));
 
     if (hasChanged) {
-      const unitRef = db.collection('units').doc(unit.id);
-      batch.update(unitRef, { visibleTo });
+      // Actualizar en memoria (las unidades se guardarán embebidas después)
+      unit.visibleTo = visibleTo;
       updatedCount++;
     }
   }
 
-  // Ejecutar batch update
+  // Ya no escribimos a Firestore aquí, solo modificamos el array en memoria
   if (updatedCount > 0) {
-    await batch.commit();
-    console.log(`[Visibility] Updated visibility for ${updatedCount} units`);
+    console.log(`[Visibility] Updated visibility for ${updatedCount} units (in-memory)`);
   } else {
     console.log(`[Visibility] No visibility changes needed`);
   }

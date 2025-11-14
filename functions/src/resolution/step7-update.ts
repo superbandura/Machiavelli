@@ -18,18 +18,7 @@ export async function updateGameState(context: ResolutionContext): Promise<void>
 
   const { db, gameId, gameData, players, units } = context;
 
-  // Obtener todas las unidades actuales en Firestore
-  const existingUnitsSnapshot = await db.collection('units')
-    .where('gameId', '==', gameId)
-    .get();
-
-  const existingUnitIds = new Set(existingUnitsSnapshot.docs.map(doc => doc.id));
-  const currentUnitIds = new Set(units.map(u => u.id));
-
-  // Determinar unidades a eliminar (las que estaban pero ya no están)
-  const unitsToDelete = Array.from(existingUnitIds).filter(id => !currentUnitIds.has(id));
-
-  console.log(`Updating ${units.length} units, deleting ${unitsToDelete.length} units`);
+  console.log(`Updating ${units.length} units (embebidas en documento de partida)`);
 
   // Usar batches para operaciones masivas (máximo 500 operaciones por batch)
   const batches: admin.firestore.WriteBatch[] = [db.batch()];
@@ -45,28 +34,6 @@ export async function updateGameState(context: ResolutionContext): Promise<void>
     operation();
     operationCount++;
   };
-
-  // 1. Actualizar o crear unidades
-  for (const unit of units) {
-    const unitRef = db.collection('units').doc(unit.id);
-    addOperation(() => {
-      batches[currentBatch].set(unitRef, {
-        gameId: unit.gameId,
-        owner: unit.owner,
-        type: unit.type,
-        currentPosition: unit.currentPosition,
-        updatedAt: new Date(),
-      }, { merge: true });
-    });
-  }
-
-  // 2. Eliminar unidades destruidas
-  for (const unitId of unitsToDelete) {
-    const unitRef = db.collection('units').doc(unitId);
-    addOperation(() => {
-      batches[currentBatch].delete(unitRef);
-    });
-  }
 
   // 3. Calcular ciudades controladas por cada jugador (basándose en guarniciones)
   const playerCities: Record<string, string[]> = {};
@@ -107,11 +74,17 @@ export async function updateGameState(context: ResolutionContext): Promise<void>
     });
   }
 
-  // 5. Actualizar estado del juego (incluyendo siegeStatus y famine mitigation)
+  // 2. Actualizar visibilidad de unidades (fog of war) ANTES de guardar
+  console.log('Updating unit visibility (fog of war)...');
+  await updateUnitVisibility(db, gameId, units, players);
+  console.log('Unit visibility updated');
+
+  // 3. Actualizar estado del juego (incluyendo unidades embebidas, siegeStatus y famine mitigation)
   const gameRef = db.collection('games').doc(gameId);
 
   // Preparar actualización del juego
   const gameUpdate: any = {
+    units: units, // Actualizar unidades embebidas
     siegeStatus: gameData.siegeStatus || {},
     updatedAt: new Date(),
   };
@@ -137,10 +110,5 @@ export async function updateGameState(context: ResolutionContext): Promise<void>
   console.log(`Committing ${batches.length} batch(es) with ${operationCount} operations`);
   await Promise.all(batches.map(batch => batch.commit()));
 
-  console.log('Game state updated in Firestore');
-
-  // 6. Actualizar visibilidad de unidades (fog of war)
-  console.log('Updating unit visibility (fog of war)...');
-  await updateUnitVisibility(db, gameId, units, players);
-  console.log('Unit visibility updated');
+  console.log('Game state updated in Firestore (unidades embebidas)');
 }

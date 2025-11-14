@@ -117,6 +117,13 @@ async function advancePhase(gameId: string, gameData: any, db: admin.firestore.F
 async function handleInactivePlayers(gameId: string, turnNumber: number, db: admin.firestore.Firestore) {
   console.log(`Checking for inactive players in game ${gameId}`);
 
+  // Cargar documento del juego para obtener unidades embebidas
+  const gameDoc = await db.collection('games').doc(gameId).get();
+  if (!gameDoc.exists) {
+    throw new Error(`Game ${gameId} not found`);
+  }
+  const gameData = gameDoc.data() as any;
+
   // Cargar jugadores
   const playersSnapshot = await db.collection('players')
     .where('gameId', '==', gameId)
@@ -128,15 +135,8 @@ async function handleInactivePlayers(gameId: string, turnNumber: number, db: adm
     ...doc.data()
   } as any));
 
-  // Cargar unidades
-  const unitsSnapshot = await db.collection('units')
-    .where('gameId', '==', gameId)
-    .get();
-
-  const units = unitsSnapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data()
-  } as any));
+  // Unidades embebidas en el documento del juego
+  const units = gameData.units || [];
 
   // Procesar cada jugador
   for (const player of players) {
@@ -150,7 +150,7 @@ async function handleInactivePlayers(gameId: string, turnNumber: number, db: adm
       console.log(`Player ${player.id} (${player.faction}) inactive - strikes: ${currentStrikes} → ${newStrikes}`);
 
       // Crear órdenes "hold" automáticas para todas sus unidades
-      const playerUnits = units.filter(u => u.owner === player.id);
+      const playerUnits = units.filter((u: any) => u.owner === player.id);
       const batch = db.batch();
 
       for (const unit of playerUnits) {

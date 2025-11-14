@@ -55,11 +55,8 @@ export async function resolveTurn(gameId: string): Promise<void> {
       .get();
     const players = playersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
 
-    // Cargar unidades
-    const unitsSnapshot = await db.collection('units')
-      .where('gameId', '==', gameId)
-      .get();
-    const units = unitsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+    // Unidades embebidas en el documento del juego
+    const units = gameData.units || [];
 
     // Cargar órdenes
     const ordersSnapshot = await db.collection('orders')

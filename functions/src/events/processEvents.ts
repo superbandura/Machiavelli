@@ -135,37 +135,30 @@ async function processFamine(game: Game, db: admin.firestore.Firestore, map: Gam
 
   console.log(`Famine affects: ${affectedProvinces.join(', ')}`);
 
-  // Guardar marcadores de hambre en el juego
-  await db.collection('games').doc(game.id).update({
-    famineProvinces: affectedProvinces
-  });
-
-  // Eliminar todas las unidades en provincias afectadas
-  const unitsSnapshot = await db.collection('units')
-    .where('gameId', '==', game.id)
-    .get();
-
-  const batch = db.batch();
-  let unitsDestroyed = 0;
-
-  unitsSnapshot.docs.forEach(doc => {
-    const unit = doc.data();
+  // Eliminar todas las unidades en provincias afectadas (filtrar array embebido)
+  const units = game.units || [];
+  const survivingUnits = units.filter((unit: any) => {
     if (affectedProvinces.includes(unit.currentPosition)) {
-      batch.delete(doc.ref);
-      unitsDestroyed++;
-
       events.push({
         type: 'unit_destroyed_famine',
-        unitId: doc.id,
+        unitId: unit.id,
         unitType: unit.type,
         province: unit.currentPosition,
         owner: unit.owner,
         message: `💀 ${unit.type} eliminado por hambre en ${unit.currentPosition}`
       });
+      return false; // Eliminar unidad
     }
+    return true; // Mantener unidad
   });
 
-  await batch.commit();
+  const unitsDestroyed = units.length - survivingUnits.length;
+
+  // Actualizar juego con marcadores de hambre y unidades sobrevivientes
+  await db.collection('games').doc(game.id).update({
+    famineProvinces: affectedProvinces,
+    units: survivingUnits
+  });
 
   console.log(`Famine destroyed ${unitsDestroyed} units`);
 
@@ -212,35 +205,36 @@ async function processPlague(game: Game, db: admin.firestore.Firestore, map: Gam
 
   console.log(`Plague affects: ${affectedProvince}`);
 
-  // Eliminar TODAS las unidades en la provincia (instantáneo, sin retiradas)
-  const unitsSnapshot = await db.collection('units')
-    .where('gameId', '==', game.id)
-    .where('currentPosition', '==', affectedProvince)
-    .get();
-
-  const batch = db.batch();
+  // Eliminar TODAS las unidades en la provincia (filtrar array embebido)
+  const units = game.units || [];
   const destroyedUnits: any[] = [];
 
-  unitsSnapshot.docs.forEach(doc => {
-    const unit = doc.data();
-    batch.delete(doc.ref);
-    destroyedUnits.push({
-      id: doc.id,
-      type: unit.type,
-      owner: unit.owner
-    });
+  const survivingUnits = units.filter((unit: any) => {
+    if (unit.currentPosition === affectedProvince) {
+      destroyedUnits.push({
+        id: unit.id,
+        type: unit.type,
+        owner: unit.owner
+      });
 
-    events.push({
-      type: 'unit_destroyed_plague',
-      unitId: doc.id,
-      unitType: unit.type,
-      province: affectedProvince,
-      owner: unit.owner,
-      message: `☠️ ${unit.type} eliminado por peste en ${affectedProvince}`
-    });
+      events.push({
+        type: 'unit_destroyed_plague',
+        unitId: unit.id,
+        unitType: unit.type,
+        province: affectedProvince,
+        owner: unit.owner,
+        message: `☠️ ${unit.type} eliminado por peste en ${affectedProvince}`
+      });
+
+      return false; // Eliminar unidad
+    }
+    return true; // Mantener unidad
   });
 
-  await batch.commit();
+  // Actualizar juego con unidades sobrevivientes
+  await db.collection('games').doc(game.id).update({
+    units: survivingUnits
+  });
 
   console.log(`Plague destroyed ${destroyedUnits.length} units in ${affectedProvince}`);
 

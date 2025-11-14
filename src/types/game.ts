@@ -1,4 +1,5 @@
 import { Timestamp } from 'firebase/firestore'
+import type { ArmyComposition, GarrisonComposition, FleetComposition } from './scenario'
 
 // ==================== MAP DATA ====================
 export type ProvinceType = 'land' | 'sea' | 'port'
@@ -52,6 +53,11 @@ export interface Game {
   // Se copian del escenario al crear la partida y ya no se consulta el escenario
   map: GameMap // Mapa completo con provincias y adyacencias
   scenarioData: ScenarioData // Facciones, neutrales, condiciones de victoria, setups
+
+  // ========== UNIDADES ==========
+  // Unidades embebidas en el documento de partida (no colección separada)
+  // Durante lobby: owner es factionId, al unirse jugador se actualiza a playerId
+  units: Unit[]
 
   // Sistema asíncrono: Deadlines temporales
   phaseDeadline: Timestamp
@@ -114,13 +120,16 @@ export interface Player {
 export interface Unit {
   id: string
   type: 'army' | 'fleet' | 'garrison'
-  owner: string // playerId
+  owner: string // playerId (o factionId durante lobby antes de que se una el jugador)
   currentPosition: string // ID de la provincia
   status: 'active' | 'besieged' | 'destroyed'
   siegeTurns: number // Contador de turnos de asedio (0-2)
   visibleTo?: string[] // Array de playerIds que pueden ver esta unidad (fog of war)
   createdAt: Timestamp
-  gameId?: string // ID de la partida (añadido para queries de Firestore)
+
+  // Composición detallada (nombre y tropas/naves específicas)
+  name?: string
+  composition?: ArmyComposition | GarrisonComposition | FleetComposition
 }
 
 // ==================== ORDERS ====================
