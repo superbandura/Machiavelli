@@ -37,19 +37,21 @@ function validateFunds(currentTreasury: number, cost: number): void {
 }
 
 /**
- * Valida que una provincia es controlada por el jugador
+ * Valida que una provincia es controlada por el jugador según el mapa del juego
  */
 function validateProvinceOwnership(
   provinceId: string,
-  playerId: string,
-  units: Unit[]
+  playerFaction: string,
+  game: Game
 ): void {
-  const garrison = units.find(
-    (u) => u.currentPosition === provinceId && u.type === 'garrison' && u.owner === playerId
-  )
+  const province = game.map.provinces[provinceId]
 
-  if (!garrison) {
-    throw new Error(`No controlas esta provincia. Se requiere una guarnición para reclutar unidades.`)
+  if (!province) {
+    throw new Error(`Provincia ${provinceId} no existe.`)
+  }
+
+  if (province.controlledBy !== playerFaction) {
+    throw new Error(`No controlas esta provincia. Solo puedes crear unidades en provincias que controles.`)
   }
 }
 
@@ -64,13 +66,13 @@ function validatePort(provinceId: string, gameMap: Record<string, any>): void {
 }
 
 /**
- * Crea una nueva unidad vacía (ejército o flota)
+ * Crea una nueva unidad vacía (ejército, flota o guarnición)
  */
 export async function createUnit(
   gameId: string,
   playerId: string,
   provinceId: string,
-  unitType: 'army' | 'fleet',
+  unitType: 'army' | 'fleet' | 'garrison',
   customName?: string
 ): Promise<void> {
   try {
@@ -86,20 +88,20 @@ export async function createUnit(
         throw new Error('Partida o jugador no encontrado')
       }
 
-      const game = gameSnap.data() as Game
+      const gameData = gameSnap.data() as Game
       const player = playerSnap.data() as Player
 
       // Validaciones
-      if (game.currentPhase !== 'orders') {
+      if (gameData.currentPhase !== 'orders') {
         throw new Error('Solo puedes crear unidades durante la fase de órdenes')
       }
 
       const cost = UNIT_CREATION_COSTS[unitType]
       validateFunds(player.treasury, cost)
-      validateProvinceOwnership(provinceId, playerId, game.units || [])
+      validateProvinceOwnership(provinceId, player.faction, gameData)
 
       if (unitType === 'fleet') {
-        validatePort(provinceId, game.map)
+        validatePort(provinceId, gameData.map.provinces)
       }
 
       // Crear la nueva unidad
@@ -115,10 +117,12 @@ export async function createUnit(
         composition:
           unitType === 'army'
             ? { name: customName || DEFAULT_UNIT_NAMES[unitType], troops: { ...EMPTY_ARMY_COMPOSITION } }
-            : { name: customName || DEFAULT_UNIT_NAMES[unitType], ships: { ...EMPTY_FLEET_COMPOSITION } },
+            : unitType === 'fleet'
+            ? { name: customName || DEFAULT_UNIT_NAMES[unitType], ships: { ...EMPTY_FLEET_COMPOSITION } }
+            : { name: customName || DEFAULT_UNIT_NAMES[unitType], troops: { ...EMPTY_GARRISON_COMPOSITION } },
       }
 
-      const updatedUnits = [...(game.units || []), newUnit]
+      const updatedUnits = [...(gameData.units || []), newUnit]
 
       // Escribir cambios de forma atómica
       transaction.update(gameRef, {
@@ -132,7 +136,8 @@ export async function createUnit(
       })
     })
 
-    console.log(`✓ ${unitType === 'army' ? 'Ejército' : 'Flota'} creado`)
+    const unitLabel = unitType === 'army' ? 'Ejército' : unitType === 'fleet' ? 'Flota' : 'Guarnición'
+    console.log(`✓ ${unitLabel} creado`)
   } catch (error) {
     console.error('Error al crear unidad:', error)
     throw error

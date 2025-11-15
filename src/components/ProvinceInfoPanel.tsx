@@ -49,14 +49,13 @@ export default function ProvinceInfoPanel({
   const isControlled = controlledProvinces.includes(provinceId)
   const controller = provinceFaction[provinceId]
 
-  // Verificar si el jugador controla esta provincia (tiene guarnición)
-  const hasMyGarrison = myUnits.some(u => u.type === 'garrison')
-  const isControlledByMe = isControlled && currentPlayer
+  // Verificar si el jugador controla esta provincia según el mapa del juego
+  const isControlledByMe = provinceInfo?.controlledBy === currentPlayer?.faction
 
-  // Condiciones para crear unidades (ya no requieren guarnición previa)
-  const canCreateGarrison = game.currentPhase === 'orders' && currentPlayer
-  const canCreateArmy = game.currentPhase === 'orders' && provinceInfo?.hasCity && currentPlayer
-  const canCreateFleet = game.currentPhase === 'orders' && provinceInfo?.isPort && currentPlayer
+  // Condiciones para crear unidades (solo requieren control de provincia según mapa)
+  const canCreateGarrison = game.currentPhase === 'orders' && isControlledByMe
+  const canCreateArmy = game.currentPhase === 'orders' && provinceInfo?.hasCity && isControlledByMe
+  const canCreateFleet = game.currentPhase === 'orders' && provinceInfo?.isPort && isControlledByMe
 
   const handleCreateUnit = async (unitType: 'army' | 'fleet' | 'garrison') => {
     if (!currentPlayer || !provinceId) return
