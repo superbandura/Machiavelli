@@ -393,32 +393,6 @@ export default function GameBoard({
 
   return (
     <div ref={containerRef} className="relative w-full h-full bg-gray-800 rounded-lg overflow-hidden">
-      {/* Controles */}
-        <div className="absolute top-4 right-4 z-10 bg-gray-900/90 rounded-lg p-2 space-y-2">
-        <div className="text-white text-sm font-medium px-2">Controles</div>
-        <div className="text-gray-400 text-xs px-2">
-          <div>🖱️ Arrastrar: Mover mapa</div>
-          <div>🔍 Scroll: Zoom</div>
-          <div>👆 Click: Seleccionar</div>
-        </div>
-      </div>
-
-      {/* Info de provincia hover */}
-      {hoveredProvince && (
-        <div className="absolute top-4 left-4 z-10 bg-gray-900/90 rounded-lg p-3 text-white">
-          <div className="font-bold text-lg">{hoveredProvince}</div>
-          <div className="text-sm text-gray-400">Hover sobre provincia</div>
-        </div>
-      )}
-
-      {/* Info de provincia seleccionada */}
-      {selectedProvince && (
-        <div className="absolute bottom-4 left-4 z-10 bg-blue-900/90 rounded-lg p-3 text-white border-2 border-blue-500">
-          <div className="font-bold text-lg">{selectedProvince}</div>
-          <div className="text-sm text-blue-300">Provincia seleccionada</div>
-        </div>
-      )}
-
       {/* Mapa con zoom y pan */}
       <TransformWrapper
         initialScale={initialScale}

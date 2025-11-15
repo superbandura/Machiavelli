@@ -4,6 +4,7 @@ import { validateOrder, getValidMoveDestinations, getValidSupportTargets } from 
 import { getProvinceInfo } from '@/utils/gameMapHelpers'
 import { collection, addDoc, query, where, getDocs, deleteDoc, doc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import Separator from './decorative/Separator'
 
 interface OrdersPanelProps {
   game: Game
@@ -158,56 +159,57 @@ export default function OrdersPanel({
   // Renderizar mensaje si no es fase de órdenes
   if (!canGiveOrders) {
     return (
-      <div className="p-4">
-        <h3 className="font-bold mb-2">Panel de Órdenes</h3>
-        <div className="text-gray-400 text-sm">
-          {currentPhase === 'diplomatic' && 'Fase Diplomática - No se pueden dar órdenes aún'}
-          {currentPhase === 'resolution' && 'Fase de Resolución - Las órdenes están siendo procesadas'}
-          {currentPhase === 'finished' && 'Partida finalizada'}
+      <div className="p-5 bg-gray-800 rounded-lg border-2 border-renaissance-bronze shadow-ornate">
+        <h3 className="font-heading font-bold text-xl text-renaissance-bronze mb-3">⚔️ Órdenes Militares</h3>
+        <Separator variant="burgundy" className="mb-4" />
+        <div className="text-parchment-300 font-serif text-sm bg-gray-900/40 rounded-lg p-4 border border-gray-700">
+          {currentPhase === 'diplomatic' && '📜 Fase Diplomática - Las órdenes militares deben aguardar'}
+          {currentPhase === 'resolution' && '⚙️ Fase de Resolución - Las órdenes están siendo ejecutadas'}
+          {currentPhase === 'finished' && '🏁 Partida finalizada'}
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="p-4 border-b border-gray-700">
-        <h3 className="font-bold mb-2">Panel de Órdenes</h3>
-        <div className="text-sm text-gray-400">
-          {myUnits.length} unidades bajo tu control
+    <div className="flex flex-col h-full bg-gray-800 rounded-lg border-2 border-renaissance-bronze shadow-ornate">
+      {/* Header ornamentado */}
+      <div className="p-5 border-b-2 border-renaissance-bronze/50">
+        <h3 className="font-heading font-bold text-xl text-renaissance-bronze mb-2">⚔️ Órdenes Militares</h3>
+        <div className="text-sm font-serif text-parchment-300">
+          {myUnits.length} {myUnits.length === 1 ? 'unidad' : 'unidades'} bajo tu mando
         </div>
       </div>
 
       {/* Lista de unidades */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {myUnits.length === 0 ? (
-          <div className="text-gray-400 text-sm text-center py-8">
-            No tienes unidades en el mapa
+          <div className="text-parchment-400 font-serif text-sm text-center py-8 italic">
+            No dispones de unidades en el mapa
           </div>
         ) : (
           myUnits.map((unit) => (
             <div
               key={unit.id}
-              className={`border rounded-lg p-3 cursor-pointer transition-colors ${
+              className={`border-2 rounded-lg p-4 cursor-pointer transition-all duration-200 ${
                 selectedUnit?.id === unit.id
-                  ? 'border-blue-500 bg-blue-900/20'
-                  : 'border-gray-700 hover:border-gray-600'
+                  ? 'border-renaissance-gold bg-renaissance-gold/10 shadow-glow-gold'
+                  : 'border-gray-700 hover:border-renaissance-bronze hover:bg-gray-900/40'
               }`}
               onClick={() => onUnitSelect(unit)}
             >
               {/* Información de la unidad */}
               <div className="flex justify-between items-start mb-2">
                 <div>
-                  <div className="font-medium capitalize">{unit.type}</div>
-                  <div className="text-xs text-gray-400">{unit.currentPosition}</div>
+                  <div className="font-heading font-semibold text-base capitalize text-parchment-200">{unit.type}</div>
+                  <div className="text-sm font-serif text-gray-400 mt-0.5">{unit.currentPosition}</div>
                 </div>
-                <div className={`text-xs px-2 py-1 rounded ${
+                <div className={`text-xs font-serif px-3 py-1.5 rounded-lg border-2 ${
                   orders[unit.id]
                     ? orders[unit.id].isValid
-                      ? 'bg-green-900/50 text-green-400 border border-green-700'
-                      : 'bg-red-900/50 text-red-400 border border-red-700'
-                    : 'bg-gray-700 text-gray-400'
+                      ? 'bg-renaissance-olive/20 text-renaissance-olive-light border-renaissance-olive'
+                      : 'bg-burgundy-700/30 text-burgundy-300 border-burgundy-500'
+                    : 'bg-gray-700/50 text-gray-400 border-gray-600'
                 }`}>
                   {orders[unit.id]
                     ? orders[unit.id].isValid
@@ -219,43 +221,43 @@ export default function OrdersPanel({
 
               {/* Error de validación */}
               {orders[unit.id] && !orders[unit.id].isValid && orders[unit.id].validationError && (
-                <div className="text-xs text-red-400 bg-red-900/20 border border-red-800 rounded p-2 mb-2">
+                <div className="text-sm font-serif text-burgundy-200 bg-burgundy-700/30 border-2 border-burgundy-500 rounded-lg p-3 mb-3">
                   ⚠️ {orders[unit.id].validationError}
                 </div>
               )}
 
               {/* Selector de orden */}
               {selectedUnit?.id === unit.id && (
-                <div className="mt-3 pt-3 border-t border-gray-700">
-                  <label className="block text-sm font-medium mb-2">
+                <div className="mt-3 pt-3 border-t-2 border-renaissance-bronze/30">
+                  <label className="block text-sm font-heading font-semibold text-parchment-300 mb-2 uppercase tracking-wide">
                     Tipo de Orden
                   </label>
                   <select
-                    className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm"
+                    className="w-full bg-gray-900 border-2 border-renaissance-bronze rounded-lg px-3 py-2.5 text-sm font-serif text-parchment-200 focus:border-renaissance-gold transition-colors"
                     value={orders[unit.id]?.action || ''}
                     onChange={(e) => handleOrderChange(unit.id, 'action', e.target.value)}
                   >
                     <option value="">Seleccionar orden...</option>
-                    <option value="hold">Mantener (Hold)</option>
-                    <option value="move">Avanzar (Move)</option>
-                    <option value="support">Apoyar (Support)</option>
+                    <option value="hold">⚓ Mantener Posición (Hold)</option>
+                    <option value="move">➡️ Avanzar (Move)</option>
+                    <option value="support">🤝 Apoyar (Support)</option>
                     {unit.type === 'fleet' && (
-                      <option value="convoy">Convoy (Transport)</option>
+                      <option value="convoy">⛵ Convoy (Transport)</option>
                     )}
                     {unit.type !== 'garrison' && (
-                      <option value="besiege">Asediar (Siege)</option>
+                      <option value="besiege">🏰 Asediar (Siege)</option>
                     )}
-                    <option value="convert">Convertirse (Convert)</option>
+                    <option value="convert">🔄 Convertirse (Convert)</option>
                   </select>
 
                   {/* Opciones adicionales según el tipo de orden */}
                   {orders[unit.id]?.action === 'move' && (
-                    <div className="mt-2">
-                      <label className="block text-sm font-medium mb-1">
-                        Destino (provincias adyacentes)
+                    <div className="mt-3">
+                      <label className="block text-sm font-heading font-semibold text-parchment-300 mb-2 uppercase tracking-wide">
+                        Destino
                       </label>
                       <select
-                        className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm"
+                        className="w-full bg-gray-900 border-2 border-renaissance-bronze rounded-lg px-3 py-2.5 text-sm font-serif text-parchment-200 focus:border-renaissance-gold transition-colors"
                         value={orders[unit.id]?.targetProvince || ''}
                         onChange={(e) => handleOrderChange(unit.id, 'targetProvince', e.target.value)}
                       >
@@ -264,13 +266,13 @@ export default function OrdersPanel({
                           const provinceInfo = getProvinceInfo(game.map, provinceId)
                           return (
                             <option key={provinceId} value={provinceId}>
-                              {provinceInfo?.name || provinceId}
+                              📍 {provinceInfo?.name || provinceId}
                             </option>
                           )
                         })}
                       </select>
                       {getValidDestinationsForUnit(unit).length === 0 && (
-                        <div className="text-xs text-gray-400 mt-1">
+                        <div className="text-xs font-serif text-gray-400 mt-2 italic">
                           {unit.type === 'garrison' ? 'Las guarniciones no pueden moverse' : 'No hay destinos válidos'}
                         </div>
                       )}
@@ -278,24 +280,24 @@ export default function OrdersPanel({
                   )}
 
                   {orders[unit.id]?.action === 'support' && (
-                    <div className="mt-2">
-                      <label className="block text-sm font-medium mb-1">
-                        Unidad a apoyar (adyacente)
+                    <div className="mt-3">
+                      <label className="block text-sm font-heading font-semibold text-parchment-300 mb-2 uppercase tracking-wide">
+                        Unidad a apoyar
                       </label>
                       <select
-                        className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm"
+                        className="w-full bg-gray-900 border-2 border-renaissance-bronze rounded-lg px-3 py-2.5 text-sm font-serif text-parchment-200 focus:border-renaissance-gold transition-colors"
                         value={orders[unit.id]?.supportedUnit || ''}
                         onChange={(e) => handleOrderChange(unit.id, 'supportedUnit', e.target.value)}
                       >
                         <option value="">Seleccionar unidad...</option>
                         {getValidSupportTargetsForUnit(unit).map(u => (
                           <option key={u.id} value={u.id}>
-                            {u.type} en {u.currentPosition}
+                            🤝 {u.type} en {u.currentPosition}
                           </option>
                         ))}
                       </select>
                       {getValidSupportTargetsForUnit(unit).length === 0 && (
-                        <div className="text-xs text-gray-400 mt-1">
+                        <div className="text-xs font-serif text-gray-400 mt-2 italic">
                           No hay unidades adyacentes para apoyar
                         </div>
                       )}
@@ -323,40 +325,40 @@ export default function OrdersPanel({
                   )}
 
                   {orders[unit.id]?.action === 'besiege' && (
-                    <div className="mt-2">
-                      <label className="block text-sm font-medium mb-1">
+                    <div className="mt-3">
+                      <label className="block text-sm font-heading font-semibold text-parchment-300 mb-2 uppercase tracking-wide">
                         Ciudad a asediar
                       </label>
                       <select
-                        className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm"
+                        className="w-full bg-gray-900 border-2 border-renaissance-bronze rounded-lg px-3 py-2.5 text-sm font-serif text-parchment-200 focus:border-renaissance-gold transition-colors"
                         value={orders[unit.id]?.targetProvince || ''}
                         onChange={(e) => handleOrderChange(unit.id, 'targetProvince', e.target.value)}
                       >
                         <option value="">Seleccionar ciudad...</option>
                         <option value={unit.currentPosition}>
-                          {getProvinceInfo(game.map, unit.currentPosition)?.cityName || unit.currentPosition}
+                          🏰 {getProvinceInfo(game.map, unit.currentPosition)?.cityName || unit.currentPosition}
                         </option>
                       </select>
-                      <div className="text-xs text-gray-400 mt-1">
+                      <div className="text-xs font-serif text-gray-400 mt-2 italic">
                         Solo puedes asediar la ciudad de tu provincia actual
                       </div>
                     </div>
                   )}
 
                   {orders[unit.id]?.action === 'convert' && (
-                    <div className="mt-2">
-                      <label className="block text-sm font-medium mb-1">
+                    <div className="mt-3">
+                      <label className="block text-sm font-heading font-semibold text-parchment-300 mb-2 uppercase tracking-wide">
                         Convertir a
                       </label>
                       <select
-                        className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm"
+                        className="w-full bg-gray-900 border-2 border-renaissance-bronze rounded-lg px-3 py-2.5 text-sm font-serif text-parchment-200 focus:border-renaissance-gold transition-colors"
                         value={orders[unit.id]?.targetProvince || ''}
                         onChange={(e) => handleOrderChange(unit.id, 'targetProvince', e.target.value)}
                       >
                         <option value="">Seleccionar tipo...</option>
-                        {unit.type === 'fleet' && <option value="army">Ejército (Army)</option>}
-                        {unit.type === 'army' && <option value="fleet">Flota (Fleet)</option>}
-                        {unit.type === 'garrison' && <option value="army">Ejército (Army)</option>}
+                        {unit.type === 'fleet' && <option value="army">🗡️ Ejército (Army)</option>}
+                        {unit.type === 'army' && <option value="fleet">⛵ Flota (Fleet)</option>}
+                        {unit.type === 'garrison' && <option value="army">🗡️ Ejército (Army)</option>}
                       </select>
                     </div>
                   )}
@@ -367,13 +369,13 @@ export default function OrdersPanel({
         )}
       </div>
 
-      {/* Footer con botón de guardar */}
-      <div className="p-4 border-t border-gray-700">
+      {/* Footer con botón de guardar ornamentado */}
+      <div className="p-5 border-t-2 border-renaissance-bronze/50 bg-gray-900/40">
         {saveMessage && (
-          <div className={`text-sm mb-2 p-2 rounded ${
+          <div className={`text-sm font-serif mb-3 p-3 rounded-lg border-2 ${
             saveMessage.includes('Error')
-              ? 'bg-red-900/20 text-red-400'
-              : 'bg-green-900/20 text-green-400'
+              ? 'bg-burgundy-700/30 text-burgundy-200 border-burgundy-500'
+              : 'bg-renaissance-olive/20 text-renaissance-olive-light border-renaissance-olive'
           }`}>
             {saveMessage}
           </div>
@@ -381,15 +383,15 @@ export default function OrdersPanel({
         <button
           onClick={handleSaveOrders}
           disabled={isSaving || Object.keys(orders).length === 0}
-          className={`w-full py-2 rounded font-medium transition-colors ${
+          className={`w-full py-3 rounded-lg font-heading font-bold text-base transition-all duration-200 border-2 ${
             isSaving || Object.keys(orders).length === 0
-              ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-              : 'bg-blue-600 hover:bg-blue-700 text-white'
+              ? 'bg-gray-700 text-gray-500 border-gray-600 cursor-not-allowed'
+              : 'bg-renaissance-gold/20 hover:bg-renaissance-gold/30 text-renaissance-gold border-renaissance-gold hover:shadow-glow-gold'
           }`}
         >
-          {isSaving ? 'Guardando...' : 'Guardar Órdenes'}
+          {isSaving ? '📜 Guardando...' : '📜 Guardar Órdenes'}
         </button>
-        <div className="text-xs text-gray-400 mt-2 text-center">
+        <div className="text-xs font-serif text-gray-400 mt-3 text-center italic">
           Puedes modificar tus órdenes hasta el final de la fase
         </div>
       </div>

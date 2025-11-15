@@ -103,7 +103,6 @@ export interface Player {
   // Fichas de asesino: Map de playerId → cantidad de fichas
   assassinTokens: Record<string, number>
 
-  cities: string[] // Array de ciudades controladas
   isEliminated: boolean
   isAlive: boolean // Estado activo del jugador
 
@@ -168,6 +167,7 @@ export interface ExtraExpense {
 // ==================== DIPLOMATIC MESSAGES ====================
 export interface DiplomaticMessage {
   id: string
+  gameId: string // ID de la partida
   from: string // playerId
   to: string // playerId (o 'all' para mensajes públicos)
   content: string

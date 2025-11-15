@@ -35,39 +35,13 @@ export async function updateGameState(context: ResolutionContext): Promise<void>
     operationCount++;
   };
 
-  // 3. Calcular ciudades controladas por cada jugador (basándose en guarniciones)
-  const playerCities: Record<string, string[]> = {};
-
-  // Inicializar arrays vacíos para cada jugador
-  players.forEach(player => {
-    playerCities[player.id] = [];
-  });
-
-  // Iterar sobre todas las guarniciones y asignar ciudades
-  units
-    .filter(unit => unit.type === 'garrison')
-    .forEach(garrison => {
-      const province = context.map.provinces[garrison.currentPosition];
-      // Solo contar provincias con ciudad
-      if (province && province.hasCity) {
-        if (!playerCities[garrison.owner]) {
-          playerCities[garrison.owner] = [];
-        }
-        playerCities[garrison.owner].push(garrison.currentPosition);
-      }
-    });
-
-  console.log('Calculated player cities:', playerCities);
-
-  // 4. Actualizar jugadores (tesorería, ciudades y otros campos)
+  // 3. Actualizar jugadores (tesorería y otros campos)
   for (const player of players) {
     const playerRef = db.collection('players').doc(player.id);
-    const cities = playerCities[player.id] || [];
 
     addOperation(() => {
       batches[currentBatch].update(playerRef, {
         treasury: player.treasury || 0,
-        cities: cities,
         isAlive: player.isAlive !== false,
         updatedAt: new Date(),
       });

@@ -11,12 +11,14 @@ import GameBoard from '@/components/GameBoard'
 import OrdersPanel from '@/components/OrdersPanel'
 import TurnIndicator from '@/components/TurnIndicator'
 import DiplomaticChat from '@/components/DiplomaticChat'
+import DiplomacyModal from '@/components/DiplomacyModal'
 import TreasuryPanel from '@/components/TreasuryPanel'
 import TurnHistory from '@/components/TurnHistory'
 import VictoryScreen from '@/components/VictoryScreen'
 import FamineMitigationPanel from '@/components/FamineMitigationPanel'
 import InactivePlayerVoting from '@/components/InactivePlayerVoting'
 import ProvinceInfoPanel from '@/components/ProvinceInfoPanel'
+import UnitManagementModal from '@/components/UnitManagementModal'
 
 export default function Game() {
   const { gameId } = useParams<{ gameId: string }>()
@@ -41,6 +43,12 @@ export default function Game() {
 
   // Estado para forzar avance de fase (testing)
   const [isAdvancingPhase, setIsAdvancingPhase] = useState(false)
+
+  // Estado del modal de diplomacia
+  const [isDiplomacyModalOpen, setIsDiplomacyModalOpen] = useState(false)
+
+  // Estado del modal de gestión de unidades
+  const [unitManagementModalUnit, setUnitManagementModalUnit] = useState<Unit | null>(null)
 
   // Cargar datos de la partida
   useEffect(() => {
@@ -141,6 +149,21 @@ export default function Game() {
     return () => unsubscribe()
   }, [gameId])
 
+  // Listener en tiempo real para el currentPlayer (actualiza treasury automáticamente)
+  useEffect(() => {
+    if (!player?.id) return
+
+    const playerDocRef = doc(db, 'players', player.id)
+
+    const unsubscribe = onSnapshot(playerDocRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setPlayer({ id: snapshot.id, ...snapshot.data() } as Player)
+      }
+    })
+
+    return () => unsubscribe()
+  }, [player?.id])
+
   // Calcular mapeo de jugadores a facciones y control de provincias
   // IMPORTANTE: Esto debe estar ANTES de cualquier return early (reglas de hooks)
   // NOTA: playerFactions comentado temporalmente (no usado actualmente)
@@ -176,17 +199,18 @@ export default function Game() {
       })
     }
 
-    // Actualizar con las ciudades controladas por jugadores (basándose en player.cities)
-    players.forEach((p) => {
-      if (p.cities) {
-        p.cities.forEach((cityId) => {
-          result[cityId] = p.faction
-        })
-      }
-    })
+    // Actualizar con las provincias controladas por jugadores (basándose en guarniciones)
+    units
+      .filter(u => u.type === 'garrison')
+      .forEach((garrison) => {
+        const owner = players.find(p => p.id === garrison.owner)
+        if (owner) {
+          result[garrison.currentPosition] = owner.faction
+        }
+      })
 
     return result
-  }, [players, game])
+  }, [players, game, units])
 
   // Calcular provincias controladas por el jugador (basado en guarniciones)
   const myControlledProvinces = useMemo(() => {
@@ -395,6 +419,20 @@ export default function Game() {
 
       {/* Main content */}
       <main className="flex-1 flex overflow-hidden">
+        {/* Panel izquierdo - Información de provincia */}
+        <aside className="w-80 bg-gray-800 border-r border-gray-700 flex flex-col overflow-y-auto">
+          <ProvinceInfoPanel
+            game={game}
+            provinceId={selectedProvince}
+            visibleUnits={visibleUnits}
+            players={players}
+            currentPlayer={player}
+            controlledProvinces={myControlledProvinces}
+            provinceFaction={provinceFaction}
+            onUnitClick={(unit) => setUnitManagementModalUnit(unit)}
+          />
+        </aside>
+
         {/* Mapa */}
         <div className="flex-1 p-4 overflow-hidden">
           <GameBoard
@@ -406,13 +444,16 @@ export default function Game() {
           />
         </div>
 
-        {/* Panel lateral */}
+        {/* Panel lateral derecho */}
         <aside className="w-96 bg-gray-800 border-l border-gray-700 flex flex-col overflow-y-auto">
           {/* Paneles superiores - agrupados para no colapsar */}
           <div className="flex-shrink-0">
             {/* TurnIndicator con información de turno y countdown */}
             <div className="p-4 border-b border-gray-700">
-              <TurnIndicator game={game} />
+              <TurnIndicator
+                game={game}
+                onDiplomacyClick={() => setIsDiplomacyModalOpen(true)}
+              />
             </div>
 
             {/* TreasuryPanel - Información económica */}
@@ -449,17 +490,6 @@ export default function Game() {
                 />
               </div>
             )}
-
-            {/* Información de provincia seleccionada */}
-            <ProvinceInfoPanel
-              game={game}
-              provinceId={selectedProvince}
-              visibleUnits={visibleUnits}
-              players={players}
-              currentPlayer={player}
-              controlledProvinces={myControlledProvinces}
-              provinceFaction={provinceFaction}
-            />
           </div>
 
           {/* Tabs de navegación */}
@@ -542,6 +572,27 @@ export default function Game() {
           </div>
         </aside>
       </main>
+
+      {/* Modal de diplomacia */}
+      {isDiplomacyModalOpen && (
+        <DiplomacyModal
+          game={game}
+          currentPlayer={player}
+          players={players}
+          onClose={() => setIsDiplomacyModalOpen(false)}
+        />
+      )}
+
+      {/* Modal de gestión de unidades */}
+      {unitManagementModalUnit && player && game && (
+        <UnitManagementModal
+          unit={unitManagementModalUnit}
+          game={game}
+          currentPlayer={player}
+          allUnits={units}
+          onClose={() => setUnitManagementModalUnit(null)}
+        />
+      )}
     </div>
   )
 }

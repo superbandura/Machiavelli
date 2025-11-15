@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { collection, addDoc, query, where, onSnapshot, orderBy, updateDoc, doc, serverTimestamp, Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Player, DiplomaticMessage } from '@/types'
+import WaxSeal from './decorative/icons/WaxSeal'
+import Separator from './decorative/Separator'
 
 interface DiplomaticChatProps {
   gameId: string
@@ -39,7 +41,7 @@ export default function DiplomaticChat({
     if (!gameId || !currentPlayer.id) return
 
     const messagesQuery = query(
-      collection(db, 'messages'),
+      collection(db, 'diplomatic_messages'),
       where('gameId', '==', gameId),
       orderBy('sentAt', 'asc')
     )
@@ -72,7 +74,7 @@ export default function DiplomaticChat({
       })
 
       for (const msgDoc of unreadMessages) {
-        await updateDoc(doc(db, 'messages', msgDoc.id), {
+        await updateDoc(doc(db, 'diplomatic_messages', msgDoc.id), {
           isRead: true
         })
       }
@@ -87,7 +89,7 @@ export default function DiplomaticChat({
 
     setIsSending(true)
     try {
-      await addDoc(collection(db, 'messages'), {
+      await addDoc(collection(db, 'diplomatic_messages'), {
         gameId,
         from: currentPlayer.id,
         to: selectedRecipient,
@@ -142,48 +144,51 @@ export default function DiplomaticChat({
   const filteredMessages = getFilteredMessages()
 
   return (
-    <div className="flex flex-col h-full bg-gray-800">
-      {/* Header */}
-      <div className="p-4 border-b border-gray-700">
-        <h3 className="font-bold text-lg mb-2">💬 Chat Diplomático</h3>
+    <div className="flex flex-col h-full bg-gray-800 rounded-lg border-2 border-burgundy-500 shadow-ornate">
+      {/* Header ornamentado */}
+      <div className="p-5 border-b-2 border-burgundy-500/50">
+        <div className="flex items-center gap-3 mb-2">
+          <WaxSeal variant="burgundy" size="md" />
+          <h3 className="font-heading font-bold text-xl text-burgundy-300">Cartas Diplomáticas</h3>
+        </div>
         {!isDiplomaticPhase && (
-          <div className="text-xs text-yellow-400 bg-yellow-900/20 border border-yellow-700 rounded p-2">
+          <div className="text-sm font-serif text-renaissance-bronze-light bg-renaissance-bronze/20 border-2 border-renaissance-bronze rounded-lg p-3 mt-3">
             ⚠️ Los mensajes solo se pueden enviar en la Fase Diplomática
           </div>
         )}
       </div>
 
       {/* Selector de conversación */}
-      <div className="p-3 border-b border-gray-700 bg-gray-900">
-        <label className="block text-xs font-medium mb-2 text-gray-400">
-          Conversación
+      <div className="p-4 border-b-2 border-burgundy-500/30 bg-gray-900/40">
+        <label className="block text-sm font-heading font-semibold text-parchment-300 mb-2 uppercase tracking-wide">
+          Correspondencia
         </label>
         <select
-          className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm"
+          className="w-full bg-gray-900 border-2 border-burgundy-400 rounded-lg px-3 py-2.5 text-sm font-serif text-parchment-200 focus:border-burgundy-300 transition-colors"
           value={selectedConversation}
           onChange={(e) => setSelectedConversation(e.target.value)}
         >
-          <option value="all">Todos los mensajes</option>
+          <option value="all">📜 Todas las cartas</option>
           {players
             .filter(p => p.id !== currentPlayer.id)
             .map(player => {
               const unreadCount = getUnreadCount(player.id)
               return (
                 <option key={player.id} value={player.id}>
-                  {player.faction} {unreadCount > 0 ? `(${unreadCount} nuevos)` : ''}
+                  📨 {player.faction} {unreadCount > 0 ? `(${unreadCount} nuevas)` : ''}
                 </option>
               )
             })}
         </select>
       </div>
 
-      {/* Lista de mensajes */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      {/* Lista de cartas */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {filteredMessages.length === 0 ? (
-          <div className="text-center text-gray-400 py-8">
-            <div className="text-4xl mb-2">📭</div>
-            <div>No hay mensajes aún</div>
-            <div className="text-xs mt-1">Sé el primero en negociar</div>
+          <div className="text-center text-parchment-400 py-8">
+            <div className="text-5xl mb-3">📭</div>
+            <div className="font-heading text-lg">No hay cartas aún</div>
+            <div className="text-sm font-serif mt-2 italic">Sé el primero en negociar</div>
           </div>
         ) : (
           filteredMessages.map((msg) => {
@@ -196,46 +201,56 @@ export default function DiplomaticChat({
                 className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[80%] rounded-lg p-3 ${
+                  className={`max-w-[85%] rounded-lg p-4 relative ${
                     isOwnMessage
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-renaissance-bronze/20 border-2 border-renaissance-bronze shadow-ornate'
                       : isPublic
-                      ? 'bg-purple-900/50 border border-purple-700'
-                      : 'bg-gray-700'
+                      ? 'bg-burgundy-700/20 border-2 border-burgundy-400'
+                      : 'bg-gray-900/60 border-2 border-gray-600'
                   }`}
                 >
-                  {/* Cabecera del mensaje */}
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-bold text-sm">
-                      {isOwnMessage ? 'Tú' : getPlayerName(msg.from)}
+                  {/* Sello de cera en la esquina */}
+                  <div className="absolute -top-3 -right-3">
+                    <WaxSeal
+                      variant={isOwnMessage ? 'bronze' : isPublic ? 'burgundy' : 'silver'}
+                      size="sm"
+                    />
+                  </div>
+
+                  {/* Cabecera de la carta */}
+                  <div className="flex items-center gap-2 mb-2 pb-2 border-b border-dotted border-gray-600">
+                    <span className="font-heading font-bold text-base text-parchment-200">
+                      {isOwnMessage ? 'Tu carta' : `De ${getPlayerName(msg.from)}`}
                     </span>
                     {isPublic && (
-                      <span className="text-xs bg-purple-700 px-2 py-0.5 rounded">
-                        Público
+                      <span className="text-xs font-serif bg-burgundy-600 px-2 py-1 rounded border border-burgundy-400">
+                        Pública
                       </span>
                     )}
                     {!isPublic && !isOwnMessage && (
-                      <span className="text-xs bg-gray-600 px-2 py-0.5 rounded">
-                        Privado
+                      <span className="text-xs font-serif bg-gray-700 px-2 py-1 rounded border border-gray-500">
+                        Privada
                       </span>
                     )}
                   </div>
 
-                  {/* Contenido del mensaje */}
-                  <div className="text-sm whitespace-pre-wrap break-words">
+                  {/* Contenido de la carta */}
+                  <div className="text-sm font-serif text-parchment-200 whitespace-pre-wrap break-words leading-relaxed mb-3">
                     {msg.content}
                   </div>
 
                   {/* Metadata */}
-                  <div className="flex items-center justify-between mt-2 text-xs opacity-75">
-                    <span>
-                      {msg.sentAt ? new Date((msg.sentAt as Timestamp).toMillis()).toLocaleTimeString('es-ES', {
+                  <div className="flex items-center justify-between text-xs font-serif text-gray-400 border-t border-dotted border-gray-600 pt-2">
+                    <span className="italic">
+                      {msg.sentAt ? new Date((msg.sentAt as Timestamp).toMillis()).toLocaleString('es-ES', {
+                        day: '2-digit',
+                        month: 'short',
                         hour: '2-digit',
                         minute: '2-digit'
                       }) : 'Enviando...'}
                     </span>
                     {!isOwnMessage && !isPublic && (
-                      <span>→ {getPlayerName(msg.to)}</span>
+                      <span className="font-heading">→ {getPlayerName(msg.to)}</span>
                     )}
                   </div>
                 </div>
@@ -246,35 +261,35 @@ export default function DiplomaticChat({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input de nuevo mensaje */}
-      <div className="p-4 border-t border-gray-700 bg-gray-900">
+      {/* Input para escribir nuevas cartas */}
+      <div className="p-5 border-t-2 border-burgundy-500/50 bg-gray-900/40">
         {isDiplomaticPhase ? (
           <>
-            <div className="mb-2">
-              <label className="block text-xs font-medium mb-1 text-gray-400">
+            <div className="mb-3">
+              <label className="block text-sm font-heading font-semibold text-parchment-300 mb-2 uppercase tracking-wide">
                 Destinatario
               </label>
               <select
-                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm"
+                className="w-full bg-gray-900 border-2 border-burgundy-400 rounded-lg px-3 py-2.5 text-sm font-serif text-parchment-200 focus:border-burgundy-300 transition-colors"
                 value={selectedRecipient}
                 onChange={(e) => setSelectedRecipient(e.target.value)}
               >
-                <option value="all">📢 Mensaje público (todos)</option>
+                <option value="all">📢 Carta pública (todos)</option>
                 {players
                   .filter(p => p.id !== currentPlayer.id)
                   .map(player => (
                     <option key={player.id} value={player.id}>
-                      🔒 {player.faction} (privado)
+                      🔒 {player.faction} (privada)
                     </option>
                   ))}
               </select>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <textarea
-                className="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm resize-none"
-                placeholder="Escribe tu mensaje diplomático..."
-                rows={2}
+                className="flex-1 bg-gray-900 border-2 border-burgundy-400 rounded-lg px-4 py-3 text-sm font-serif text-parchment-200 resize-none focus:border-burgundy-300 transition-colors placeholder:text-gray-500 placeholder:italic"
+                placeholder="Escribe tu carta diplomática..."
+                rows={3}
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyDown={(e) => {
@@ -287,23 +302,23 @@ export default function DiplomaticChat({
               <button
                 onClick={handleSendMessage}
                 disabled={!newMessage.trim() || isSending}
-                className={`px-4 py-2 rounded font-medium transition-colors ${
+                className={`px-5 py-3 rounded-lg font-heading font-bold transition-all duration-200 border-2 flex items-center gap-2 ${
                   !newMessage.trim() || isSending
-                    ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    ? 'bg-gray-700 text-gray-500 border-gray-600 cursor-not-allowed'
+                    : 'bg-burgundy-600/20 hover:bg-burgundy-600/30 text-burgundy-300 border-burgundy-400 hover:shadow-glow-burgundy'
                 }`}
               >
                 {isSending ? '...' : '📤'}
               </button>
             </div>
 
-            <div className="text-xs text-gray-400 mt-2">
-              Presiona Enter para enviar, Shift+Enter para nueva línea
+            <div className="text-xs font-serif text-gray-400 mt-2 italic">
+              Enter para enviar, Shift+Enter para nueva línea
             </div>
           </>
         ) : (
-          <div className="text-center text-gray-400 text-sm py-3">
-            Solo puedes enviar mensajes durante la Fase Diplomática
+          <div className="text-center text-parchment-400 font-serif text-sm py-4 italic">
+            Solo puedes enviar cartas durante la Fase Diplomática
           </div>
         )}
       </div>

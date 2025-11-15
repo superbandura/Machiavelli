@@ -38,6 +38,9 @@ export async function resolveMovements(context: ResolutionContext): Promise<void
   // PASO 3.5: Movimientos sin combate
   resolveNonCombatMovements(context);
 
+  // PASO 3.6: Crear guarniciones automáticas en ciudades capturadas
+  createAutomaticGarrisons(context);
+
   console.log('Movements resolved');
 }
 
@@ -378,4 +381,84 @@ function resolveNonCombatMovements(context: ResolutionContext): void {
   }
 
   console.log('Non-combat movements resolved');
+}
+
+/**
+ * 3.6: Crear guarniciones automáticas cuando se captura una ciudad
+ */
+function createAutomaticGarrisons(context: ResolutionContext): void {
+  console.log('Creating automatic garrisons for captured cities...');
+
+  const { units, gameState } = context;
+  const gameMap = gameState.map;
+
+  // Encontrar todas las ciudades
+  const cities = Object.entries(gameMap).filter(
+    ([_, provinceData]: [string, any]) => provinceData.hasCity === true
+  );
+
+  for (const [provinceId, _] of cities) {
+    // Verificar si la ciudad tiene alguna unidad
+    const unitsInProvince = units.filter(u => u.currentPosition === provinceId);
+
+    if (unitsInProvince.length === 0) {
+      // Ciudad vacía, no crear guarnición
+      continue;
+    }
+
+    // Verificar si ya tiene una guarnición
+    const hasGarrison = unitsInProvince.some(u => u.type === 'garrison');
+
+    if (hasGarrison) {
+      // Ya tiene guarnición, no crear otra
+      continue;
+    }
+
+    // Determinar el propietario de la ciudad (el jugador con unidades aquí)
+    // Asumimos que todas las unidades son del mismo jugador después de la batalla
+    const owner = unitsInProvince[0].owner;
+
+    // Verificar que todas las unidades son del mismo jugador
+    const allSameOwner = unitsInProvince.every(u => u.owner === owner);
+
+    if (!allSameOwner) {
+      // Hay unidades de diferentes jugadores, no crear guarnición aún
+      continue;
+    }
+
+    // Crear nueva guarnición con 200 milicias
+    const newGarrison = {
+      id: `garrison_${provinceId}_${Date.now()}`,
+      type: 'garrison' as const,
+      owner,
+      currentPosition: provinceId,
+      status: 'active' as const,
+      siegeTurns: 0,
+      createdAt: new Date(),
+      name: `Guarnición de ${provinceId}`,
+      composition: {
+        name: `Guarnición de ${provinceId}`,
+        troops: {
+          militia: 200,
+          lancers: 0,
+          pikemen: 0,
+          archers: 0,
+          crossbowmen: 0
+        }
+      }
+    };
+
+    units.push(newGarrison);
+
+    context.events.push({
+      type: 'garrison_created',
+      provinceId,
+      playerId: owner,
+      message: `🏰 Se crea guarnición automática en ${provinceId} (200 milicias)`
+    });
+
+    console.log(`Created garrison in ${provinceId} for player ${owner}`);
+  }
+
+  console.log('Automatic garrisons created');
 }

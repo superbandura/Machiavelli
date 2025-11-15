@@ -67,7 +67,9 @@
       "WebSearch",
       "WebFetch(domain:bettertyped.github.io)",
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:www.npmjs.com)"
+      "WebFetch(domain:www.npmjs.com)",
+      "Bash(if not exist \"F:\\Machiavelli\\src\\components\\decorative\" mkdir \"F:\\Machiavelli\\src\\components\\decorative\")",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

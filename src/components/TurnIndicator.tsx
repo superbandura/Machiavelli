@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react'
 import { Game } from '@/types'
+import Hourglass from './decorative/icons/Hourglass'
+import Separator from './decorative/Separator'
 
 interface TurnIndicatorProps {
   game: Game
+  onDiplomacyClick?: () => void
 }
 
-export default function TurnIndicator({ game }: TurnIndicatorProps) {
+export default function TurnIndicator({ game, onDiplomacyClick }: TurnIndicatorProps) {
   const [timeRemaining, setTimeRemaining] = useState<string>('')
   const [isUrgent, setIsUrgent] = useState(false)
 
@@ -68,14 +71,24 @@ export default function TurnIndicator({ game }: TurnIndicatorProps) {
     return phaseNames[phase] || phase
   }
 
-  // Obtener color de la fase
+  // Obtener color de la fase (Renaissance style)
   const getPhaseColor = (phase: string): string => {
     const phaseColors: Record<string, string> = {
-      diplomatic: 'bg-purple-900/50 text-purple-300 border-purple-700',
-      orders: 'bg-blue-900/50 text-blue-300 border-blue-700',
-      resolution: 'bg-green-900/50 text-green-300 border-green-700'
+      diplomatic: 'bg-burgundy-700/30 text-parchment-200 border-burgundy-500',
+      orders: 'bg-renaissance-bronze/20 text-renaissance-bronze-light border-renaissance-bronze',
+      resolution: 'bg-renaissance-gold/20 text-renaissance-gold-light border-renaissance-gold'
     }
     return phaseColors[phase] || 'bg-gray-800 text-gray-300 border-gray-700'
+  }
+
+  // Obtener icono de la fase
+  const getPhaseIcon = (phase: string): string => {
+    const icons: Record<string, string> = {
+      diplomatic: '📜', // Pergamino
+      orders: '⚔️',    // Espadas
+      resolution: '⚙️'  // Engranajes
+    }
+    return icons[phase] || '•'
   }
 
   // Obtener nombre de la temporada en español
@@ -89,25 +102,25 @@ export default function TurnIndicator({ game }: TurnIndicatorProps) {
   }
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-3">
-      {/* Información de turno y año */}
+    <div className="bg-gray-800 border-2 border-renaissance-gold rounded-lg p-5 space-y-4 shadow-ornate">
+      {/* Header ornamentado */}
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-lg font-bold">
+          <h3 className="text-2xl font-heading font-bold text-renaissance-gold">
             Turno {game.turnNumber}
           </h3>
-          <div className="text-sm text-gray-400">
-            {game.currentYear} - {getSeasonInSpanish(game.currentSeason)}
+          <div className="text-base font-serif text-parchment-300 mt-1">
+            Anno Domini {game.currentYear} · {getSeasonInSpanish(game.currentSeason)}
           </div>
         </div>
         <div className="text-right">
-          <div className="text-xs text-gray-400">Estado</div>
-          <div className={`text-sm font-medium px-2 py-1 rounded capitalize ${
+          <div className="text-xs font-serif text-gray-400 uppercase tracking-wider">Estado</div>
+          <div className={`text-sm font-heading font-medium px-3 py-1.5 rounded border-2 capitalize mt-1 ${
             game.status === 'waiting'
-              ? 'bg-yellow-900/50 text-yellow-300'
+              ? 'bg-renaissance-bronze/20 border-renaissance-bronze text-renaissance-bronze-light'
               : game.status === 'active'
-              ? 'bg-green-900/50 text-green-300'
-              : 'bg-red-900/50 text-red-300'
+              ? 'bg-renaissance-gold/20 border-renaissance-gold text-renaissance-gold-light'
+              : 'bg-burgundy-700/30 border-burgundy-500 text-burgundy-300'
           }`}>
             {game.status === 'waiting' && 'En espera'}
             {game.status === 'active' && 'Activa'}
@@ -116,91 +129,100 @@ export default function TurnIndicator({ game }: TurnIndicatorProps) {
         </div>
       </div>
 
+      <Separator variant="gold" />
+
       {/* Fase actual */}
-      <div className={`border rounded-lg p-3 ${getPhaseColor(game.currentPhase)}`}>
+      <div
+        className={`border-2 rounded-lg p-4 ${getPhaseColor(game.currentPhase)} transition-all duration-300 ${
+          onDiplomacyClick ? 'cursor-pointer hover:shadow-glow-gold hover:border-renaissance-gold' : ''
+        }`}
+        onClick={onDiplomacyClick}
+        title={onDiplomacyClick ? 'Click para abrir mensajes diplomáticos' : ''}
+      >
         <div className="flex justify-between items-center">
           <div>
-            <div className="text-xs opacity-75">Fase Actual</div>
-            <div className="font-bold text-lg">
+            <div className="text-xs font-serif opacity-75 uppercase tracking-wider">Fase Actual</div>
+            <div className="font-heading font-bold text-2xl mt-1">
               {getPhaseNameInSpanish(game.currentPhase)}
             </div>
+            {onDiplomacyClick && (
+              <div className="text-xs font-serif opacity-75 mt-2 italic">
+                Click para ver diplomacia →
+              </div>
+            )}
           </div>
-          {game.currentPhase === 'diplomatic' && (
-            <div className="text-2xl">💬</div>
-          )}
-          {game.currentPhase === 'orders' && (
-            <div className="text-2xl">⚔️</div>
-          )}
-          {game.currentPhase === 'resolution' && (
-            <div className="text-2xl">⚙️</div>
-          )}
+          <div className="text-4xl opacity-80">
+            {getPhaseIcon(game.currentPhase)}
+          </div>
         </div>
       </div>
 
-      {/* Contador regresivo */}
+      {/* Contador regresivo con reloj de arena */}
       {game.status === 'active' && game.phaseDeadline && (
-        <div className={`border rounded-lg p-3 ${
+        <div className={`border-2 rounded-lg p-4 transition-all ${
           isUrgent
-            ? 'bg-red-900/20 border-red-700'
-            : 'bg-gray-900/50 border-gray-700'
+            ? 'bg-burgundy-700/20 border-burgundy-400 shadow-glow-burgundy'
+            : 'bg-gray-900/50 border-renaissance-bronze'
         }`}>
-          <div className="flex justify-between items-center">
-            <div>
-              <div className="text-xs text-gray-400">Tiempo Restante</div>
-              <div className={`font-mono text-xl font-bold ${
-                isUrgent ? 'text-red-400 animate-pulse' : 'text-white'
+          <div className="flex justify-between items-center gap-4">
+            <div className="flex-1">
+              <div className="text-xs font-serif text-gray-400 uppercase tracking-wider">Tiempo Restante</div>
+              <div className={`font-heading text-2xl font-bold mt-1 ${
+                isUrgent ? 'text-burgundy-300 animate-pulse' : 'text-renaissance-gold'
               }`}>
                 {timeRemaining || 'Calculando...'}
               </div>
             </div>
-            {isUrgent && (
-              <div className="text-2xl animate-bounce">⏰</div>
-            )}
+            <Hourglass className="w-12 h-12 flex-shrink-0" animated={isUrgent} />
           </div>
           {isUrgent && (
-            <div className="mt-2 text-xs text-red-400 font-medium">
-              ⚠️ ¡Tiempo limitado! Envía tus órdenes pronto
+            <div className="mt-3 text-sm font-serif text-burgundy-300 font-medium border-t border-burgundy-600 pt-3">
+              ⚠️ Tempus fugit! Envía tus órdenes pronto
             </div>
           )}
         </div>
       )}
 
+      <Separator variant="gray" />
+
       {/* Información de duraciones configuradas */}
-      <div className="border-t border-gray-700 pt-3">
-        <div className="text-xs text-gray-400 mb-2">Duración de fases:</div>
-        <div className="grid grid-cols-3 gap-2 text-xs">
-          <div className="bg-purple-900/20 border border-purple-800 rounded p-2 text-center">
-            <div className="text-purple-400 font-medium">Diplomática</div>
-            <div className="text-white">{game.phaseDurations.diplomatic}h</div>
+      <div>
+        <div className="text-xs font-serif text-gray-400 uppercase tracking-wider mb-3">Duración de fases</div>
+        <div className="grid grid-cols-3 gap-3 text-xs">
+          <div className="bg-burgundy-700/20 border-2 border-burgundy-600 rounded-lg p-2.5 text-center hover:border-burgundy-500 transition-colors">
+            <div className="text-burgundy-300 font-heading font-semibold">Diplomática</div>
+            <div className="text-parchment-200 font-serif text-base mt-1">{game.phaseDurations.diplomatic}h</div>
           </div>
-          <div className="bg-blue-900/20 border border-blue-800 rounded p-2 text-center">
-            <div className="text-blue-400 font-medium">Órdenes</div>
-            <div className="text-white">{game.phaseDurations.orders}h</div>
+          <div className="bg-renaissance-bronze/20 border-2 border-renaissance-bronze rounded-lg p-2.5 text-center hover:border-renaissance-bronze-light transition-colors">
+            <div className="text-renaissance-bronze-light font-heading font-semibold">Órdenes</div>
+            <div className="text-parchment-200 font-serif text-base mt-1">{game.phaseDurations.orders}h</div>
           </div>
-          <div className="bg-green-900/20 border border-green-800 rounded p-2 text-center">
-            <div className="text-green-400 font-medium">Resolución</div>
-            <div className="text-white">{game.phaseDurations.resolution}h</div>
+          <div className="bg-renaissance-gold/20 border-2 border-renaissance-gold-dark rounded-lg p-2.5 text-center hover:border-renaissance-gold transition-colors">
+            <div className="text-renaissance-gold-light font-heading font-semibold">Resolución</div>
+            <div className="text-parchment-200 font-serif text-base mt-1">{game.phaseDurations.resolution}h</div>
           </div>
         </div>
       </div>
 
+      <Separator variant="gray" />
+
       {/* Descripción de la fase actual */}
-      <div className="text-xs text-gray-400 border-t border-gray-700 pt-3">
+      <div className="text-sm font-serif text-gray-300 leading-relaxed">
         {game.currentPhase === 'diplomatic' && (
           <>
-            <strong className="text-purple-400">Fase Diplomática:</strong> Negocia con otros jugadores,
+            <strong className="text-burgundy-300 font-heading">Fase Diplomática:</strong> Negocia con otros jugadores,
             forma alianzas y planifica tu estrategia. No se pueden dar órdenes aún.
           </>
         )}
         {game.currentPhase === 'orders' && (
           <>
-            <strong className="text-blue-400">Fase de Órdenes:</strong> Introduce las órdenes para
+            <strong className="text-renaissance-bronze-light font-heading">Fase de Órdenes:</strong> Introduce las órdenes para
             todas tus unidades. Puedes modificarlas hasta que expire el tiempo.
           </>
         )}
         {game.currentPhase === 'resolution' && (
           <>
-            <strong className="text-green-400">Fase de Resolución:</strong> El sistema está procesando
+            <strong className="text-renaissance-gold-light font-heading">Fase de Resolución:</strong> El sistema está procesando
             todas las órdenes y resolviendo batallas automáticamente.
           </>
         )}

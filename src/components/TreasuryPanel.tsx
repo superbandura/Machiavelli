@@ -9,6 +9,8 @@
 
 import { useMemo } from 'react';
 import type { Player, Unit, GameMap } from '../types';
+import DucatBag from './decorative/icons/DucatBag';
+import Separator from './decorative/Separator';
 
 interface TreasuryPanelProps {
   player: Player;
@@ -64,31 +66,40 @@ export default function TreasuryPanel({ player, units, currentSeason, gameMap }:
   const isSpring = currentSeason === 'Primavera';
 
   return (
-    <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-      <h3 className="text-lg font-bold text-white mb-4">💰 Tesorería</h3>
+    <div className="bg-gray-800 rounded-lg p-5 border-2 border-renaissance-gold shadow-ornate">
+      {/* Header con icono de bolsa de ducados */}
+      <div className="flex items-center gap-3 mb-4">
+        <DucatBag className="w-10 h-10" filled={treasury > 10} />
+        <h3 className="text-xl font-heading font-bold text-renaissance-gold">
+          Libro de Contabilidad
+        </h3>
+      </div>
 
-      {/* Tesoro actual */}
-      <div className="mb-4">
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-gray-400">Tesoro actual:</span>
-          <span className="text-2xl font-bold text-yellow-400">{treasury}d</span>
+      <Separator variant="gold" className="mb-4" />
+
+      {/* Tesoro actual - estilo ledger */}
+      <div className="mb-4 bg-renaissance-ink/30 rounded-lg p-4 border border-renaissance-gold/30">
+        <div className="flex justify-between items-center">
+          <span className="text-sm font-serif text-parchment-300 uppercase tracking-wide">Tesoro actual</span>
+          <div className="flex items-center gap-2">
+            <span className="text-3xl font-heading font-bold text-renaissance-gold">{treasury}</span>
+            <span className="text-lg font-serif text-renaissance-gold-light">ducados</span>
+          </div>
         </div>
       </div>
 
-      <div className="border-t border-gray-700 pt-3 mb-3"></div>
-
       {/* Ciudades controladas */}
       <div className="mb-4">
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-gray-400">Ciudades controladas:</span>
-          <span className="text-xl font-semibold text-green-400">{citiesControlled.length}</span>
+        <div className="flex justify-between items-center mb-3">
+          <span className="text-sm font-serif text-gray-400 uppercase tracking-wide">Ciudades controladas</span>
+          <span className="text-2xl font-heading font-bold text-renaissance-bronze">{citiesControlled.length}</span>
         </div>
 
         {citiesControlled.length > 0 && (
-          <div className="mt-2 space-y-1">
+          <div className="mt-2 space-y-1.5 max-h-32 overflow-y-auto">
             {citiesControlled.map((city: any) => (
-              <div key={city.id} className="text-sm text-gray-500 flex items-center gap-2">
-                <span className="text-yellow-600">🏰</span>
+              <div key={city.id} className="text-sm font-serif text-parchment-300 flex items-center gap-2 py-1 px-2 bg-gray-900/40 rounded border-l-2 border-renaissance-bronze/50">
+                <span className="text-base">🏰</span>
                 <span>{city.name}</span>
               </div>
             ))}
@@ -96,15 +107,15 @@ export default function TreasuryPanel({ player, units, currentSeason, gameMap }:
         )}
       </div>
 
-      <div className="border-t border-gray-700 pt-3 mb-3"></div>
+      <Separator variant="gray" className="my-4" />
 
-      {/* Ingresos estimados */}
+      {/* Ingresos estimados - Estilo ledger con líneas punteadas */}
       <div className="mb-4">
-        <div className="flex justify-between items-center mb-1">
-          <span className="text-gray-400">Ingresos próxima Primavera:</span>
-          <span className="text-lg font-semibold text-green-400">+{estimatedIncome}d</span>
+        <div className="flex justify-between items-center mb-1 border-b border-dotted border-gray-600 pb-2">
+          <span className="text-sm font-serif text-gray-400">Ingresos próxima Primavera</span>
+          <span className="text-lg font-heading font-semibold text-renaissance-olive-light">+{estimatedIncome}d</span>
         </div>
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs font-serif text-gray-500 mt-1 italic">
           (3 ducados por ciudad)
         </p>
       </div>
@@ -112,21 +123,19 @@ export default function TreasuryPanel({ player, units, currentSeason, gameMap }:
       {/* Gastos de mantenimiento (solo en Primavera) */}
       {isSpring && (
         <>
-          <div className="border-t border-gray-700 pt-3 mb-3"></div>
-
           <div className="mb-4">
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-gray-400">Mantenimiento esta Primavera:</span>
-              <span className="text-lg font-semibold text-red-400">-{maintenanceCost}d</span>
+            <div className="flex justify-between items-center mb-1 border-b border-dotted border-gray-600 pb-2">
+              <span className="text-sm font-serif text-gray-400">Mantenimiento esta Primavera</span>
+              <span className="text-lg font-heading font-semibold text-burgundy-300">-{maintenanceCost}d</span>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs font-serif text-gray-500 mt-1 italic">
               (1d por ejército/flota, 0.5d por guarnición)
             </p>
 
             {/* Advertencia si no puede pagar */}
             {treasury < maintenanceCost && (
-              <div className="mt-3 bg-red-900/30 border border-red-700 rounded p-2">
-                <p className="text-xs text-red-300">
+              <div className="mt-3 bg-burgundy-700/30 border-2 border-burgundy-500 rounded-lg p-3">
+                <p className="text-sm font-serif text-burgundy-200">
                   ⚠️ Fondos insuficientes! Deberás licenciar tropas.
                 </p>
               </div>
@@ -135,19 +144,30 @@ export default function TreasuryPanel({ player, units, currentSeason, gameMap }:
         </>
       )}
 
-      {/* Balance neto (solo en Primavera) */}
+      {/* Balance neto (solo en Primavera) - Destacado */}
       {isSpring && (
         <>
-          <div className="border-t border-gray-700 pt-3"></div>
+          <Separator variant="gray" className="my-4" />
 
-          <div className="flex justify-between items-center">
-            <span className="text-gray-300 font-semibold">Balance neto:</span>
-            <span className={`text-xl font-bold ${
-              (estimatedIncome - maintenanceCost) >= 0 ? 'text-green-400' : 'text-red-400'
-            }`}>
-              {estimatedIncome - maintenanceCost > 0 ? '+' : ''}
-              {estimatedIncome - maintenanceCost}d
-            </span>
+          <div className={`rounded-lg p-4 border-2 ${
+            (estimatedIncome - maintenanceCost) >= 0
+              ? 'bg-renaissance-olive/20 border-renaissance-olive'
+              : 'bg-burgundy-700/30 border-burgundy-500'
+          }`}>
+            <div className="flex justify-between items-center">
+              <span className="text-base font-heading font-semibold text-parchment-200 uppercase tracking-wide">
+                Balance neto
+              </span>
+              <div className="flex items-center gap-2">
+                <span className={`text-3xl font-heading font-bold ${
+                  (estimatedIncome - maintenanceCost) >= 0 ? 'text-renaissance-olive-light' : 'text-burgundy-300'
+                }`}>
+                  {estimatedIncome - maintenanceCost > 0 ? '+' : ''}
+                  {estimatedIncome - maintenanceCost}
+                </span>
+                <span className="text-lg font-serif text-parchment-300">ducados</span>
+              </div>
+            </div>
           </div>
         </>
       )}
