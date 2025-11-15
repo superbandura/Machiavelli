@@ -29,7 +29,7 @@ export default function ProvinceInfoPanel({
 }: ProvinceInfoPanelProps) {
   const [creatingUnit, setCreatingUnit] = useState(false)
   const [unitName, setUnitName] = useState('')
-  const [showNameInput, setShowNameInput] = useState<'army' | 'fleet' | null>(null)
+  const [showNameInput, setShowNameInput] = useState<'army' | 'fleet' | 'garrison' | null>(null)
 
   if (!provinceId) {
     return (
@@ -52,24 +52,35 @@ export default function ProvinceInfoPanel({
   // Verificar si el jugador controla esta provincia (tiene guarnición)
   const hasMyGarrison = myUnits.some(u => u.type === 'garrison')
   const isControlledByMe = isControlled && currentPlayer
-  const canCreateArmy = game.currentPhase === 'orders' && provinceInfo?.hasCity && isControlledByMe
-  const canCreateFleet = game.currentPhase === 'orders' && provinceInfo?.isPort && isControlledByMe
 
-  const handleCreateUnit = async (unitType: 'army' | 'fleet') => {
+  // Condiciones para crear unidades (ya no requieren guarnición previa)
+  const canCreateGarrison = game.currentPhase === 'orders' && currentPlayer
+  const canCreateArmy = game.currentPhase === 'orders' && provinceInfo?.hasCity && currentPlayer
+  const canCreateFleet = game.currentPhase === 'orders' && provinceInfo?.isPort && currentPlayer
+
+  const handleCreateUnit = async (unitType: 'army' | 'fleet' | 'garrison') => {
     if (!currentPlayer || !provinceId) return
 
     try {
       setCreatingUnit(true)
+
+      // Nombre por defecto para guarnición: "Guarnición de [nombre provincia]"
+      const defaultName = unitType === 'garrison'
+        ? `Guarnición de ${provinceInfo?.name || provinceId}`
+        : undefined
+
       await createUnit(
         game.id,
         currentPlayer.id,
         provinceId,
         unitType,
-        unitName.trim() || undefined
+        unitName.trim() || defaultName
       )
       setUnitName('')
       setShowNameInput(null)
-      alert(`✓ ${unitType === 'army' ? 'Ejército' : 'Flota'} creado exitosamente`)
+
+      const unitLabel = unitType === 'army' ? 'Ejército' : unitType === 'fleet' ? 'Flota' : 'Guarnición'
+      alert(`✓ ${unitLabel} creado exitosamente`)
     } catch (error: any) {
       alert(`Error: ${error.message}`)
     } finally {
@@ -123,7 +134,7 @@ export default function ProvinceInfoPanel({
         )}
 
         {/* Botones de creación de unidades */}
-        {(canCreateArmy || canCreateFleet) && (
+        {(canCreateGarrison || canCreateArmy || canCreateFleet) && (
           <div className="mt-3 pt-3 border-t border-gray-700">
             <div className="text-sm font-semibold text-gray-400 mb-2">
               Crear Unidad
@@ -136,7 +147,7 @@ export default function ProvinceInfoPanel({
                   type="text"
                   value={unitName}
                   onChange={(e) => setUnitName(e.target.value)}
-                  placeholder={`Nombre del ${showNameInput === 'army' ? 'ejército' : 'flota'} (opcional)`}
+                  placeholder={`Nombre ${showNameInput === 'army' ? 'del ejército' : showNameInput === 'fleet' ? 'de la flota' : 'de la guarnición'} (opcional)`}
                   className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-sm text-gray-200 focus:outline-none focus:border-blue-500"
                   maxLength={50}
                   disabled={creatingUnit}
@@ -162,22 +173,40 @@ export default function ProvinceInfoPanel({
                 </div>
               </div>
             ) : (
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowNameInput('army')}
-                  className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors flex items-center justify-center gap-2"
-                >
-                  <span>🗡️</span>
-                  <span>Ejército ({UNIT_CREATION_COSTS.army}d)</span>
-                </button>
-                {provinceInfo?.isPort && (
+              <div className="flex flex-col gap-2">
+                {/* Botón de Guarnición - Siempre visible */}
+                {canCreateGarrison && (
                   <button
-                    onClick={() => setShowNameInput('fleet')}
-                    className="flex-1 px-3 py-2 bg-cyan-600 hover:bg-cyan-700 text-white text-sm rounded transition-colors flex items-center justify-center gap-2"
+                    onClick={() => setShowNameInput('garrison')}
+                    className="w-full px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm rounded transition-colors flex items-center justify-center gap-2"
                   >
-                    <span>⛵</span>
-                    <span>Flota ({UNIT_CREATION_COSTS.fleet}d)</span>
+                    <span>🏰</span>
+                    <span>Guarnición ({UNIT_CREATION_COSTS.garrison}d)</span>
                   </button>
+                )}
+
+                {/* Botones de Ejército y Flota en la misma fila */}
+                {(canCreateArmy || canCreateFleet) && (
+                  <div className="flex gap-2">
+                    {canCreateArmy && (
+                      <button
+                        onClick={() => setShowNameInput('army')}
+                        className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors flex items-center justify-center gap-2"
+                      >
+                        <span>🗡️</span>
+                        <span>Ejército ({UNIT_CREATION_COSTS.army}d)</span>
+                      </button>
+                    )}
+                    {canCreateFleet && (
+                      <button
+                        onClick={() => setShowNameInput('fleet')}
+                        className="flex-1 px-3 py-2 bg-cyan-600 hover:bg-cyan-700 text-white text-sm rounded transition-colors flex items-center justify-center gap-2"
+                      >
+                        <span>⛵</span>
+                        <span>Flota ({UNIT_CREATION_COSTS.fleet}d)</span>
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             )}

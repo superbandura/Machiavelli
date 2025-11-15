@@ -11,7 +11,7 @@ import { ArmyTroopType, FleetShipType, GarrisonTroopType } from '@/types/scenari
 export const UNIT_CREATION_COSTS = {
   army: 2,
   fleet: 2,
-  garrison: 0, // Las guarniciones se crean automáticamente al capturar ciudades
+  garrison: 1, // Costo de crear una guarnición manualmente
 } as const
 
 /**
