@@ -228,8 +228,8 @@ export default function UnitManagementModal({
       case 'recruit':
         return (
           <div className="space-y-4">
-            <div className="text-sm text-gray-400">
-              Saldo disponible: <span className="text-yellow-400 font-semibold">{currentPlayer.treasury}d</span>
+            <div className="text-base text-[#1d1408] font-serif font-semibold">
+              Saldo disponible: <span className="text-renaissance-gold font-bold">{currentPlayer.treasury}d</span>
             </div>
 
             {unit.type === 'fleet' ? (
@@ -242,10 +242,10 @@ export default function UnitManagementModal({
                   const toRecruit = recruitQuantities[shipType] || 0
 
                   return (
-                    <div key={shipType} className="flex items-center justify-between p-3 bg-gray-800 rounded">
+                    <div key={shipType} className="flex items-center justify-between p-3 bg-[#d4c4a1] border-2 border-[#4a3f2a] rounded-lg opacity-100">
                       <div className="flex-1">
-                        <div className="font-medium text-gray-200">{label}</div>
-                        <div className="text-xs text-gray-500">
+                        <div className="font-medium text-[#1d1408] font-serif">{label}</div>
+                        <div className="text-xs text-[#6b5d42]">
                           Actual: {current} | Coste: {cost}d/barco
                         </div>
                       </div>
@@ -257,11 +257,11 @@ export default function UnitManagementModal({
                               [shipType]: Math.max(0, (prev[shipType] || 0) - SHIP_BATCH_SIZE),
                             }))
                           }
-                          className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded"
+                          className="p-2 bg-burgundy-400 hover:bg-burgundy-500 border-2 border-[#6b5d42] rounded-lg shadow-ornate transition-all"
                         >
-                          -1
+                          <img src="/icons/decremento.png" alt="Decrementar" className="w-6 h-6" />
                         </button>
-                        <span className="w-16 text-center font-semibold text-gray-200">
+                        <span className="w-16 text-center font-semibold text-[#1d1408] font-heading">
                           +{toRecruit}
                         </span>
                         <button
@@ -271,9 +271,9 @@ export default function UnitManagementModal({
                               [shipType]: (prev[shipType] || 0) + SHIP_BATCH_SIZE,
                             }))
                           }
-                          className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded"
+                          className="p-2 bg-renaissance-gold hover:bg-renaissance-gold-dark border-2 border-[#6b5d42] rounded-lg shadow-ornate transition-all"
                         >
-                          +1
+                          <img src="/icons/incremento.png" alt="Incrementar" className="w-6 h-6" />
                         </button>
                       </div>
                     </div>
@@ -299,10 +299,10 @@ export default function UnitManagementModal({
                   const toRecruit = recruitQuantities[troopType] || 0
 
                   return (
-                    <div key={troopType} className="flex items-center justify-between p-3 bg-gray-800 rounded">
+                    <div key={troopType} className="flex items-center justify-between p-3 bg-[#d4c4a1] border-2 border-[#4a3f2a] rounded-lg opacity-100">
                       <div className="flex-1">
-                        <div className="font-medium text-gray-200">{label}</div>
-                        <div className="text-xs text-gray-500">
+                        <div className="font-medium text-[#1d1408] font-serif">{label}</div>
+                        <div className="text-xs text-[#6b5d42]">
                           Actual: {current} | Coste: {cost}d/100
                         </div>
                       </div>
@@ -314,11 +314,11 @@ export default function UnitManagementModal({
                               [troopType]: Math.max(0, (prev[troopType] || 0) - TROOP_BATCH_SIZE),
                             }))
                           }
-                          className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded"
+                          className="p-2 bg-burgundy-400 hover:bg-burgundy-500 border-2 border-[#6b5d42] rounded-lg shadow-ornate transition-all"
                         >
-                          -100
+                          <img src="/icons/decremento.png" alt="Decrementar" className="w-6 h-6" />
                         </button>
-                        <span className="w-16 text-center font-semibold text-gray-200">
+                        <span className="w-16 text-center font-semibold text-[#1d1408] font-heading">
                           +{toRecruit}
                         </span>
                         <button
@@ -328,9 +328,9 @@ export default function UnitManagementModal({
                               [troopType]: (prev[troopType] || 0) + TROOP_BATCH_SIZE,
                             }))
                           }
-                          className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded"
+                          className="p-2 bg-renaissance-gold hover:bg-renaissance-gold-dark border-2 border-[#6b5d42] rounded-lg shadow-ornate transition-all"
                         >
-                          +100
+                          <img src="/icons/incremento.png" alt="Incrementar" className="w-6 h-6" />
                         </button>
                       </div>
                     </div>
@@ -340,11 +340,11 @@ export default function UnitManagementModal({
             )}
 
             {totalRecruitCost > 0 && (
-              <div className="p-3 bg-blue-900/30 border border-blue-700 rounded">
-                <div className="text-sm font-semibold text-blue-300">
+              <div className="p-3 bg-[#f5ebcf] border-2 border-[#8a7556] rounded-lg">
+                <div className="text-sm font-semibold text-[#1d1408] font-heading">
                   Coste total: {totalRecruitCost}d
                 </div>
-                <div className="text-xs text-gray-400 mt-1">
+                <div className="text-xs text-[#6b5d42] font-serif mt-1">
                   Saldo después: {currentPlayer.treasury - totalRecruitCost}d
                 </div>
               </div>
@@ -353,7 +353,7 @@ export default function UnitManagementModal({
             <button
               onClick={handleRecruit}
               disabled={loading || totalRecruitCost === 0 || currentPlayer.treasury < totalRecruitCost}
-              className="w-full px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold rounded transition-colors"
+              className="w-full px-4 py-3 bg-renaissance-gold hover:bg-renaissance-gold-dark disabled:opacity-50 disabled:cursor-not-allowed text-[#1d1408] font-heading font-bold border-2 border-[#6b5d42] rounded-lg shadow-ornate transition-all"
             >
               {loading ? 'Reclutando...' : 'Confirmar Reclutamiento'}
             </button>
@@ -364,7 +364,7 @@ export default function UnitManagementModal({
         return (
           <div className="space-y-4">
             {transferableUnits.length === 0 ? (
-              <div className="p-4 text-center text-gray-500 italic">
+              <div className="p-4 text-center text-[#6b5d42] italic">
                 No hay unidades disponibles para transferir tropas.
                 <div className="text-xs mt-2">
                   Las unidades deben estar en la misma provincia y ser del mismo tipo (o ejército/guarnición).
@@ -373,13 +373,13 @@ export default function UnitManagementModal({
             ) : (
               <>
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                  <label className="block text-sm font-medium text-[#2c2416] font-serif mb-2">
                     Transferir a:
                   </label>
                   <select
                     value={transferTargetUnitId}
                     onChange={(e) => setTransferTargetUnitId(e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-gray-200"
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-[#1d1408] font-serif"
                   >
                     <option value="">Selecciona una unidad...</option>
                     {transferableUnits.map((u) => (
@@ -402,10 +402,10 @@ export default function UnitManagementModal({
                         if (current === 0) return null
 
                         return (
-                          <div key={shipType} className="flex items-center justify-between p-3 bg-gray-800 rounded">
+                          <div key={shipType} className="flex items-center justify-between p-3 bg-[#d4c4a1] border-2 border-[#4a3f2a] rounded-lg opacity-100">
                             <div className="flex-1">
-                              <div className="font-medium text-gray-200">{label}</div>
-                              <div className="text-xs text-gray-500">Disponibles: {current}</div>
+                              <div className="font-medium text-[#1d1408] font-serif">{label}</div>
+                              <div className="text-xs text-[#6b5d42]">Disponibles: {current}</div>
                             </div>
                             <div className="flex items-center gap-2">
                               <button
@@ -415,11 +415,11 @@ export default function UnitManagementModal({
                                     [shipType]: Math.max(0, (prev[shipType] || 0) - SHIP_BATCH_SIZE),
                                   }))
                                 }
-                                className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded"
+                                className="p-2 bg-burgundy-400 hover:bg-burgundy-500 border-2 border-[#6b5d42] rounded-lg shadow-ornate transition-all"
                               >
-                                -1
+                                <img src="/icons/decremento.png" alt="Decrementar" className="w-6 h-6" />
                               </button>
-                              <span className="w-16 text-center font-semibold text-gray-200">
+                              <span className="w-16 text-center font-semibold text-[#1d1408] font-heading">
                                 {toTransfer}
                               </span>
                               <button
@@ -430,9 +430,9 @@ export default function UnitManagementModal({
                                   }))
                                 }
                                 disabled={toTransfer >= current}
-                                className="px-3 py-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded"
+                                className="p-2 bg-renaissance-gold hover:bg-renaissance-gold-dark border-2 border-[#6b5d42] rounded-lg shadow-ornate transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                +1
+                                <img src="/icons/incremento.png" alt="Incrementar" className="w-6 h-6" />
                               </button>
                             </div>
                           </div>
@@ -456,10 +456,10 @@ export default function UnitManagementModal({
                         if (maxTransferable === 0) return null
 
                         return (
-                          <div key={troopType} className="flex items-center justify-between p-3 bg-gray-800 rounded">
+                          <div key={troopType} className="flex items-center justify-between p-3 bg-[#d4c4a1] border-2 border-[#4a3f2a] rounded-lg opacity-100">
                             <div className="flex-1">
-                              <div className="font-medium text-gray-200">{label}</div>
-                              <div className="text-xs text-gray-500">
+                              <div className="font-medium text-[#1d1408] font-serif">{label}</div>
+                              <div className="text-xs text-[#6b5d42]">
                                 Disponibles: {maxTransferable}
                                 {isGarrisonMilitia && ` (min. ${MINIMUM_GARRISON_MILITIA} en guarnición)`}
                               </div>
@@ -472,11 +472,11 @@ export default function UnitManagementModal({
                                     [troopType]: Math.max(0, (prev[troopType] || 0) - TROOP_BATCH_SIZE),
                                   }))
                                 }
-                                className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded"
+                                className="p-2 bg-burgundy-400 hover:bg-burgundy-500 border-2 border-[#6b5d42] rounded-lg shadow-ornate transition-all"
                               >
-                                -100
+                                <img src="/icons/decremento.png" alt="Decrementar" className="w-6 h-6" />
                               </button>
-                              <span className="w-16 text-center font-semibold text-gray-200">
+                              <span className="w-16 text-center font-semibold text-[#1d1408] font-heading">
                                 {toTransfer}
                               </span>
                               <button
@@ -487,9 +487,9 @@ export default function UnitManagementModal({
                                   }))
                                 }
                                 disabled={toTransfer >= maxTransferable}
-                                className="px-3 py-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded"
+                                className="p-2 bg-renaissance-gold hover:bg-renaissance-gold-dark border-2 border-[#6b5d42] rounded-lg shadow-ornate transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                +100
+                                <img src="/icons/incremento.png" alt="Incrementar" className="w-6 h-6" />
                               </button>
                             </div>
                           </div>
@@ -502,7 +502,7 @@ export default function UnitManagementModal({
                 <button
                   onClick={handleTransfer}
                   disabled={loading || !transferTargetUnitId || Object.values(transferQuantities).every((q) => q === 0)}
-                  className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold rounded transition-colors"
+                  className="w-full px-4 py-3 bg-renaissance-bronze hover:bg-renaissance-bronze-light disabled:opacity-50 disabled:cursor-not-allowed text-white font-heading font-bold border-2 border-[#6b5d42] rounded-lg shadow-ornate transition-all"
                 >
                   {loading ? 'Transfiriendo...' : 'Confirmar Transferencia'}
                 </button>
@@ -529,10 +529,10 @@ export default function UnitManagementModal({
                   if (current === 0) return null
 
                   return (
-                    <div key={shipType} className="flex items-center justify-between p-3 bg-gray-800 rounded">
+                    <div key={shipType} className="flex items-center justify-between p-3 bg-[#d4c4a1] border-2 border-[#4a3f2a] rounded-lg opacity-100">
                       <div className="flex-1">
-                        <div className="font-medium text-gray-200">{label}</div>
-                        <div className="text-xs text-gray-500">Disponibles: {current}</div>
+                        <div className="font-medium text-[#1d1408] font-serif">{label}</div>
+                        <div className="text-xs text-[#6b5d42]">Disponibles: {current}</div>
                       </div>
                       <div className="flex items-center gap-2">
                         <button
@@ -542,11 +542,11 @@ export default function UnitManagementModal({
                               [shipType]: Math.max(0, (prev[shipType] || 0) - SHIP_BATCH_SIZE),
                             }))
                           }
-                          className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded"
+                          className="p-2 bg-burgundy-400 hover:bg-burgundy-500 border-2 border-[#6b5d42] rounded-lg shadow-ornate transition-all"
                         >
-                          -1
+                          <img src="/icons/decremento.png" alt="Decrementar" className="w-6 h-6" />
                         </button>
-                        <span className="w-16 text-center font-semibold text-red-400">
+                        <span className="w-16 text-center font-semibold text-burgundy-400 font-heading">
                           -{toDisband}
                         </span>
                         <button
@@ -557,9 +557,9 @@ export default function UnitManagementModal({
                             }))
                           }
                           disabled={toDisband >= current}
-                          className="px-3 py-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded"
+                          className="p-2 bg-burgundy-500 hover:bg-burgundy-600 border-2 border-[#6b5d42] rounded-lg shadow-ornate transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          +1
+                          <img src="/icons/incremento.png" alt="Incrementar" className="w-6 h-6" />
                         </button>
                       </div>
                     </div>
@@ -583,10 +583,10 @@ export default function UnitManagementModal({
                   if (maxDisbandable === 0) return null
 
                   return (
-                    <div key={troopType} className="flex items-center justify-between p-3 bg-gray-800 rounded">
+                    <div key={troopType} className="flex items-center justify-between p-3 bg-[#d4c4a1] border-2 border-[#4a3f2a] rounded-lg opacity-100">
                       <div className="flex-1">
-                        <div className="font-medium text-gray-200">{label}</div>
-                        <div className="text-xs text-gray-500">
+                        <div className="font-medium text-[#1d1408] font-serif">{label}</div>
+                        <div className="text-xs text-[#6b5d42]">
                           Disponibles: {maxDisbandable}
                           {isGarrisonMilitia && ` (min. ${MINIMUM_GARRISON_MILITIA} en guarnición)`}
                         </div>
@@ -599,11 +599,11 @@ export default function UnitManagementModal({
                               [troopType]: Math.max(0, (prev[troopType] || 0) - TROOP_BATCH_SIZE),
                             }))
                           }
-                          className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded"
+                          className="p-2 bg-burgundy-400 hover:bg-burgundy-500 border-2 border-[#6b5d42] rounded-lg shadow-ornate transition-all"
                         >
-                          -100
+                          <img src="/icons/decremento.png" alt="Decrementar" className="w-6 h-6" />
                         </button>
-                        <span className="w-16 text-center font-semibold text-red-400">
+                        <span className="w-16 text-center font-semibold text-burgundy-400 font-heading">
                           -{toDisband}
                         </span>
                         <button
@@ -614,9 +614,9 @@ export default function UnitManagementModal({
                             }))
                           }
                           disabled={toDisband >= maxDisbandable}
-                          className="px-3 py-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded"
+                          className="p-2 bg-burgundy-500 hover:bg-burgundy-600 border-2 border-[#6b5d42] rounded-lg shadow-ornate transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          +100
+                          <img src="/icons/incremento.png" alt="Incrementar" className="w-6 h-6" />
                         </button>
                       </div>
                     </div>
@@ -628,7 +628,7 @@ export default function UnitManagementModal({
             <button
               onClick={handleDisband}
               disabled={loading || Object.values(disbandQuantities).every((q) => q === 0)}
-              className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold rounded transition-colors"
+              className="w-full px-4 py-3 bg-burgundy-500 hover:bg-burgundy-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-heading font-bold border-2 border-[#6b5d42] rounded-lg shadow-ornate transition-all"
             >
               {loading ? 'Licenciando...' : 'Confirmar Licenciamiento'}
             </button>
@@ -639,7 +639,7 @@ export default function UnitManagementModal({
         return (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">
+              <label className="block text-sm font-medium text-[#2c2416] font-serif mb-2">
                 Nuevo nombre de la unidad:
               </label>
               <input
@@ -647,11 +647,11 @@ export default function UnitManagementModal({
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="Ingresa un nombre..."
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-gray-200 focus:outline-none focus:border-blue-500"
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-[#1d1408] font-serif focus:outline-none focus:border-blue-500"
                 maxLength={50}
                 disabled={loading}
               />
-              <div className="text-xs text-gray-500 mt-1">
+              <div className="text-xs text-[#6b5d42] mt-1">
                 {newName.length}/50 caracteres
               </div>
             </div>
@@ -659,7 +659,7 @@ export default function UnitManagementModal({
             <button
               onClick={handleRename}
               disabled={loading || !newName.trim() || newName.trim() === unit.name}
-              className="w-full px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold rounded transition-colors"
+              className="w-full px-4 py-3 bg-[#6b5d42] hover:bg-[#544a35] disabled:opacity-50 disabled:cursor-not-allowed text-white font-heading font-bold border-2 border-[#1d1408] rounded-lg shadow-ornate transition-all"
             >
               {loading ? 'Renombrando...' : 'Confirmar Cambio de Nombre'}
             </button>
@@ -672,64 +672,64 @@ export default function UnitManagementModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 border border-gray-700 rounded-lg max-w-2xl w-full max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+      <div className="bg-[#e8dcc0] border-4 border-[#4a3f2a] rounded-lg max-w-2xl w-full max-h-[90vh] flex flex-col shadow-[0_8px_32px_rgba(0,0,0,0.8)]">
         {/* Header */}
-        <div className="p-4 border-b border-gray-700 flex items-center justify-between">
+        <div className="p-4 bg-[#2d2416] border-b-4 border-[#6b5d42] flex items-center justify-between rounded-t-lg">
           <div>
-            <h2 className="text-xl font-bold text-gray-200">
+            <h2 className="text-2xl font-heading text-[#f0d877]">
               {unit.name || `${unit.type === 'army' ? 'Ejército' : unit.type === 'fleet' ? 'Flota' : 'Guarnición'}`}
             </h2>
-            <div className="text-sm text-gray-400">
-              Ubicación: {unit.currentPosition}
+            <div className="text-sm font-serif text-[#e8dcc0]">
+              Ubicación: {game.map?.provinces?.[unit.currentPosition]?.name || unit.currentPosition}
             </div>
           </div>
           <button
             onClick={onClose}
-            className="px-3 py-1 text-gray-400 hover:text-white transition-colors"
+            className="px-3 py-1 text-[#e8dcc0] hover:text-[#f0d877] transition-colors text-2xl"
           >
             ✕
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-700 bg-gray-800">
+        <div className="flex border-b-2 border-[#6b5d42] bg-[#2d2416]">
           <button
             onClick={() => setActiveTab('recruit')}
-            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+            className={`flex-1 px-4 py-3 text-sm font-heading font-semibold transition-colors ${
               activeTab === 'recruit'
-                ? 'bg-gray-900 text-green-400 border-b-2 border-green-400'
-                : 'text-gray-400 hover:text-gray-200'
+                ? 'bg-parchment-100 text-[#2d2416] border-b-4 border-renaissance-gold'
+                : 'text-[#e8dcc0] hover:bg-[#3d3422]'
             }`}
           >
             💰 Reclutar
           </button>
           <button
             onClick={() => setActiveTab('transfer')}
-            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+            className={`flex-1 px-4 py-3 text-sm font-heading font-semibold transition-colors ${
               activeTab === 'transfer'
-                ? 'bg-gray-900 text-blue-400 border-b-2 border-blue-400'
-                : 'text-gray-400 hover:text-gray-200'
+                ? 'bg-parchment-100 text-[#2d2416] border-b-4 border-renaissance-bronze'
+                : 'text-[#e8dcc0] hover:bg-[#3d3422]'
             }`}
           >
             🔄 Transferir
           </button>
           <button
             onClick={() => setActiveTab('disband')}
-            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+            className={`flex-1 px-4 py-3 text-sm font-heading font-semibold transition-colors ${
               activeTab === 'disband'
-                ? 'bg-gray-900 text-red-400 border-b-2 border-red-400'
-                : 'text-gray-400 hover:text-gray-200'
+                ? 'bg-parchment-100 text-[#2d2416] border-b-4 border-burgundy-400'
+                : 'text-[#e8dcc0] hover:bg-[#3d3422]'
             }`}
           >
             ❌ Licenciar
           </button>
           <button
             onClick={() => setActiveTab('rename')}
-            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+            className={`flex-1 px-4 py-3 text-sm font-heading font-semibold transition-colors ${
               activeTab === 'rename'
-                ? 'bg-gray-900 text-purple-400 border-b-2 border-purple-400'
-                : 'text-gray-400 hover:text-gray-200'
+                ? 'bg-parchment-100 text-[#2d2416] border-b-4 border-[#6b5d42]'
+                : 'text-[#e8dcc0] hover:bg-[#3d3422]'
             }`}
           >
             ✏️ Renombrar
@@ -742,10 +742,10 @@ export default function UnitManagementModal({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-700 bg-gray-800">
+        <div className="p-4 border-t-4 border-[#6b5d42] bg-[#2d2416]">
           <button
             onClick={onClose}
-            className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
+            className="w-full px-4 py-2 bg-[#6b5d42] hover:bg-[#544a35] text-white font-heading rounded-lg transition-colors shadow-ornate"
           >
             Cerrar
           </button>

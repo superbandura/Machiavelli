@@ -144,7 +144,7 @@ export default function DiplomaticChat({
   const filteredMessages = getFilteredMessages()
 
   return (
-    <div className="flex flex-col h-full bg-gray-800 rounded-lg border-2 border-burgundy-500 shadow-ornate">
+    <div className="flex flex-col h-full bg-transparent rounded-lg border-2 border-burgundy-500 shadow-ornate">
       {/* Header ornamentado */}
       <div className="p-5 border-b-2 border-burgundy-500/50">
         <div className="flex items-center gap-3 mb-2">
@@ -159,12 +159,12 @@ export default function DiplomaticChat({
       </div>
 
       {/* Selector de conversación */}
-      <div className="p-4 border-b-2 border-burgundy-500/30 bg-gray-900/40">
+      <div className="p-4 border-b-2 border-burgundy-500/30 bg-[#f4e4c1]/40">
         <label className="block text-sm font-heading font-semibold text-parchment-300 mb-2 uppercase tracking-wide">
           Correspondencia
         </label>
         <select
-          className="w-full bg-gray-900 border-2 border-burgundy-400 rounded-lg px-3 py-2.5 text-sm font-serif text-parchment-200 focus:border-burgundy-300 transition-colors"
+          className="w-full bg-[#f4e4c1] border-2 border-burgundy-400 rounded-lg px-3 py-2.5 text-sm font-serif text-parchment-200 focus:border-burgundy-300 transition-colors"
           value={selectedConversation}
           onChange={(e) => setSelectedConversation(e.target.value)}
         >
@@ -206,7 +206,7 @@ export default function DiplomaticChat({
                       ? 'bg-renaissance-bronze/20 border-2 border-renaissance-bronze shadow-ornate'
                       : isPublic
                       ? 'bg-burgundy-700/20 border-2 border-burgundy-400'
-                      : 'bg-gray-900/60 border-2 border-gray-600'
+                      : 'bg-[#f4e4c1]/60 border-2 border-gray-600'
                   }`}
                 >
                   {/* Sello de cera en la esquina */}
@@ -262,7 +262,7 @@ export default function DiplomaticChat({
       </div>
 
       {/* Input para escribir nuevas cartas */}
-      <div className="p-5 border-t-2 border-burgundy-500/50 bg-gray-900/40">
+      <div className="p-5 border-t-2 border-burgundy-500/50 bg-[#f4e4c1]/40">
         {isDiplomaticPhase ? (
           <>
             <div className="mb-3">
@@ -270,7 +270,7 @@ export default function DiplomaticChat({
                 Destinatario
               </label>
               <select
-                className="w-full bg-gray-900 border-2 border-burgundy-400 rounded-lg px-3 py-2.5 text-sm font-serif text-parchment-200 focus:border-burgundy-300 transition-colors"
+                className="w-full bg-[#f4e4c1] border-2 border-burgundy-400 rounded-lg px-3 py-2.5 text-sm font-serif text-parchment-200 focus:border-burgundy-300 transition-colors"
                 value={selectedRecipient}
                 onChange={(e) => setSelectedRecipient(e.target.value)}
               >
@@ -287,7 +287,7 @@ export default function DiplomaticChat({
 
             <div className="flex gap-3">
               <textarea
-                className="flex-1 bg-gray-900 border-2 border-burgundy-400 rounded-lg px-4 py-3 text-sm font-serif text-parchment-200 resize-none focus:border-burgundy-300 transition-colors placeholder:text-gray-500 placeholder:italic"
+                className="flex-1 bg-[#f4e4c1] border-2 border-burgundy-400 rounded-lg px-4 py-3 text-sm font-serif text-parchment-200 resize-none focus:border-burgundy-300 transition-colors placeholder:text-gray-500 placeholder:italic"
                 placeholder="Escribe tu carta diplomática..."
                 rows={3}
                 value={newMessage}

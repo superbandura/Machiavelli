@@ -3,6 +3,23 @@ import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth'
 import { doc, setDoc, serverTimestamp, collection, query, limit, getDocs } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
 import { Link, useNavigate } from 'react-router-dom'
+import Separator from '@/components/decorative/Separator'
+
+const topFactionEmblems = [
+  { name: 'Venecia', path: '/factions/venecia.png' },
+  { name: 'Florencia', path: '/factions/florencia.png' },
+  { name: 'Milán', path: '/factions/milan.png' },
+  { name: 'Nápoles', path: '/factions/napoles.png' },
+  { name: 'Papado', path: '/factions/papado.png' },
+]
+
+const bottomFactionEmblems = [
+  { name: 'Francia', path: '/factions/francia.png' },
+  { name: 'Génova', path: '/factions/genova.png' },
+  { name: 'Aragón', path: '/factions/aragon.png' },
+  { name: 'Austria', path: '/factions/austria.png' },
+  { name: 'Otomanos', path: '/factions/otomanos.png' },
+]
 
 export default function Register() {
   const [email, setEmail] = useState('')
@@ -79,102 +96,160 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h1 className="text-center text-4xl font-bold text-white">Machiavelli</h1>
-          <p className="mt-2 text-center text-gray-400">Renaissance Strategy Game</p>
-          <h2 className="mt-6 text-center text-3xl font-bold text-white">Crear Cuenta</h2>
+    <div className="min-h-screen bg-[#f4e4c1] flex items-center justify-center px-4 py-12">
+      <div className="max-w-2xl w-full space-y-8">
+        {/* Título */}
+        <div className="text-center mb-8">
+          <h1 className="text-7xl font-display text-[#1d1408] drop-shadow-lg mb-2">
+            Machiavelli
+          </h1>
+          <p className="text-xl font-serif text-[#2c2416] italic">
+            Renaissance Strategy Game
+          </p>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="bg-red-500/10 border border-red-500 text-red-500 px-4 py-3 rounded">
-              {error}
-            </div>
-          )}
-
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="displayName" className="block text-sm font-medium text-gray-300">
-                Nombre de usuario
-              </label>
-              <input
-                id="displayName"
-                type="text"
-                required
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Lorenzo de Medici"
+        {/* Emblemas superiores */}
+        <div className="flex justify-center items-center gap-6 mb-8">
+          {topFactionEmblems.map((faction) => (
+            <div key={faction.name}>
+              <img
+                src={faction.path}
+                alt={faction.name}
+                className="w-20 h-20 object-contain filter drop-shadow-lg"
               />
             </div>
+          ))}
+        </div>
 
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-300">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="tu@email.com"
-              />
-            </div>
+        <Separator variant="gold" withFlourish />
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300">
-                Contraseña
-              </label>
-              <input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="••••••••"
-              />
-            </div>
+        {/* Formulario con borde ornamental */}
+        <div className="border-4 border-[#6b5d42] rounded-lg shadow-ornate">
+          <div className="bg-parchment-100 py-10 rounded-lg">
+            <h2 className="text-center text-3xl font-heading text-[#1d1408] mb-8 px-20">
+              Crear Cuenta
+            </h2>
 
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300">
-                Confirmar Contraseña
-              </label>
-              <input
-                id="confirmPassword"
-                type="password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="••••••••"
-              />
-            </div>
+            <form className="space-y-6 px-20" onSubmit={handleSubmit}>
+              {error && (
+                <div className="bg-burgundy-300/10 border-2 border-[#6b5d42] text-[#1d1408] px-4 py-3 rounded-lg font-serif">
+                  {error}
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div>
+                  <label
+                    htmlFor="displayName"
+                    className="block text-sm font-semibold font-serif text-[#1d1408] mb-2"
+                  >
+                    Nombre de usuario
+                  </label>
+                  <input
+                    id="displayName"
+                    type="text"
+                    required
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    className="block w-full px-4 py-3 bg-parchment-50 border-2 border-[#6b5d42] rounded-lg text-[#1d1408] placeholder-[#6b5d42] font-serif focus:outline-none focus:ring-2 focus:ring-[#6b5d42] focus:border-transparent transition-all"
+                    placeholder="Lorenzo de Medici"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="email"
+                    className="block text-sm font-semibold font-serif text-[#1d1408] mb-2"
+                  >
+                    Email
+                  </label>
+                  <input
+                    id="email"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="block w-full px-4 py-3 bg-parchment-50 border-2 border-[#6b5d42] rounded-lg text-[#1d1408] placeholder-[#6b5d42] font-serif focus:outline-none focus:ring-2 focus:ring-[#6b5d42] focus:border-transparent transition-all"
+                    placeholder="tu@email.com"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="password"
+                    className="block text-sm font-semibold font-serif text-[#1d1408] mb-2"
+                  >
+                    Contraseña
+                  </label>
+                  <input
+                    id="password"
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="block w-full px-4 py-3 bg-parchment-50 border-2 border-[#6b5d42] rounded-lg text-[#1d1408] placeholder-[#6b5d42] font-serif focus:outline-none focus:ring-2 focus:ring-[#6b5d42] focus:border-transparent transition-all"
+                    placeholder="••••••••"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="confirmPassword"
+                    className="block text-sm font-semibold font-serif text-[#1d1408] mb-2"
+                  >
+                    Confirmar Contraseña
+                  </label>
+                  <input
+                    id="confirmPassword"
+                    type="password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="block w-full px-4 py-3 bg-parchment-50 border-2 border-[#6b5d42] rounded-lg text-[#1d1408] placeholder-[#6b5d42] font-serif focus:outline-none focus:ring-2 focus:ring-[#6b5d42] focus:border-transparent transition-all"
+                    placeholder="••••••••"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full flex justify-center py-3 px-6 border-2 border-[#6b5d42] rounded-lg shadow-ornate text-base font-bold font-heading text-white bg-[#6b5d42] hover:bg-[#544a35] hover:shadow-glow-gold focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#6b5d42] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
+                >
+                  {loading ? 'Creando cuenta...' : 'Crear Cuenta'}
+                </button>
+              </div>
+
+              <div className="text-center pt-4">
+                <p className="text-sm font-serif text-[#2c2416]">
+                  ¿Ya tienes cuenta?{' '}
+                  <Link
+                    to="/login"
+                    className="text-[#1d1408] hover:text-[#2c2416] font-semibold underline decoration-[#1d1408] transition-colors"
+                  >
+                    Iniciar Sesión
+                  </Link>
+                </p>
+              </div>
+            </form>
           </div>
+        </div>
 
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? 'Creando cuenta...' : 'Crear Cuenta'}
-            </button>
-          </div>
+        <Separator variant="gold" withFlourish />
 
-          <div className="text-center">
-            <p className="text-sm text-gray-400">
-              ¿Ya tienes cuenta?{' '}
-              <Link to="/login" className="text-blue-500 hover:text-blue-400 font-medium">
-                Iniciar Sesión
-              </Link>
-            </p>
-          </div>
-        </form>
+        {/* Emblemas inferiores */}
+        <div className="flex justify-center items-center gap-6 mt-8">
+          {bottomFactionEmblems.map((faction) => (
+            <div key={faction.name}>
+              <img
+                src={faction.path}
+                alt={faction.name}
+                className="w-20 h-20 object-contain filter drop-shadow-lg"
+              />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )

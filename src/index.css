@@ -1,17 +1,19 @@
 @import "tailwindcss";
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
 
-body {
-  font-family: 'EB Garamond', Georgia, serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background-color: #111827; /* gray-900 */
-  color: #e5e7eb; /* gray-200 */
+  body {
+    font-family: 'EB Garamond', Georgia, serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: #111827; /* gray-900 */
+    color: #e5e7eb; /* gray-200 */
+  }
 }
 
 /* Custom Scrollbar - Renaissance Style */

@@ -392,7 +392,7 @@ export default function GameBoard({
   }, [selectedProvince])
 
   return (
-    <div ref={containerRef} className="relative w-full h-full bg-gray-800 rounded-lg overflow-hidden">
+    <div ref={containerRef} className="relative w-full h-full bg-[#6b5d4a] rounded-lg overflow-hidden">
       {/* Mapa con zoom y pan */}
       <TransformWrapper
         initialScale={initialScale}

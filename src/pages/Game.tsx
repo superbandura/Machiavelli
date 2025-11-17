@@ -38,8 +38,8 @@ export default function Game() {
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null)
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null)
 
-  // Estado de la pestaña activa (chat, órdenes o historial)
-  const [activeTab, setActiveTab] = useState<'orders' | 'chat' | 'history'>('orders')
+  // Estado de la pestaña activa (chat o historial)
+  const [activeTab, setActiveTab] = useState<'chat' | 'history'>('chat')
 
   // Estado para forzar avance de fase (testing)
   const [isAdvancingPhase, setIsAdvancingPhase] = useState(false)
@@ -377,13 +377,13 @@ export default function Game() {
   }
 
   return (
-    <div className="h-screen overflow-hidden bg-gray-900 text-white flex flex-col">
+    <div className="h-screen overflow-hidden bg-[#f4e4c1] text-gray-900 flex flex-col">
       {/* Header */}
-      <header className="bg-gray-800 border-b border-gray-700 p-4">
+      <header className="bg-[#2d2416] border-b border-[#1d1408] p-4">
         <div className="container mx-auto flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold">{game.name || game.scenario}</h1>
-            <div className="flex gap-4 text-sm text-gray-400 mt-1">
+            <h1 className="text-2xl font-bold text-white">{game.name || game.scenario}</h1>
+            <div className="flex gap-4 text-sm text-gray-200 mt-1">
               <span>Turno {game.turnNumber}</span>
               <span>•</span>
               <span>{game.currentYear} - {game.currentSeason}</span>
@@ -419,22 +419,40 @@ export default function Game() {
 
       {/* Main content */}
       <main className="flex-1 flex overflow-hidden">
-        {/* Panel izquierdo - Información de provincia */}
-        <aside className="w-80 bg-gray-800 border-r border-gray-700 flex flex-col overflow-y-auto">
-          <ProvinceInfoPanel
-            game={game}
-            provinceId={selectedProvince}
-            visibleUnits={visibleUnits}
-            players={players}
-            currentPlayer={player}
-            controlledProvinces={myControlledProvinces}
-            provinceFaction={provinceFaction}
-            onUnitClick={(unit) => setUnitManagementModalUnit(unit)}
-          />
+        {/* Panel izquierdo - Provincia + Órdenes (si aplica) */}
+        <aside className="w-80 bg-[#d4c4a1] border-r border-[#b4a481] flex flex-col overflow-y-auto">
+          {/* ProvinceInfoPanel - Siempre visible */}
+          <div className="flex-shrink-0">
+            <ProvinceInfoPanel
+              game={game}
+              provinceId={selectedProvince}
+              visibleUnits={visibleUnits}
+              players={players}
+              currentPlayer={player}
+              controlledProvinces={myControlledProvinces}
+              provinceFaction={provinceFaction}
+              onUnitClick={(unit) => setUnitManagementModalUnit(unit)}
+            />
+          </div>
+
+          {/* OrdersPanel - Solo en fase de órdenes */}
+          {game.currentPhase.includes('orders') && (
+            <div className="flex-1 flex flex-col border-t-2 border-[#b4a481]">
+              <OrdersPanel
+                game={game}
+                player={player}
+                units={visibleUnits}
+                selectedUnit={selectedUnit}
+                onUnitSelect={handleUnitClick}
+                currentPhase={game.currentPhase}
+                turnNumber={game.turnNumber}
+              />
+            </div>
+          )}
         </aside>
 
         {/* Mapa */}
-        <div className="flex-1 p-4 overflow-hidden">
+        <div className="flex-1 p-4 overflow-hidden bg-[#f4e4c1]">
           <GameBoard
             onProvinceClick={handleProvinceClick}
             selectedProvince={selectedProvince}
@@ -445,11 +463,11 @@ export default function Game() {
         </div>
 
         {/* Panel lateral derecho */}
-        <aside className="w-96 bg-gray-800 border-l border-gray-700 flex flex-col overflow-y-auto">
+        <aside className="w-80 bg-[#d4c4a1] border-l border-[#b4a481] flex flex-col overflow-y-auto">
           {/* Paneles superiores - agrupados para no colapsar */}
           <div className="flex-shrink-0">
             {/* TurnIndicator con información de turno y countdown */}
-            <div className="p-4 border-b border-gray-700">
+            <div className="p-4 border-b border-[#b4a481]">
               <TurnIndicator
                 game={game}
                 onDiplomacyClick={() => setIsDiplomacyModalOpen(true)}
@@ -457,18 +475,19 @@ export default function Game() {
             </div>
 
             {/* TreasuryPanel - Información económica */}
-            <div className="p-4 border-b border-gray-700">
+            <div className="p-4 border-b border-[#b4a481]">
               <TreasuryPanel
                 player={player}
                 units={visibleUnits}
                 currentSeason={game.currentSeason}
                 gameMap={game.map || { provinces: {}, adjacencies: {} }}
+                provinceFaction={provinceFaction}
               />
             </div>
 
             {/* FamineMitigationPanel - Mitigar hambrunas */}
             {(game as any).famineProvinces && (game as any).famineProvinces.length > 0 && (
-              <div className="p-4 border-b border-gray-700">
+              <div className="p-4 border-b border-[#b4a481]">
                 <FamineMitigationPanel
                   game={game}
                   player={player}
@@ -482,7 +501,7 @@ export default function Game() {
 
             {/* InactivePlayerVoting - Votar sobre jugadores inactivos */}
             {players.some(p => p.status === 'inactive') && (
-              <div className="p-4 border-b border-gray-700">
+              <div className="p-4 border-b border-[#b4a481]">
                 <InactivePlayerVoting
                   gameId={gameId!}
                   currentPlayer={player}
@@ -493,17 +512,7 @@ export default function Game() {
           </div>
 
           {/* Tabs de navegación */}
-          <div className="flex border-b border-gray-700 flex-shrink-0">
-            <button
-              onClick={() => setActiveTab('orders')}
-              className={`flex-1 px-3 py-3 font-medium text-sm transition-colors ${
-                activeTab === 'orders'
-                  ? 'bg-gray-900 text-blue-400 border-b-2 border-blue-500'
-                  : 'bg-gray-800 text-gray-400 hover:text-gray-300'
-              }`}
-            >
-              ⚔️ Órdenes
-            </button>
+          <div className="flex border-b border-[#b4a481] flex-shrink-0">
             <button
               onClick={() => setActiveTab('chat')}
               className={`flex-1 px-3 py-3 font-medium text-sm transition-colors ${
@@ -528,17 +537,7 @@ export default function Game() {
 
           {/* Contenido de las pestañas */}
           <div className="flex-1 flex flex-col overflow-hidden">
-            {activeTab === 'orders' ? (
-              <OrdersPanel
-                game={game}
-                player={player}
-                units={visibleUnits}
-                selectedUnit={selectedUnit}
-                onUnitSelect={handleUnitClick}
-                currentPhase={game.currentPhase}
-                turnNumber={game.turnNumber}
-              />
-            ) : activeTab === 'chat' ? (
+            {activeTab === 'chat' ? (
               <DiplomaticChat
                 gameId={gameId!}
                 currentPlayer={player}
@@ -552,7 +551,7 @@ export default function Game() {
           </div>
 
           {/* Jugadores */}
-          <div className="p-4 border-t border-gray-700 flex-shrink-0">
+          <div className="p-4 border-t border-[#b4a481] flex-shrink-0">
             <h3 className="font-bold mb-2">Jugadores ({players.length})</h3>
             <div className="space-y-1 text-sm">
               {players.map((p) => (

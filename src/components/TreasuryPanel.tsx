@@ -11,37 +11,49 @@ import { useMemo } from 'react';
 import type { Player, Unit, GameMap } from '../types';
 import DucatBag from './decorative/icons/DucatBag';
 import Separator from './decorative/Separator';
+import { getProvinceIncome } from '../utils/gameMapHelpers';
 
 interface TreasuryPanelProps {
   player: Player;
   units: Unit[];
   currentSeason: string;
   gameMap: GameMap;
+  provinceFaction: Record<string, string>; // Mapa de control: provinceId -> faction
 }
 
-export default function TreasuryPanel({ player, units, currentSeason, gameMap }: TreasuryPanelProps) {
-  // Calcular ciudades controladas (provincias con guarnición del jugador)
-  const citiesControlled = useMemo(() => {
+export default function TreasuryPanel({ player, units, currentSeason, gameMap, provinceFaction }: TreasuryPanelProps) {
+  // Calcular TODAS las provincias controladas (usando provinceFaction)
+  const provincesControlled = useMemo(() => {
     // Validación defensiva: si no hay gameMap, retornar array vacío
     if (!gameMap || !gameMap.provinces) {
       console.warn('[TreasuryPanel] gameMap no disponible');
       return [];
     }
 
-    const garrisonProvinces = units
-      .filter(u => u.type === 'garrison' && u.owner === player.id)
-      .map(u => u.currentPosition);
-
-    return garrisonProvinces
-      .map(provinceId => {
-        const province = gameMap.provinces[provinceId];
-        return province?.hasCity ? { id: provinceId, name: province.cityName || province.name } : null;
+    // Filtrar provincias donde provinceFaction[id] === player.faction
+    return Object.entries(gameMap.provinces)
+      .filter(([provinceId, _]) => provinceFaction[provinceId] === player.faction)
+      .map(([provinceId, province]) => {
+        return {
+          id: provinceId,
+          name: province.cityName || province.name,
+          hasCity: province.hasCity || false,
+          isPort: province.isPort || province.type === 'port',
+          income: getProvinceIncome(gameMap, provinceId)
+        };
       })
-      .filter(Boolean);
-  }, [units, player.id, gameMap]);
+      .sort((a, b) => {
+        // Ordenar: ciudades primero, luego por ingreso descendente
+        if (a.hasCity && !b.hasCity) return -1;
+        if (!a.hasCity && b.hasCity) return 1;
+        return b.income - a.income;
+      });
+  }, [gameMap, provinceFaction, player.faction]);
 
-  // Calcular ingresos estimados (3 ducados por ciudad)
-  const estimatedIncome = citiesControlled.length * 3;
+  // Calcular ingresos estimados: suma de TODAS las provincias controladas
+  const estimatedIncome = useMemo(() => {
+    return provincesControlled.reduce((total, province) => total + province.income, 0);
+  }, [provincesControlled]);
 
   // Calcular gastos de mantenimiento (solo en Primavera)
   const maintenanceCost = useMemo(() => {
@@ -66,7 +78,7 @@ export default function TreasuryPanel({ player, units, currentSeason, gameMap }:
   const isSpring = currentSeason === 'Primavera';
 
   return (
-    <div className="bg-gray-800 rounded-lg p-5 border-2 border-renaissance-gold shadow-ornate">
+    <div className="bg-transparent rounded-lg p-5 border-2 border-[#b4a481] shadow-ornate">
       {/* Header con icono de bolsa de ducados */}
       <div className="flex items-center gap-3 mb-4">
         <DucatBag className="w-10 h-10" filled={treasury > 10} />
@@ -78,7 +90,7 @@ export default function TreasuryPanel({ player, units, currentSeason, gameMap }:
       <Separator variant="gold" className="mb-4" />
 
       {/* Tesoro actual - estilo ledger */}
-      <div className="mb-4 bg-renaissance-ink/30 rounded-lg p-4 border border-renaissance-gold/30">
+      <div className="mb-4 bg-renaissance-ink/30 rounded-lg p-4 border border-[#b4a481]/30">
         <div className="flex justify-between items-center">
           <span className="text-sm font-serif text-parchment-300 uppercase tracking-wide">Tesoro actual</span>
           <div className="flex items-center gap-2">
@@ -88,19 +100,36 @@ export default function TreasuryPanel({ player, units, currentSeason, gameMap }:
         </div>
       </div>
 
-      {/* Ciudades controladas */}
+      {/* Provincias controladas */}
       <div className="mb-4">
         <div className="flex justify-between items-center mb-3">
-          <span className="text-sm font-serif text-gray-400 uppercase tracking-wide">Ciudades controladas</span>
-          <span className="text-2xl font-heading font-bold text-renaissance-bronze">{citiesControlled.length}</span>
+          <span className="text-sm font-serif text-gray-700 uppercase tracking-wide">Provincias controladas</span>
+          <span className="text-2xl font-heading font-bold text-renaissance-bronze">{provincesControlled.length}</span>
         </div>
 
-        {citiesControlled.length > 0 && (
-          <div className="mt-2 space-y-1.5 max-h-32 overflow-y-auto">
-            {citiesControlled.map((city: any) => (
-              <div key={city.id} className="text-sm font-serif text-parchment-300 flex items-center gap-2 py-1 px-2 bg-gray-900/40 rounded border-l-2 border-renaissance-bronze/50">
-                <span className="text-base">🏰</span>
-                <span>{city.name}</span>
+        {provincesControlled.length > 0 && (
+          <div className="mt-2 space-y-1.5 max-h-40 overflow-y-auto">
+            {provincesControlled.map((province: any) => (
+              <div key={province.id} className="text-sm font-serif flex items-center justify-between py-1 px-2 bg-[#f4e4c1] rounded border-l-2 border-renaissance-bronze/50">
+                <div className="flex items-center gap-2">
+                  {/* Nombre de provincia PRIMERO - siempre en blanco */}
+                  <span className="text-parchment-200">
+                    {province.name}
+                  </span>
+
+                  {/* Iconos DESPUÉS */}
+                  {province.hasCity && <span className="text-base">🏰</span>}
+                  {province.isPort && <span className="text-base">⚓</span>}
+                </div>
+
+                {/* Ingreso: Verde si >0, blanco si =0 */}
+                <span className={`font-heading font-semibold ${
+                  province.income > 0
+                    ? 'text-green-400'
+                    : 'text-black'
+                }`}>
+                  {province.income} ducados
+                </span>
               </div>
             ))}
           </div>
@@ -112,11 +141,11 @@ export default function TreasuryPanel({ player, units, currentSeason, gameMap }:
       {/* Ingresos estimados - Estilo ledger con líneas punteadas */}
       <div className="mb-4">
         <div className="flex justify-between items-center mb-1 border-b border-dotted border-gray-600 pb-2">
-          <span className="text-sm font-serif text-gray-400">Ingresos próxima Primavera</span>
+          <span className="text-sm font-serif text-gray-700">Ingresos próxima Primavera</span>
           <span className="text-lg font-heading font-semibold text-renaissance-olive-light">+{estimatedIncome}d</span>
         </div>
-        <p className="text-xs font-serif text-gray-500 mt-1 italic">
-          (3 ducados por ciudad)
+        <p className="text-xs font-serif text-gray-700 mt-1 italic">
+          (según valor de cada ciudad)
         </p>
       </div>
 
@@ -125,10 +154,10 @@ export default function TreasuryPanel({ player, units, currentSeason, gameMap }:
         <>
           <div className="mb-4">
             <div className="flex justify-between items-center mb-1 border-b border-dotted border-gray-600 pb-2">
-              <span className="text-sm font-serif text-gray-400">Mantenimiento esta Primavera</span>
+              <span className="text-sm font-serif text-gray-700">Mantenimiento esta Primavera</span>
               <span className="text-lg font-heading font-semibold text-burgundy-300">-{maintenanceCost}d</span>
             </div>
-            <p className="text-xs font-serif text-gray-500 mt-1 italic">
+            <p className="text-xs font-serif text-gray-700 mt-1 italic">
               (1d por ejército/flota, 0.5d por guarnición)
             </p>
 

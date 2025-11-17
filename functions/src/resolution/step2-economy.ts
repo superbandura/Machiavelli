@@ -9,7 +9,7 @@
  */
 
 import { ResolutionContext, Unit } from '../types';
-import { hasCity } from '../utils/mapHelpers';
+import { hasCity, getIncome } from '../utils/mapHelpers';
 
 /**
  * Procesar ingresos y mantenimiento (solo Primavera)
@@ -24,7 +24,10 @@ async function processMaintenanceAndIncome(context: ResolutionContext): Promise<
       .map(u => u.currentPosition)
       .filter(provinceId => hasCity(context.map, provinceId));
 
-    const income = controlledCities.length * 3; // 3 ducados por ciudad
+    // Calcular ingresos sumando el income individual de cada ciudad
+    const income = controlledCities.reduce((total, cityId) => {
+      return total + getIncome(context.map, cityId);
+    }, 0);
 
     player.treasury = (player.treasury || 0) + income;
 

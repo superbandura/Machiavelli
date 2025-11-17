@@ -4,43 +4,35 @@ interface UnitIconProps {
   type: Unit['type']
   size?: 'sm' | 'md' | 'lg'
   className?: string
+  bordered?: boolean
 }
 
 /**
- * Componente para mostrar iconos de unidades
+ * Componente para mostrar iconos de unidades con imágenes PNG
  * Tamaños:
  * - sm: 16px (para listas compactas)
  * - md: 24px (por defecto, para panels)
  * - lg: 32px (para destacar)
  */
-export default function UnitIcon({ type, size = 'md', className = '' }: UnitIconProps) {
+export default function UnitIcon({ type, size = 'md', className = '', bordered = false }: UnitIconProps) {
   const sizeClasses = {
-    sm: 'w-4 h-4 text-sm',
-    md: 'w-6 h-6 text-base',
-    lg: 'w-8 h-8 text-lg'
+    sm: 'w-14 h-14',
+    md: 'w-14 h-14',
+    lg: 'w-14 h-14'
   }
 
   const iconConfig = {
     army: {
-      emoji: '⚔️',
-      label: 'Ejército',
-      bgColor: 'bg-red-900/30',
-      borderColor: 'border-red-500',
-      textColor: 'text-red-300'
+      icon: '/icons/ejercito.png',
+      label: 'Ejército'
     },
     fleet: {
-      emoji: '⛵',
-      label: 'Flota',
-      bgColor: 'bg-blue-900/30',
-      borderColor: 'border-blue-500',
-      textColor: 'text-blue-300'
+      icon: '/icons/flota.png',
+      label: 'Flota'
     },
     garrison: {
-      emoji: '🏰',
-      label: 'Guarnición',
-      bgColor: 'bg-yellow-900/30',
-      borderColor: 'border-yellow-500',
-      textColor: 'text-yellow-300'
+      icon: '/icons/guarnicion.png',
+      label: 'Guarnición'
     }
   }
 
@@ -51,16 +43,17 @@ export default function UnitIcon({ type, size = 'md', className = '' }: UnitIcon
     <div
       className={`
         ${sizeClass}
-        ${config.bgColor}
-        ${config.borderColor}
-        ${config.textColor}
         inline-flex items-center justify-center
-        rounded border
+        ${bordered ? 'border-2 border-red-500 rounded p-0.5' : ''}
         ${className}
       `}
       title={config.label}
     >
-      <span className="leading-none">{config.emoji}</span>
+      <img
+        src={config.icon}
+        alt={config.label}
+        className="w-full h-full object-contain"
+      />
     </div>
   )
 }
@@ -72,7 +65,7 @@ interface UnitIconWithLabelProps extends UnitIconProps {
   showLabel?: boolean
 }
 
-export function UnitIconWithLabel({ type, size = 'md', showLabel = true, className = '' }: UnitIconWithLabelProps) {
+export function UnitIconWithLabel({ type, size = 'md', showLabel = true, className = '', bordered = false }: UnitIconWithLabelProps) {
   const labelText = {
     army: 'Ejército',
     fleet: 'Flota',
@@ -81,7 +74,7 @@ export function UnitIconWithLabel({ type, size = 'md', showLabel = true, classNa
 
   return (
     <div className={`inline-flex items-center gap-2 ${className}`}>
-      <UnitIcon type={type} size={size} />
+      <UnitIcon type={type} size={size} bordered={bordered} />
       {showLabel && (
         <span className="text-sm text-gray-300 capitalize">
           {labelText[type]}

@@ -49,6 +49,17 @@ export default function ProvinceInfoPanel({
   const isControlled = controlledProvinces.includes(provinceId)
   const controller = provinceFaction[provinceId]
 
+  // Helper para convertir nombre de facción a nombre de archivo
+  const getFactionImageName = (factionName: string): string => {
+    const normalized = factionName.toLowerCase()
+    if (normalized.includes('venecia')) return 'venecia'
+    if (normalized.includes('milán') || normalized.includes('milan')) return 'milan'
+    if (normalized.includes('florencia')) return 'florencia'
+    if (normalized.includes('génova') || normalized.includes('genova')) return 'genova'
+    if (normalized.includes('pontificios') || normalized.includes('papado')) return 'papado'
+    return normalized.replace(/^república de |^ducado de |^reino de |^corona de /i, '').trim()
+  }
+
   // Verificar si el jugador controla esta provincia según el mapa del juego
   const isControlledByMe = provinceInfo?.controlledBy === currentPlayer?.faction
 
@@ -88,28 +99,34 @@ export default function ProvinceInfoPanel({
   }
 
   return (
-    <div className="p-4 border-b border-gray-700">
-      <h3 className="font-bold mb-3 text-gray-400">Información de Provincia</h3>
+    <div className="p-4 border-b border-[#b4a481]">
+      <h3 className="font-bold mb-3 text-gray-800">Información de Provincia</h3>
 
       {/* Nombre y tipo de provincia */}
       <div className="space-y-3">
         <div>
-          <div className="font-bold text-green-400 text-lg mb-1">
+          {controller && (
+            <div className="mb-2 flex justify-center">
+              <img
+                src={`/factions/${getFactionImageName(controller)}.png`}
+                alt={controller}
+                title={controller}
+                className="w-32 h-32"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            </div>
+          )}
+          <div className="font-bold text-green-800 text-lg mb-1">
             {provinceInfo?.name || provinceId}
           </div>
-          <div className="flex items-center gap-2 text-sm text-gray-400">
-            <span className="capitalize">{provinceInfo?.type || 'Desconocido'}</span>
+          <div className="flex items-center gap-2">
             {provinceInfo?.hasCity && (
-              <>
-                <span>•</span>
-                <span className="text-yellow-400">Ciudad</span>
-              </>
+              <img src="/icons/ciudad.png" alt="Ciudad" className="w-14 h-14" title="Ciudad" />
             )}
             {provinceInfo?.isPort && (
-              <>
-                <span>•</span>
-                <span className="text-blue-400">Puerto</span>
-              </>
+              <img src="/icons/puerto.png" alt="Puerto" className="w-14 h-14" title="Puerto" />
             )}
           </div>
         </div>
@@ -117,16 +134,16 @@ export default function ProvinceInfoPanel({
         {/* Controlador */}
         {controller && (
           <div className="flex justify-between items-center">
-            <span className="text-gray-400 text-sm">Controlada por:</span>
-            <span className="font-semibold text-sm">{controller}</span>
+            <span className="text-gray-700 text-sm">Controlada por:</span>
+            <span className="font-semibold text-sm text-black">{controller}</span>
           </div>
         )}
 
         {/* Ingreso (si tiene ciudad) */}
         {provinceInfo?.hasCity && provinceInfo?.income && (
           <div className="flex justify-between items-center">
-            <span className="text-gray-400 text-sm">Ingreso:</span>
-            <span className="text-yellow-400 font-semibold text-sm">
+            <span className="text-gray-700 text-sm">Ingreso:</span>
+            <span className="text-amber-700 font-semibold text-sm">
               {provinceInfo.income} ducados
             </span>
           </div>
@@ -134,8 +151,8 @@ export default function ProvinceInfoPanel({
 
         {/* Botones de creación de unidades */}
         {(canCreateGarrison || canCreateArmy || canCreateFleet) && (
-          <div className="mt-3 pt-3 border-t border-gray-700">
-            <div className="text-sm font-semibold text-gray-400 mb-2">
+          <div className="mt-3 pt-3 border-t border-[#b4a481]">
+            <div className="text-sm font-semibold text-gray-800 mb-2">
               Crear Unidad
             </div>
 
@@ -147,7 +164,7 @@ export default function ProvinceInfoPanel({
                   value={unitName}
                   onChange={(e) => setUnitName(e.target.value)}
                   placeholder={`Nombre ${showNameInput === 'army' ? 'del ejército' : showNameInput === 'fleet' ? 'de la flota' : 'de la guarnición'} (opcional)`}
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-[#f4e4c1] border border-[#b4a481] rounded text-sm text-black placeholder-gray-600 focus:outline-none focus:border-amber-700"
                   maxLength={50}
                   disabled={creatingUnit}
                 />
@@ -172,45 +189,43 @@ export default function ProvinceInfoPanel({
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col gap-2">
-                {/* Botón de Guarnición - Siempre visible */}
+              <div className="flex gap-2">
+                {/* Botón de Guarnición */}
                 {canCreateGarrison && (
                   <button
                     onClick={() => setShowNameInput('garrison')}
-                    className="w-full px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm rounded transition-colors flex items-center justify-center gap-2"
+                    title={`Guarnición (${UNIT_CREATION_COSTS.garrison}d)`}
+                    className="flex-1 p-2 hover:bg-[#c4b491] rounded transition-colors flex items-center justify-center"
                   >
-                    <span>🏰</span>
-                    <span>Guarnición ({UNIT_CREATION_COSTS.garrison}d)</span>
+                    <img src="/icons/guarnicion.png" alt="Guarnición" className="w-14 h-14" />
                   </button>
                 )}
 
-                {/* Botones de Ejército y Flota en la misma fila */}
-                {(canCreateArmy || canCreateFleet) && (
-                  <div className="flex gap-2">
-                    {canCreateArmy && (
-                      <button
-                        onClick={() => setShowNameInput('army')}
-                        className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors flex items-center justify-center gap-2"
-                      >
-                        <span>🗡️</span>
-                        <span>Ejército ({UNIT_CREATION_COSTS.army}d)</span>
-                      </button>
-                    )}
-                    {canCreateFleet && (
-                      <button
-                        onClick={() => setShowNameInput('fleet')}
-                        className="flex-1 px-3 py-2 bg-cyan-600 hover:bg-cyan-700 text-white text-sm rounded transition-colors flex items-center justify-center gap-2"
-                      >
-                        <span>⛵</span>
-                        <span>Flota ({UNIT_CREATION_COSTS.fleet}d)</span>
-                      </button>
-                    )}
-                  </div>
+                {/* Botón de Ejército */}
+                {canCreateArmy && (
+                  <button
+                    onClick={() => setShowNameInput('army')}
+                    title={`Ejército (${UNIT_CREATION_COSTS.army}d)`}
+                    className="flex-1 p-2 hover:bg-[#c4b491] rounded transition-colors flex items-center justify-center"
+                  >
+                    <img src="/icons/ejercito.png" alt="Ejército" className="w-14 h-14" />
+                  </button>
+                )}
+
+                {/* Botón de Flota */}
+                {canCreateFleet && (
+                  <button
+                    onClick={() => setShowNameInput('fleet')}
+                    title={`Flota (${UNIT_CREATION_COSTS.fleet}d)`}
+                    className="flex-1 p-2 hover:bg-[#c4b491] rounded transition-colors flex items-center justify-center"
+                  >
+                    <img src="/icons/flota.png" alt="Flota" className="w-14 h-14" />
+                  </button>
                 )}
               </div>
             )}
 
-            <div className="mt-2 text-xs text-gray-500 italic">
+            <div className="mt-2 text-xs text-gray-700 italic">
               Las unidades se crean vacías. Haz click en ellas para reclutar tropas.
             </div>
           </div>
@@ -218,13 +233,13 @@ export default function ProvinceInfoPanel({
 
         {/* Divisor */}
         {unitsInProvince.length > 0 && (
-          <div className="border-t border-gray-700 pt-3 mt-3" />
+          <div className="border-t border-[#b4a481] pt-3 mt-3" />
         )}
 
         {/* Mis unidades */}
         {myUnits.length > 0 && (
           <div>
-            <div className="font-semibold text-blue-400 text-sm mb-2">
+            <div className="font-semibold text-blue-800 text-sm mb-2">
               Tus unidades ({myUnits.length})
             </div>
             <div className="space-y-2">
@@ -232,42 +247,35 @@ export default function ProvinceInfoPanel({
                 <div
                   key={unit.id}
                   onClick={() => onUnitClick?.(unit)}
-                  className="flex items-center justify-between gap-2 ml-2 p-2 rounded hover:bg-gray-700 cursor-pointer transition-colors group"
+                  className="flex items-center gap-2 ml-2 p-2 rounded hover:bg-[#c4b491] cursor-pointer transition-colors"
                 >
-                  <div className="flex items-center gap-2 text-gray-300">
-                    {unit.composition ? (
-                      <UnitCompositionTooltip composition={unit.composition}>
-                        <div className="flex items-center gap-2">
-                          <UnitIconWithLabel type={unit.type} size="sm" />
-                          {unit.name && (
-                            <span className="text-sm font-medium text-gray-200">
-                              {unit.name}
-                            </span>
-                          )}
-                        </div>
-                      </UnitCompositionTooltip>
-                    ) : (
+                  {unit.composition ? (
+                    <UnitCompositionTooltip composition={unit.composition}>
                       <div className="flex items-center gap-2">
-                        <UnitIconWithLabel type={unit.type} size="sm" />
+                        <UnitIconWithLabel type={unit.type} size="sm" bordered={true} showLabel={false} />
                         {unit.name && (
-                          <span className="text-sm font-medium text-gray-200">
+                          <span className="text-sm font-medium text-black">
                             {unit.name}
                           </span>
                         )}
                       </div>
-                    )}
-                    {unit.status === 'besieged' && (
-                      <span className="text-xs text-red-400">(Asediada)</span>
-                    )}
-                    {unit.siegeTurns > 0 && (
-                      <span className="text-xs text-orange-400">
-                        (Asedio {unit.siegeTurns}/3)
-                      </span>
-                    )}
-                  </div>
-                  {game.currentPhase === 'orders' && (
-                    <span className="text-xs text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                      ⚙️ Gestionar
+                    </UnitCompositionTooltip>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <UnitIconWithLabel type={unit.type} size="sm" bordered={true} showLabel={false} />
+                      {unit.name && (
+                        <span className="text-sm font-medium text-black">
+                          {unit.name}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {unit.status === 'besieged' && (
+                    <span className="text-xs text-red-700">(Asediada)</span>
+                  )}
+                  {unit.siegeTurns > 0 && (
+                    <span className="text-xs text-orange-700">
+                      (Asedio {unit.siegeTurns}/3)
                     </span>
                   )}
                 </div>
@@ -279,7 +287,7 @@ export default function ProvinceInfoPanel({
         {/* Otras unidades visibles */}
         {isControlled && otherUnits.length > 0 && (
           <div>
-            <div className="font-semibold text-yellow-400 text-sm mb-2">
+            <div className="font-semibold text-amber-800 text-sm mb-2">
               Otras unidades visibles ({otherUnits.length})
             </div>
             <div className="space-y-2">
@@ -288,14 +296,14 @@ export default function ProvinceInfoPanel({
                 return (
                   <div
                     key={unit.id}
-                    className="flex items-center gap-2 ml-2 text-gray-300"
+                    className="flex items-center gap-2 ml-2 text-gray-800"
                   >
                     {unit.composition ? (
                       <UnitCompositionTooltip composition={unit.composition}>
                         <div className="flex items-center gap-2">
-                          <UnitIconWithLabel type={unit.type} size="sm" />
+                          <UnitIconWithLabel type={unit.type} size="sm" showLabel={false} />
                           {unit.name && (
-                            <span className="text-sm font-medium text-gray-200">
+                            <span className="text-sm font-medium text-black">
                               {unit.name}
                             </span>
                           )}
@@ -303,16 +311,16 @@ export default function ProvinceInfoPanel({
                       </UnitCompositionTooltip>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <UnitIconWithLabel type={unit.type} size="sm" />
+                        <UnitIconWithLabel type={unit.type} size="sm" showLabel={false} />
                         {unit.name && (
-                          <span className="text-sm font-medium text-gray-200">
+                          <span className="text-sm font-medium text-black">
                             {unit.name}
                           </span>
                         )}
                       </div>
                     )}
                     {ownerPlayer && (
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-gray-700">
                         ({ownerPlayer.faction})
                       </span>
                     )}
@@ -340,15 +348,6 @@ export default function ProvinceInfoPanel({
           </div>
         )}
 
-        {/* Advertencia si no es territorio controlado y hay unidades */}
-        {!isControlled && myUnits.length > 0 && (
-          <div className="mt-3 pt-3 border-t border-gray-700">
-            <div className="flex items-center gap-2 text-orange-400 text-xs">
-              <span>⚠</span>
-              <span>Sin visibilidad de unidades enemigas</span>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )
