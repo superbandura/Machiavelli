@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { Game } from '@/types'
-import Hourglass from './decorative/icons/Hourglass'
 import Separator from './decorative/Separator'
 
 interface TurnIndicatorProps {
@@ -84,11 +83,11 @@ export default function TurnIndicator({ game, onDiplomacyClick }: TurnIndicatorP
   // Obtener icono de la fase
   const getPhaseIcon = (phase: string): string => {
     const icons: Record<string, string> = {
-      diplomatic: '📜', // Pergamino
-      orders: '⚔️',    // Espadas
-      resolution: '⚙️'  // Engranajes
+      diplomatic: '/icons/ordenes.png',
+      orders: '/icons/ordenes.png',
+      resolution: '/icons/ordenes.png'
     }
-    return icons[phase] || '•'
+    return icons[phase] || '/icons/ordenes.png'
   }
 
   // Obtener nombre de la temporada en español
@@ -102,20 +101,20 @@ export default function TurnIndicator({ game, onDiplomacyClick }: TurnIndicatorP
   }
 
   return (
-    <div className="bg-transparent border-2 border-[#b4a481] rounded-lg p-5 space-y-4 shadow-ornate">
+    <div className="bg-transparent border-2 border-[#b4a481] rounded-lg p-2 space-y-2 shadow-ornate">
       {/* Header ornamentado */}
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-2xl font-heading font-bold text-renaissance-gold">
+          <h3 className="text-lg font-heading font-bold text-renaissance-gold leading-tight">
             Turno {game.turnNumber}
           </h3>
-          <div className="text-base font-serif text-gray-800 mt-1">
+          <div className="text-xs font-serif text-gray-800">
             Anno Domini {game.currentYear} · {getSeasonInSpanish(game.currentSeason)}
           </div>
         </div>
         <div className="text-right">
-          <div className="text-xs font-serif text-gray-700 uppercase tracking-wider">Estado</div>
-          <div className={`text-sm font-heading font-medium px-3 py-1.5 rounded border-2 capitalize mt-1 ${
+          <div className="text-[10px] font-serif text-gray-700 uppercase tracking-wider">Estado</div>
+          <div className={`text-xs font-heading font-medium px-2 py-0.5 rounded border-2 capitalize ${
             game.status === 'waiting'
               ? 'bg-renaissance-bronze/20 border-renaissance-bronze text-renaissance-bronze-light'
               : game.status === 'active'
@@ -133,7 +132,7 @@ export default function TurnIndicator({ game, onDiplomacyClick }: TurnIndicatorP
 
       {/* Fase actual */}
       <div
-        className={`border-2 rounded-lg p-4 ${getPhaseColor(game.currentPhase)} transition-all duration-300 ${
+        className={`border-2 rounded-lg p-2 ${getPhaseColor(game.currentPhase)} transition-all duration-300 ${
           onDiplomacyClick ? 'cursor-pointer hover:shadow-glow-gold hover:border-[#b4a481]' : ''
         }`}
         onClick={onDiplomacyClick}
@@ -141,42 +140,48 @@ export default function TurnIndicator({ game, onDiplomacyClick }: TurnIndicatorP
       >
         <div className="flex justify-between items-center">
           <div>
-            <div className="text-xs font-serif opacity-75 uppercase tracking-wider">Fase Actual</div>
-            <div className="font-heading font-bold text-2xl mt-1">
+            <div className="text-[10px] font-serif opacity-75 uppercase tracking-wider">Fase Actual</div>
+            <div className="font-heading font-bold text-lg leading-tight">
               {getPhaseNameInSpanish(game.currentPhase)}
             </div>
             {onDiplomacyClick && (
-              <div className="text-xs font-serif opacity-75 mt-2 italic">
+              <div className="text-[10px] font-serif opacity-75 italic">
                 Click para ver diplomacia →
               </div>
             )}
           </div>
-          <div className="text-4xl opacity-80">
-            {getPhaseIcon(game.currentPhase)}
-          </div>
+          <img
+            src={getPhaseIcon(game.currentPhase)}
+            alt="Fase"
+            className="w-8 h-8 object-contain opacity-80"
+          />
         </div>
       </div>
 
       {/* Contador regresivo con reloj de arena */}
       {game.status === 'active' && game.phaseDeadline && (
-        <div className={`border-2 rounded-lg p-4 transition-all ${
+        <div className={`border-2 rounded-lg p-2 transition-all ${
           isUrgent
             ? 'bg-burgundy-700/20 border-burgundy-400 shadow-glow-burgundy'
             : 'bg-[#f4e4c1] border-renaissance-bronze'
         }`}>
-          <div className="flex justify-between items-center gap-4">
+          <div className="flex justify-between items-center gap-2">
             <div className="flex-1">
-              <div className="text-xs font-serif text-gray-700 uppercase tracking-wider">Tiempo Restante</div>
-              <div className={`font-heading text-2xl font-bold mt-1 ${
+              <div className="text-[10px] font-serif text-gray-700 uppercase tracking-wider">Tiempo Restante</div>
+              <div className={`font-heading text-base font-bold leading-tight ${
                 isUrgent ? 'text-burgundy-300 animate-pulse' : 'text-renaissance-gold'
               }`}>
                 {timeRemaining || 'Calculando...'}
               </div>
             </div>
-            <Hourglass className="w-12 h-12 flex-shrink-0" animated={isUrgent} />
+            <img
+              src="/icons/reloj.png"
+              alt="Reloj"
+              className={`w-8 h-8 flex-shrink-0 object-contain ${isUrgent ? 'animate-pulse' : ''}`}
+            />
           </div>
           {isUrgent && (
-            <div className="mt-3 text-sm font-serif text-burgundy-300 font-medium border-t border-burgundy-600 pt-3">
+            <div className="mt-1 text-xs font-serif text-burgundy-300 font-medium border-t border-burgundy-600 pt-1">
               ⚠️ Tempus fugit! Envía tus órdenes pronto
             </div>
           )}
@@ -187,19 +192,19 @@ export default function TurnIndicator({ game, onDiplomacyClick }: TurnIndicatorP
 
       {/* Información de duraciones configuradas */}
       <div>
-        <div className="text-xs font-serif text-gray-700 uppercase tracking-wider mb-3">Duración de fases</div>
-        <div className="grid grid-cols-3 gap-3 text-xs">
-          <div className="bg-burgundy-700/20 border-2 border-burgundy-600 rounded-lg p-2.5 text-center hover:border-burgundy-500 transition-colors">
-            <div className="text-burgundy-300 font-heading font-semibold">Diplomática</div>
-            <div className="text-black font-serif text-base mt-1">{game.phaseDurations.diplomatic}h</div>
+        <div className="text-[10px] font-serif text-gray-700 uppercase tracking-wider mb-1">Duración de fases</div>
+        <div className="grid grid-cols-3 gap-1 text-xs">
+          <div className="bg-burgundy-700/20 border-2 border-burgundy-600 rounded-lg p-1 text-center hover:border-burgundy-500 transition-colors">
+            <div className="text-burgundy-300 font-heading font-semibold text-[10px]">Diplomática</div>
+            <div className="text-black font-serif text-xs leading-tight">{game.phaseDurations.diplomatic}h</div>
           </div>
-          <div className="bg-renaissance-bronze/20 border-2 border-renaissance-bronze rounded-lg p-2.5 text-center hover:border-renaissance-bronze-light transition-colors">
-            <div className="text-renaissance-bronze-light font-heading font-semibold">Órdenes</div>
-            <div className="text-black font-serif text-base mt-1">{game.phaseDurations.orders}h</div>
+          <div className="bg-renaissance-bronze/20 border-2 border-renaissance-bronze rounded-lg p-1 text-center hover:border-renaissance-bronze-light transition-colors">
+            <div className="text-renaissance-bronze-light font-heading font-semibold text-[10px]">Órdenes</div>
+            <div className="text-black font-serif text-xs leading-tight">{game.phaseDurations.orders}h</div>
           </div>
-          <div className="bg-renaissance-gold/20 border-2 border-[#b4a481]-dark rounded-lg p-2.5 text-center hover:border-[#b4a481] transition-colors">
-            <div className="text-renaissance-gold-light font-heading font-semibold">Resolución</div>
-            <div className="text-black font-serif text-base mt-1">{game.phaseDurations.resolution}h</div>
+          <div className="bg-renaissance-gold/20 border-2 border-[#b4a481]-dark rounded-lg p-1 text-center hover:border-[#b4a481] transition-colors">
+            <div className="text-renaissance-gold-light font-heading font-semibold text-[10px]">Resolución</div>
+            <div className="text-black font-serif text-xs leading-tight">{game.phaseDurations.resolution}h</div>
           </div>
         </div>
       </div>
@@ -207,7 +212,7 @@ export default function TurnIndicator({ game, onDiplomacyClick }: TurnIndicatorP
       <Separator variant="gray" />
 
       {/* Descripción de la fase actual */}
-      <div className="text-sm font-serif text-gray-800 leading-relaxed">
+      <div className="text-xs font-serif text-gray-800 leading-tight">
         {game.currentPhase === 'diplomatic' && (
           <>
             <strong className="text-burgundy-300 font-heading">Fase Diplomática:</strong> Negocia con otros jugadores,

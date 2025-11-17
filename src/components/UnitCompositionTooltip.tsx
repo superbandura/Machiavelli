@@ -42,8 +42,8 @@ export default function UnitCompositionTooltip({ composition, children }: UnitCo
         <div className="space-y-1">
           {ships.map(([type, count]) => (
             <div key={type} className="flex justify-between gap-3 text-xs">
-              <span className="text-blue-300">{TROOP_LABELS[type] || type}</span>
-              <span className="text-gray-200 font-semibold">{count}</span>
+              <span className="text-[#9db4c7] font-serif">{TROOP_LABELS[type] || type}</span>
+              <span className="text-[#f0d877] font-heading font-semibold">{count}</span>
             </div>
           ))}
         </div>
@@ -57,8 +57,8 @@ export default function UnitCompositionTooltip({ composition, children }: UnitCo
         <div className="space-y-1">
           {troops.map(([type, count]) => (
             <div key={type} className="flex justify-between gap-3 text-xs">
-              <span className="text-green-300">{TROOP_LABELS[type] || type}</span>
-              <span className="text-gray-200 font-semibold">{count}</span>
+              <span className="text-[#c4b491] font-serif">{TROOP_LABELS[type] || type}</span>
+              <span className="text-[#f0d877] font-heading font-semibold">{count}</span>
             </div>
           ))}
         </div>
@@ -80,12 +80,12 @@ export default function UnitCompositionTooltip({ composition, children }: UnitCo
 
       {/* Tooltip */}
       <div className="absolute left-0 top-full mt-1 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none">
-        <div className="bg-gray-800 border border-gray-600 rounded-lg shadow-lg p-3 min-w-[180px]">
-          <div className="font-semibold text-sm text-gray-200 mb-2 border-b border-gray-600 pb-1">
+        <div className="bg-[#2d2416] border-2 border-[#d4af37] rounded-lg shadow-ornate p-3 min-w-[180px]">
+          <div className="font-heading font-semibold text-sm text-[#f0d877] mb-2 border-b border-[#b4a481] pb-1">
             {composition.name}
           </div>
           {renderComposition()}
-          <div className="mt-2 pt-2 border-t border-gray-600 text-xs text-gray-400">
+          <div className="mt-2 pt-2 border-t border-[#b4a481] text-xs font-serif text-[#f0d877]">
             Total: {getTotalCount()} {isFleetComposition(composition) ? 'naves' : 'tropas'}
           </div>
         </div>

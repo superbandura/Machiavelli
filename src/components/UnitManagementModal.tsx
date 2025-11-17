@@ -45,9 +45,24 @@ const TROOP_LABELS: Record<string, string> = {
   heavyCavalry: 'Caballería Pesada',
 }
 
+const TROOP_ICONS: Record<string, string> = {
+  militia: '/icons/milicia.png',
+  lancers: '/icons/lancero.png',
+  pikemen: '/icons/piquero.png',
+  archers: '/icons/arquero.png',
+  crossbowmen: '/icons/ballestero.png',
+  lightCavalry: '/icons/caballeria_ligera.png',
+  heavyCavalry: '/icons/caballeria_pesada.png',
+}
+
 const SHIP_LABELS: Record<string, string> = {
-  galley: 'Galera ⛵',
-  cog: 'Coca 🚢',
+  galley: 'Galera',
+  cog: 'Coca',
+}
+
+const SHIP_ICONS: Record<string, string> = {
+  galley: '/icons/galera.png',
+  cog: '/icons/coca.png',
 }
 
 export default function UnitManagementModal({
@@ -243,10 +258,28 @@ export default function UnitManagementModal({
 
                   return (
                     <div key={shipType} className="flex items-center justify-between p-3 bg-[#d4c4a1] border-2 border-[#4a3f2a] rounded-lg opacity-100">
-                      <div className="flex-1">
-                        <div className="font-medium text-[#1d1408] font-serif">{label}</div>
-                        <div className="text-xs text-[#6b5d42]">
-                          Actual: {current} | Coste: {cost}d/barco
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="relative group">
+                          <img
+                            src={SHIP_ICONS[shipType]}
+                            alt={label}
+                            className="w-16 h-16 object-contain cursor-help"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none'
+                            }}
+                          />
+                          {/* Popup de coste */}
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#2d2416] border-2 border-[#d4af37] rounded-lg shadow-ornate opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                            <div className="text-xs font-heading text-[#f0d877]">
+                              Coste: {cost}d/{shipType === 'galley' ? 'galera' : 'coca'}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-medium text-[#1d1408] font-serif">{label}</div>
+                          <div className="font-bold text-base text-[#1d1408]">
+                            Actual: {current}
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -261,7 +294,7 @@ export default function UnitManagementModal({
                         >
                           <img src="/icons/decremento.png" alt="Decrementar" className="w-6 h-6" />
                         </button>
-                        <span className="w-16 text-center font-semibold text-[#1d1408] font-heading">
+                        <span className="w-20 text-center text-xl font-bold text-[#1d1408] font-heading">
                           +{toRecruit}
                         </span>
                         <button
@@ -300,10 +333,29 @@ export default function UnitManagementModal({
 
                   return (
                     <div key={troopType} className="flex items-center justify-between p-3 bg-[#d4c4a1] border-2 border-[#4a3f2a] rounded-lg opacity-100">
-                      <div className="flex-1">
-                        <div className="font-medium text-[#1d1408] font-serif">{label}</div>
-                        <div className="text-xs text-[#6b5d42]">
-                          Actual: {current} | Coste: {cost}d/100
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="relative group">
+                          <img
+                            src={TROOP_ICONS[troopType]}
+                            alt={label}
+                            className="w-16 h-16 object-contain cursor-help"
+                            onError={(e) => {
+                              // Fallback si el icono no existe
+                              e.currentTarget.style.display = 'none'
+                            }}
+                          />
+                          {/* Popup de coste */}
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#2d2416] border-2 border-[#d4af37] rounded-lg shadow-ornate opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                            <div className="text-xs font-heading text-[#f0d877]">
+                              Coste: {cost}d/100
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-medium text-[#1d1408] font-serif">{label}</div>
+                          <div className="font-bold text-base text-[#1d1408]">
+                            Actual: {current}
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -318,7 +370,7 @@ export default function UnitManagementModal({
                         >
                           <img src="/icons/decremento.png" alt="Decrementar" className="w-6 h-6" />
                         </button>
-                        <span className="w-16 text-center font-semibold text-[#1d1408] font-heading">
+                        <span className="w-20 text-center text-xl font-bold text-[#1d1408] font-heading">
                           +{toRecruit}
                         </span>
                         <button
@@ -403,9 +455,21 @@ export default function UnitManagementModal({
 
                         return (
                           <div key={shipType} className="flex items-center justify-between p-3 bg-[#d4c4a1] border-2 border-[#4a3f2a] rounded-lg opacity-100">
-                            <div className="flex-1">
-                              <div className="font-medium text-[#1d1408] font-serif">{label}</div>
-                              <div className="text-xs text-[#6b5d42]">Disponibles: {current}</div>
+                            <div className="flex items-center gap-4 flex-1">
+                              <img
+                                src={SHIP_ICONS[shipType]}
+                                alt={label}
+                                className="w-16 h-16 object-contain"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none'
+                                }}
+                              />
+                              <div className="flex-1">
+                                <div className="font-medium text-[#1d1408] font-serif">{label}</div>
+                                <div className="font-bold text-base text-[#1d1408]">
+                                  Disponibles: {current}
+                                </div>
+                              </div>
                             </div>
                             <div className="flex items-center gap-2">
                               <button
@@ -419,7 +483,7 @@ export default function UnitManagementModal({
                               >
                                 <img src="/icons/decremento.png" alt="Decrementar" className="w-6 h-6" />
                               </button>
-                              <span className="w-16 text-center font-semibold text-[#1d1408] font-heading">
+                              <span className="w-20 text-center text-xl font-bold text-[#1d1408] font-heading">
                                 {toTransfer}
                               </span>
                               <button
@@ -457,11 +521,25 @@ export default function UnitManagementModal({
 
                         return (
                           <div key={troopType} className="flex items-center justify-between p-3 bg-[#d4c4a1] border-2 border-[#4a3f2a] rounded-lg opacity-100">
-                            <div className="flex-1">
-                              <div className="font-medium text-[#1d1408] font-serif">{label}</div>
-                              <div className="text-xs text-[#6b5d42]">
-                                Disponibles: {maxTransferable}
-                                {isGarrisonMilitia && ` (min. ${MINIMUM_GARRISON_MILITIA} en guarnición)`}
+                            <div className="flex items-center gap-4 flex-1">
+                              <img
+                                src={TROOP_ICONS[troopType]}
+                                alt={label}
+                                className="w-16 h-16 object-contain"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none'
+                                }}
+                              />
+                              <div className="flex-1">
+                                <div className="font-medium text-[#1d1408] font-serif">{label}</div>
+                                <div className="font-bold text-base text-[#1d1408]">
+                                  Disponibles: {maxTransferable}
+                                </div>
+                                {isGarrisonMilitia && (
+                                  <div className="text-xs text-[#6b5d42]">
+                                    (min. {MINIMUM_GARRISON_MILITIA} en guarnición)
+                                  </div>
+                                )}
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
@@ -476,7 +554,7 @@ export default function UnitManagementModal({
                               >
                                 <img src="/icons/decremento.png" alt="Decrementar" className="w-6 h-6" />
                               </button>
-                              <span className="w-16 text-center font-semibold text-[#1d1408] font-heading">
+                              <span className="w-20 text-center text-xl font-bold text-[#1d1408] font-heading">
                                 {toTransfer}
                               </span>
                               <button
@@ -530,9 +608,21 @@ export default function UnitManagementModal({
 
                   return (
                     <div key={shipType} className="flex items-center justify-between p-3 bg-[#d4c4a1] border-2 border-[#4a3f2a] rounded-lg opacity-100">
-                      <div className="flex-1">
-                        <div className="font-medium text-[#1d1408] font-serif">{label}</div>
-                        <div className="text-xs text-[#6b5d42]">Disponibles: {current}</div>
+                      <div className="flex items-center gap-4 flex-1">
+                        <img
+                          src={SHIP_ICONS[shipType]}
+                          alt={label}
+                          className="w-16 h-16 object-contain"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none'
+                          }}
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium text-[#1d1408] font-serif">{label}</div>
+                          <div className="font-bold text-base text-[#1d1408]">
+                            Disponibles: {current}
+                          </div>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <button
@@ -546,7 +636,7 @@ export default function UnitManagementModal({
                         >
                           <img src="/icons/decremento.png" alt="Decrementar" className="w-6 h-6" />
                         </button>
-                        <span className="w-16 text-center font-semibold text-burgundy-400 font-heading">
+                        <span className="w-20 text-center text-xl font-bold text-burgundy-400 font-heading">
                           -{toDisband}
                         </span>
                         <button
@@ -584,11 +674,25 @@ export default function UnitManagementModal({
 
                   return (
                     <div key={troopType} className="flex items-center justify-between p-3 bg-[#d4c4a1] border-2 border-[#4a3f2a] rounded-lg opacity-100">
-                      <div className="flex-1">
-                        <div className="font-medium text-[#1d1408] font-serif">{label}</div>
-                        <div className="text-xs text-[#6b5d42]">
-                          Disponibles: {maxDisbandable}
-                          {isGarrisonMilitia && ` (min. ${MINIMUM_GARRISON_MILITIA} en guarnición)`}
+                      <div className="flex items-center gap-4 flex-1">
+                        <img
+                          src={TROOP_ICONS[troopType]}
+                          alt={label}
+                          className="w-16 h-16 object-contain"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none'
+                          }}
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium text-[#1d1408] font-serif">{label}</div>
+                          <div className="font-bold text-base text-[#1d1408]">
+                            Disponibles: {maxDisbandable}
+                          </div>
+                          {isGarrisonMilitia && (
+                            <div className="text-xs text-[#6b5d42]">
+                              (min. {MINIMUM_GARRISON_MILITIA} en guarnición)
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -603,7 +707,7 @@ export default function UnitManagementModal({
                         >
                           <img src="/icons/decremento.png" alt="Decrementar" className="w-6 h-6" />
                         </button>
-                        <span className="w-16 text-center font-semibold text-burgundy-400 font-heading">
+                        <span className="w-20 text-center text-xl font-bold text-burgundy-400 font-heading">
                           -{toDisband}
                         </span>
                         <button
@@ -696,43 +800,47 @@ export default function UnitManagementModal({
         <div className="flex border-b-2 border-[#6b5d42] bg-[#2d2416]">
           <button
             onClick={() => setActiveTab('recruit')}
-            className={`flex-1 px-4 py-3 text-sm font-heading font-semibold transition-colors ${
+            className={`flex-1 px-4 py-3 text-sm font-heading font-semibold transition-colors flex items-center justify-center gap-2 ${
               activeTab === 'recruit'
-                ? 'bg-parchment-100 text-[#2d2416] border-b-4 border-renaissance-gold'
+                ? 'bg-[#4a3f2a] text-[#e8dcc0] border-b-4 border-renaissance-gold shadow-inner'
                 : 'text-[#e8dcc0] hover:bg-[#3d3422]'
             }`}
           >
-            💰 Reclutar
+            <img src="/icons/reclutar.png" alt="" className="w-6 h-6 object-contain" />
+            Reclutar
           </button>
           <button
             onClick={() => setActiveTab('transfer')}
-            className={`flex-1 px-4 py-3 text-sm font-heading font-semibold transition-colors ${
+            className={`flex-1 px-4 py-3 text-sm font-heading font-semibold transition-colors flex items-center justify-center gap-2 ${
               activeTab === 'transfer'
-                ? 'bg-parchment-100 text-[#2d2416] border-b-4 border-renaissance-bronze'
+                ? 'bg-[#4a3f2a] text-[#e09856] border-b-4 border-renaissance-bronze shadow-inner'
                 : 'text-[#e8dcc0] hover:bg-[#3d3422]'
             }`}
           >
-            🔄 Transferir
+            <img src="/icons/transferir.png" alt="" className="w-6 h-6 object-contain" />
+            Transferir
           </button>
           <button
             onClick={() => setActiveTab('disband')}
-            className={`flex-1 px-4 py-3 text-sm font-heading font-semibold transition-colors ${
+            className={`flex-1 px-4 py-3 text-sm font-heading font-semibold transition-colors flex items-center justify-center gap-2 ${
               activeTab === 'disband'
-                ? 'bg-parchment-100 text-[#2d2416] border-b-4 border-burgundy-400'
+                ? 'bg-[#4a3f2a] text-[#f87171] border-b-4 border-burgundy-400 shadow-inner'
                 : 'text-[#e8dcc0] hover:bg-[#3d3422]'
             }`}
           >
-            ❌ Licenciar
+            <img src="/icons/licenciar.png" alt="" className="w-6 h-6 object-contain" />
+            Licenciar
           </button>
           <button
             onClick={() => setActiveTab('rename')}
-            className={`flex-1 px-4 py-3 text-sm font-heading font-semibold transition-colors ${
+            className={`flex-1 px-4 py-3 text-sm font-heading font-semibold transition-colors flex items-center justify-center gap-2 ${
               activeTab === 'rename'
-                ? 'bg-parchment-100 text-[#2d2416] border-b-4 border-[#6b5d42]'
+                ? 'bg-[#4a3f2a] text-[#d4af37] border-b-4 border-[#d4af37] shadow-inner'
                 : 'text-[#e8dcc0] hover:bg-[#3d3422]'
             }`}
           >
-            ✏️ Renombrar
+            <img src="/icons/renombrar.png" alt="" className="w-6 h-6 object-contain" />
+            Renombrar
           </button>
         </div>
 

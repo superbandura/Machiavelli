@@ -71,7 +71,8 @@
       "Bash(if not exist \"F:\\Machiavelli\\src\\components\\decorative\" mkdir \"F:\\Machiavelli\\src\\components\\decorative\")",
       "Bash(cat:*)",
       "Bash(npx tailwindcss --help:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(del \"F:\\Machiavelli\\src\\components\\OrdersPanel.tsx\")"
     ],
     "deny": [],
     "ask": []

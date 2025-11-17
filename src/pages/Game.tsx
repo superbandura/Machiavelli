@@ -7,8 +7,9 @@ import { useAuthStore } from '@/store/authStore'
 import { Game as GameType, Player, Unit, ExtraExpense } from '@/types'
 import { FactionDocument } from '@/types/faction'
 import { getAllFactions } from '@/lib/factionService'
+import { getFactionImageName } from '@/utils/factionHelpers'
 import GameBoard from '@/components/GameBoard'
-import OrdersPanel from '@/components/OrdersPanel'
+// OrdersPanel removido - ahora se usa OrdersModal desde ProvinceInfoPanel
 import TurnIndicator from '@/components/TurnIndicator'
 import DiplomaticChat from '@/components/DiplomaticChat'
 import DiplomacyModal from '@/components/DiplomacyModal'
@@ -19,6 +20,7 @@ import FamineMitigationPanel from '@/components/FamineMitigationPanel'
 import InactivePlayerVoting from '@/components/InactivePlayerVoting'
 import ProvinceInfoPanel from '@/components/ProvinceInfoPanel'
 import UnitManagementModal from '@/components/UnitManagementModal'
+import HeaderTreasuryInfo from '@/components/HeaderTreasuryInfo'
 
 export default function Game() {
   const { gameId } = useParams<{ gameId: string }>()
@@ -380,38 +382,93 @@ export default function Game() {
     <div className="h-screen overflow-hidden bg-[#f4e4c1] text-gray-900 flex flex-col">
       {/* Header */}
       <header className="bg-[#2d2416] border-b border-[#1d1408] p-4">
-        <div className="container mx-auto flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-white">{game.name || game.scenario}</h1>
-            <div className="flex gap-4 text-sm text-gray-200 mt-1">
-              <span>Turno {game.turnNumber}</span>
-              <span>•</span>
-              <span>{game.currentYear} - {game.currentSeason}</span>
-              <span>•</span>
-              <span className="capitalize">{game.currentPhase}</span>
+        <div className="flex justify-between items-center">
+          {/* Panel izquierdo - Info de partida + Fase + Tiempo + Tesoro */}
+          <div className="flex items-center gap-3">
+            {/* Info de la partida */}
+            <div className="flex items-center gap-2 px-4 py-2 bg-[#1d1408] rounded-lg border border-[#8b7355]">
+              {/* Emblema de la facción */}
+              <img
+                src={`/factions/${getFactionImageName(player.faction)}.png`}
+                alt={player.faction}
+                className="w-8 h-8 object-contain"
+                title={player.faction}
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none'
+                }}
+              />
+              <div className="h-8 w-px bg-[#8b7355]"></div>
+              <img
+                src="/icons/mapa.png"
+                alt="Partida"
+                className="w-6 h-6 object-contain"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none'
+                }}
+              />
+              <div>
+                <div className="text-[10px] text-[#c9a961] uppercase tracking-wider">Partida</div>
+                <div className="text-base font-bold text-[#f4e4c1] leading-tight">{game.name || game.scenario}</div>
+              </div>
+              <div className="h-8 w-px bg-[#8b7355] mx-2"></div>
+              <div>
+                <div className="text-[10px] text-[#c9a961] uppercase tracking-wider">Turno</div>
+                <div className="text-base font-bold text-[#f4e4c1] leading-tight">{game.turnNumber}</div>
+              </div>
+              <div className="h-8 w-px bg-[#8b7355] mx-2"></div>
+              <div>
+                <div className="text-[10px] text-[#c9a961] uppercase tracking-wider">Año</div>
+                <div className="text-base font-bold text-[#f4e4c1] leading-tight">
+                  {game.currentYear} - {
+                    game.currentSeason === 'spring' ? 'Primavera' :
+                    game.currentSeason === 'summer' ? 'Verano' :
+                    game.currentSeason === 'fall' ? 'Otoño' :
+                    game.currentSeason
+                  }
+                </div>
+              </div>
             </div>
+
+            {/* Panel de fase, tiempo y tesoro */}
+            <HeaderTreasuryInfo
+              player={player}
+              factions={factions}
+              units={visibleUnits}
+              gameMap={game.map || { provinces: {}, adjacencies: {} }}
+              provinceFaction={provinceFaction}
+              currentSeason={game.currentSeason}
+              game={game}
+              onDiplomacyClick={() => setIsDiplomacyModalOpen(true)}
+            />
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <div className="text-sm text-gray-400">Jugando como:</div>
-              <div className="font-bold">{player.faction}</div>
-            </div>
+
+          {/* Botones derecha */}
+          <div className="flex items-center gap-3">
             {/* Botón para forzar avance de fase (solo visible para el creador) */}
             {game.createdBy === user?.uid && (
               <button
                 onClick={handleForcePhaseAdvance}
                 disabled={isAdvancingPhase}
-                className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded transition-colors"
+                className="p-2 bg-[#1d1408] hover:bg-[#2d2416] disabled:opacity-50 disabled:cursor-not-allowed rounded-lg border border-[#8b7355] hover:border-[#c9a961] transition-colors"
                 title="Forzar avance de fase (solo para testing)"
               >
-                {isAdvancingPhase ? '⏳ Avanzando...' : '⚡ Forzar Avance'}
+                <img
+                  src="/icons/avanzar.png"
+                  alt="Avanzar fase"
+                  className="w-8 h-8 object-contain"
+                />
               </button>
             )}
             <button
               onClick={handleBackToLobby}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded transition-colors"
+              className="p-2 bg-[#1d1408] hover:bg-[#2d2416] rounded-lg border border-[#8b7355] hover:border-[#c9a961] transition-colors"
+              title="Volver al Lobby"
             >
-              Volver al Lobby
+              <img
+                src="/icons/lobby.png"
+                alt="Volver al Lobby"
+                className="w-8 h-8 object-contain"
+              />
             </button>
           </div>
         </div>
@@ -435,47 +492,65 @@ export default function Game() {
             />
           </div>
 
-          {/* OrdersPanel - Solo en fase de órdenes */}
-          {game.currentPhase.includes('orders') && (
-            <div className="flex-1 flex flex-col border-t-2 border-[#b4a481]">
-              <OrdersPanel
-                game={game}
-                player={player}
-                units={visibleUnits}
-                selectedUnit={selectedUnit}
-                onUnitSelect={handleUnitClick}
-                currentPhase={game.currentPhase}
-                turnNumber={game.turnNumber}
-              />
-            </div>
-          )}
+          {/* OrdersPanel removido - ahora las órdenes se dan desde el modal en ProvinceInfoPanel */}
         </aside>
 
         {/* Mapa */}
-        <div className="flex-1 p-4 overflow-hidden bg-[#f4e4c1]">
-          <GameBoard
-            onProvinceClick={handleProvinceClick}
-            selectedProvince={selectedProvince}
-            famineProvinces={(game as any).famineProvinces || []}
-            provinceFaction={provinceFaction}
-            factions={factions}
-          />
+        <div className="flex-1 p-4 bg-[#f4e4c1] relative">
+          <div className="w-full h-full overflow-hidden">
+            <GameBoard
+              onProvinceClick={handleProvinceClick}
+              selectedProvince={selectedProvince}
+              famineProvinces={(game as any).famineProvinces || []}
+              provinceFaction={provinceFaction}
+              factions={factions}
+            />
+          </div>
+
+          {/* Emblemas de otras facciones - Flotantes sobre el mapa */}
+          {players.filter(p => p.id !== player.id).length > 0 && (
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex justify-center items-center gap-6">
+              {players
+                .filter(p => p.id !== player.id) // Excluir jugador actual
+                .map((p) => {
+                  return (
+                    <button
+                      key={p.id}
+                      className="group relative transition-transform hover:scale-110"
+                      title={p.faction}
+                      onClick={() => {
+                        // TODO: Abrir modal de facción
+                        console.log('Click en facción:', p.faction)
+                      }}
+                    >
+                      {/* Borde decorativo estilo escudo */}
+                      <div className="relative bg-white rounded-sm border-4 border-[#8b7355] shadow-xl p-2">
+                        {/* Borde interno dorado */}
+                        <div className="absolute inset-0 border-2 border-[#c9a961] rounded-sm m-1"></div>
+
+                        {/* Emblema */}
+                        <img
+                          src={`/factions/${getFactionImageName(p.faction)}.png`}
+                          alt={p.faction}
+                          className="w-16 h-16 object-contain relative z-10 group-hover:brightness-110 transition-all cursor-pointer"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none'
+                          }}
+                        />
+                      </div>
+                    </button>
+                  )
+                })}
+            </div>
+          )}
         </div>
 
         {/* Panel lateral derecho */}
         <aside className="w-80 bg-[#d4c4a1] border-l border-[#b4a481] flex flex-col overflow-y-auto">
           {/* Paneles superiores - agrupados para no colapsar */}
           <div className="flex-shrink-0">
-            {/* TurnIndicator con información de turno y countdown */}
-            <div className="p-4 border-b border-[#b4a481]">
-              <TurnIndicator
-                game={game}
-                onDiplomacyClick={() => setIsDiplomacyModalOpen(true)}
-              />
-            </div>
-
-            {/* TreasuryPanel - Información económica */}
-            <div className="p-4 border-b border-[#b4a481]">
+            {/* TreasuryPanel - Información económica detallada */}
+            <div className="p-2 border-b border-[#b4a481]">
               <TreasuryPanel
                 player={player}
                 units={visibleUnits}
@@ -487,7 +562,7 @@ export default function Game() {
 
             {/* FamineMitigationPanel - Mitigar hambrunas */}
             {(game as any).famineProvinces && (game as any).famineProvinces.length > 0 && (
-              <div className="p-4 border-b border-[#b4a481]">
+              <div className="p-2 border-b border-[#b4a481]">
                 <FamineMitigationPanel
                   game={game}
                   player={player}
@@ -501,7 +576,7 @@ export default function Game() {
 
             {/* InactivePlayerVoting - Votar sobre jugadores inactivos */}
             {players.some(p => p.status === 'inactive') && (
-              <div className="p-4 border-b border-[#b4a481]">
+              <div className="p-2 border-b border-[#b4a481]">
                 <InactivePlayerVoting
                   gameId={gameId!}
                   currentPlayer={player}
@@ -515,7 +590,7 @@ export default function Game() {
           <div className="flex border-b border-[#b4a481] flex-shrink-0">
             <button
               onClick={() => setActiveTab('chat')}
-              className={`flex-1 px-3 py-3 font-medium text-sm transition-colors ${
+              className={`flex-1 px-2 py-2 font-medium text-xs transition-colors ${
                 activeTab === 'chat'
                   ? 'bg-gray-900 text-purple-400 border-b-2 border-purple-500'
                   : 'bg-gray-800 text-gray-400 hover:text-gray-300'
@@ -525,7 +600,7 @@ export default function Game() {
             </button>
             <button
               onClick={() => setActiveTab('history')}
-              className={`flex-1 px-3 py-3 font-medium text-sm transition-colors ${
+              className={`flex-1 px-2 py-2 font-medium text-xs transition-colors ${
                 activeTab === 'history'
                   ? 'bg-gray-900 text-yellow-400 border-b-2 border-yellow-500'
                   : 'bg-gray-800 text-gray-400 hover:text-gray-300'
@@ -551,9 +626,9 @@ export default function Game() {
           </div>
 
           {/* Jugadores */}
-          <div className="p-4 border-t border-[#b4a481] flex-shrink-0">
-            <h3 className="font-bold mb-2">Jugadores ({players.length})</h3>
-            <div className="space-y-1 text-sm">
+          <div className="p-2 border-t border-[#b4a481] flex-shrink-0">
+            <h3 className="font-bold mb-1 text-sm">Jugadores ({players.length})</h3>
+            <div className="space-y-0.5 text-xs">
               {players.map((p) => (
                 <div
                   key={p.id}
@@ -562,7 +637,7 @@ export default function Game() {
                   }`}
                 >
                   <span>{p.faction}</span>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-[10px] text-gray-500">
                     {p.isAlive ? '✓ Vivo' : '✗ Eliminado'}
                   </span>
                 </div>

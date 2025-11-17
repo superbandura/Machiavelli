@@ -1,10 +1,13 @@
-import { useState } from 'react'
-import { Unit, Player, Game } from '@/types'
+import { useState, useEffect } from 'react'
+import { Unit, Player, Game, Order } from '@/types'
 import { UnitIconWithLabel } from './UnitIcon'
 import { getProvinceInfo } from '@/utils/gameMapHelpers'
 import UnitCompositionTooltip from './UnitCompositionTooltip'
 import { createUnit } from '@/utils/unitOperations'
 import { UNIT_CREATION_COSTS } from '@/data/recruitmentCosts'
+import OrdersModal from './OrdersModal'
+import { collection, query, where, getDocs } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 
 interface ProvinceInfoPanelProps {
   game: Game
@@ -30,6 +33,37 @@ export default function ProvinceInfoPanel({
   const [creatingUnit, setCreatingUnit] = useState(false)
   const [unitName, setUnitName] = useState('')
   const [showNameInput, setShowNameInput] = useState<'army' | 'fleet' | 'garrison' | null>(null)
+  const [selectedUnitForOrders, setSelectedUnitForOrders] = useState<Unit | null>(null)
+  const [unitsOrders, setUnitsOrders] = useState<Record<string, Order>>({})
+
+  // Cargar órdenes existentes para todas las unidades del jugador
+  useEffect(() => {
+    if (!currentPlayer || game.currentPhase !== 'orders') return
+
+    const loadOrders = async () => {
+      try {
+        const ordersQuery = query(
+          collection(db, 'orders'),
+          where('gameId', '==', game.id),
+          where('playerId', '==', currentPlayer.userId),
+          where('turnNumber', '==', game.turnNumber)
+        )
+        const snapshot = await getDocs(ordersQuery)
+
+        if (!snapshot.empty) {
+          const loadedOrders: Record<string, Order> = {}
+          snapshot.docs[0].data().orders.forEach((order: Order) => {
+            loadedOrders[order.unitId] = order
+          })
+          setUnitsOrders(loadedOrders)
+        }
+      } catch (error) {
+        console.error('[ProvinceInfoPanel] Error cargando órdenes:', error)
+      }
+    }
+
+    loadOrders()
+  }, [currentPlayer, game.id, game.turnNumber, game.currentPhase])
 
   if (!provinceId) {
     return (
@@ -243,43 +277,91 @@ export default function ProvinceInfoPanel({
               Tus unidades ({myUnits.length})
             </div>
             <div className="space-y-2">
-              {myUnits.map(unit => (
-                <div
-                  key={unit.id}
-                  onClick={() => onUnitClick?.(unit)}
-                  className="flex items-center gap-2 ml-2 p-2 rounded hover:bg-[#c4b491] cursor-pointer transition-colors"
-                >
-                  {unit.composition ? (
-                    <UnitCompositionTooltip composition={unit.composition}>
-                      <div className="flex items-center gap-2">
-                        <UnitIconWithLabel type={unit.type} size="sm" bordered={true} showLabel={false} />
-                        {unit.name && (
-                          <span className="text-sm font-medium text-black">
-                            {unit.name}
-                          </span>
-                        )}
-                      </div>
-                    </UnitCompositionTooltip>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <UnitIconWithLabel type={unit.type} size="sm" bordered={true} showLabel={false} />
-                      {unit.name && (
-                        <span className="text-sm font-medium text-black">
-                          {unit.name}
+              {myUnits.map(unit => {
+                const unitOrder = unitsOrders[unit.id]
+                const getOrderText = () => {
+                  if (!unitOrder) return 'Sin órdenes'
+                  const actionLabels: Record<string, string> = {
+                    hold: 'Hold',
+                    move: `Move → ${game.map?.provinces?.[unitOrder.targetProvince || '']?.name || unitOrder.targetProvince}`,
+                    support: `Support unidad`,
+                    convoy: `Convoy`,
+                    besiege: `Siege`,
+                    convert: `Convert`
+                  }
+                  return actionLabels[unitOrder.action] || unitOrder.action
+                }
+
+                return (
+                  <div
+                    key={unit.id}
+                    className="flex items-center gap-2 ml-2 p-2 rounded hover:bg-[#c4b491] transition-colors"
+                  >
+                    <div
+                      onClick={() => onUnitClick?.(unit)}
+                      className="flex items-center gap-2 flex-1 cursor-pointer"
+                    >
+                      {unit.composition ? (
+                        <UnitCompositionTooltip composition={unit.composition}>
+                          <div className="flex items-center gap-2">
+                            <UnitIconWithLabel type={unit.type} size="sm" bordered={true} showLabel={false} />
+                            {unit.name && (
+                              <span className="text-sm font-medium text-black">
+                                {unit.name}
+                              </span>
+                            )}
+                          </div>
+                        </UnitCompositionTooltip>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <UnitIconWithLabel type={unit.type} size="sm" bordered={true} showLabel={false} />
+                          {unit.name && (
+                            <span className="text-sm font-medium text-black">
+                              {unit.name}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {unit.status === 'besieged' && (
+                        <span className="text-xs text-red-700">(Asediada)</span>
+                      )}
+                      {unit.siegeTurns > 0 && (
+                        <span className="text-xs text-orange-700">
+                          (Asedio {unit.siegeTurns}/3)
                         </span>
                       )}
                     </div>
-                  )}
-                  {unit.status === 'besieged' && (
-                    <span className="text-xs text-red-700">(Asediada)</span>
-                  )}
-                  {unit.siegeTurns > 0 && (
-                    <span className="text-xs text-orange-700">
-                      (Asedio {unit.siegeTurns}/3)
-                    </span>
-                  )}
-                </div>
-              ))}
+
+                    {/* Botón de órdenes - solo visible en fase de órdenes */}
+                    {game.currentPhase === 'orders' && (
+                      <div className="relative group">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedUnitForOrders(unit)
+                          }}
+                          className={`p-1 hover:bg-[#b4a481] rounded transition-colors border-4 ${
+                            unitsOrders[unit.id] ? 'border-green-700' : 'border-red-600'
+                          }`}
+                        >
+                          <img
+                            src="/icons/mover.png"
+                            alt="Órdenes"
+                            className="w-10 h-10 object-contain"
+                          />
+                        </button>
+
+                        {/* Popup al hacer hover */}
+                        <div className="absolute right-0 top-full mt-1 px-3 py-2 bg-[#2d2416] border-2 border-[#d4af37] rounded-lg shadow-ornate opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 min-w-max">
+                          <div className="text-xs font-heading text-[#f0d877]">
+                            {getOrderText()}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}
@@ -349,6 +431,41 @@ export default function ProvinceInfoPanel({
         )}
 
       </div>
+
+      {/* Modal de órdenes */}
+      {selectedUnitForOrders && currentPlayer && (
+        <OrdersModal
+          unit={selectedUnitForOrders}
+          game={game}
+          currentPlayer={currentPlayer}
+          allUnits={visibleUnits}
+          onClose={() => {
+            setSelectedUnitForOrders(null)
+            // Recargar órdenes después de cerrar el modal
+            const loadOrders = async () => {
+              try {
+                const ordersQuery = query(
+                  collection(db, 'orders'),
+                  where('gameId', '==', game.id),
+                  where('playerId', '==', currentPlayer.userId),
+                  where('turnNumber', '==', game.turnNumber)
+                )
+                const snapshot = await getDocs(ordersQuery)
+                if (!snapshot.empty) {
+                  const loadedOrders: Record<string, Order> = {}
+                  snapshot.docs[0].data().orders.forEach((order: Order) => {
+                    loadedOrders[order.unitId] = order
+                  })
+                  setUnitsOrders(loadedOrders)
+                }
+              } catch (error) {
+                console.error('[ProvinceInfoPanel] Error recargando órdenes:', error)
+              }
+            }
+            loadOrders()
+          }}
+        />
+      )}
     </div>
   )
 }
