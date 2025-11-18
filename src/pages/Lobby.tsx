@@ -61,16 +61,16 @@ export default function Lobby() {
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
           {/* Header con acciones */}
-          <div className="bg-parchment-100 border-4 border-[#6b5d42] rounded-lg p-8 mb-6 shadow-ornate">
-            <h2 className="text-4xl font-heading text-[#1d1408] mb-4">Lobby de Partidas</h2>
-            <p className="text-[#2c2416] font-serif mb-6 text-lg">
+          <div className="bg-parchment-100 border-4 border-[#6b5d42] rounded-lg p-4 mb-4 shadow-ornate">
+            <h2 className="text-2xl font-heading text-[#1d1408] mb-2">Lobby de Partidas</h2>
+            <p className="text-[#2c2416] font-serif mb-4 text-base">
               Gestiona tus partidas activas o únete a nuevas partidas de Machiavelli.
             </p>
 
-            <div className={`grid grid-cols-1 gap-4 ${isAdmin ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
+            <div className={`grid grid-cols-1 gap-3 ${isAdmin ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
               <button
                 onClick={() => setIsCreateModalOpen(true)}
-                className="bg-renaissance-gold hover:bg-renaissance-gold-dark text-[#1d1408] font-heading font-bold py-4 px-6 rounded-lg transition-all shadow-ornate hover:shadow-glow-gold border-2 border-[#6b5d42]"
+                className="bg-renaissance-gold hover:bg-renaissance-gold-dark text-[#1d1408] font-heading font-bold py-2 px-4 rounded-lg transition-all shadow-ornate hover:shadow-glow-gold border-2 border-[#6b5d42]"
               >
                 + Crear Nueva Partida
               </button>
@@ -79,14 +79,14 @@ export default function Lobby() {
                   const gamesListElement = document.getElementById('available-games-section')
                   gamesListElement?.scrollIntoView({ behavior: 'smooth' })
                 }}
-                className="bg-renaissance-bronze hover:bg-renaissance-bronze-light text-white font-heading font-bold py-4 px-6 rounded-lg transition-all shadow-ornate border-2 border-[#6b5d42]"
+                className="bg-renaissance-bronze hover:bg-renaissance-bronze-light text-white font-heading font-bold py-2 px-4 rounded-lg transition-all shadow-ornate border-2 border-[#6b5d42]"
               >
                 Ver Partidas Disponibles
               </button>
               {isAdmin && (
                 <button
                   onClick={() => navigate('/scenario-editor')}
-                  className="bg-[#6b5d42] hover:bg-[#544a35] text-white font-heading font-bold py-4 px-6 rounded-lg transition-all shadow-ornate border-2 border-[#1d1408]"
+                  className="bg-[#6b5d42] hover:bg-[#544a35] text-white font-heading font-bold py-2 px-4 rounded-lg transition-all shadow-ornate border-2 border-[#1d1408]"
                 >
                   🎨 Editor de Escenarios
                 </button>
@@ -95,7 +95,7 @@ export default function Lobby() {
           </div>
 
           {/* Mis Partidas */}
-          <div className="mb-6">
+          <div className="mb-4">
             <MyGamesList />
           </div>
 

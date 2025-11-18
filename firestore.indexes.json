@@ -43,7 +43,7 @@
       ]
     },
     {
-      "collectionGroup": "diplomaticMessages",
+      "collectionGroup": "diplomatic_messages",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -52,7 +52,7 @@
         },
         {
           "fieldPath": "sentAt",
-          "order": "DESCENDING"
+          "order": "ASCENDING"
         }
       ]
     }

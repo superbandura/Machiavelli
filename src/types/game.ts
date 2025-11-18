@@ -168,8 +168,8 @@ export interface ExtraExpense {
 export interface DiplomaticMessage {
   id: string
   gameId: string // ID de la partida
-  from: string // playerId
-  to: string // playerId (o 'all' para mensajes públicos)
+  from: string // userId del remitente (Firebase Auth UID)
+  to: string // userId del destinatario (Firebase Auth UID) o 'all' para mensajes públicos
   content: string
   turnNumber: number
   phase: 'diplomatic'

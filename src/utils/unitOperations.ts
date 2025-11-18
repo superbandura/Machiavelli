@@ -2,7 +2,7 @@
  * Utilidades para gestionar unidades: creación, reclutamiento, transferencias, etc.
  */
 
-import { doc, updateDoc, Timestamp, getDoc, runTransaction } from 'firebase/firestore'
+import { doc, Timestamp, runTransaction } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import type { Unit, Game, Player } from '@/types/game'
 import type { ArmyComposition, FleetComposition, GarrisonComposition } from '@/types/scenario'
@@ -16,7 +16,6 @@ import {
   FLEET_SHIP_COSTS,
   GARRISON_TROOP_COSTS,
   TROOP_BATCH_SIZE,
-  SHIP_BATCH_SIZE,
   MINIMUM_GARRISON_MILITIA,
 } from '@/data/recruitmentCosts'
 

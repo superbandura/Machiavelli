@@ -30,7 +30,7 @@ const phaseChangeDiplomatic = getPhaseChangeEmail({
   deadline: 'viernes, 11 de octubre de 2025, 14:30',
   turnNumber: 1,
   year: 1454,
-  season: 'Primavera'
+  season: 'spring'
 });
 console.log('Subject:', phaseChangeDiplomatic.subject);
 console.log('HTML Length:', phaseChangeDiplomatic.html.length, 'chars');
@@ -48,7 +48,7 @@ const phaseChangeOrders = getPhaseChangeEmail({
   deadline: 'domingo, 13 de octubre de 2025, 14:30',
   turnNumber: 1,
   year: 1454,
-  season: 'Primavera'
+  season: 'spring'
 });
 console.log('Subject:', phaseChangeOrders.subject);
 console.log('HTML Length:', phaseChangeOrders.html.length, 'chars');
@@ -66,7 +66,7 @@ const phaseChangeResolution = getPhaseChangeEmail({
   deadline: 'lunes, 14 de octubre de 2025, 14:30',
   turnNumber: 1,
   year: 1454,
-  season: 'Primavera'
+  season: 'spring'
 });
 console.log('Subject:', phaseChangeResolution.subject);
 console.log('HTML Length:', phaseChangeResolution.html.length, 'chars');

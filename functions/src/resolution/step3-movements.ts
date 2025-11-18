@@ -429,6 +429,7 @@ function createAutomaticGarrisons(context: ResolutionContext): void {
     // Crear nueva guarnición con 200 milicias
     const newGarrison = {
       id: `garrison_${provinceId}_${Date.now()}`,
+      gameId: context.gameId,
       type: 'garrison' as const,
       owner,
       currentPosition: provinceId,

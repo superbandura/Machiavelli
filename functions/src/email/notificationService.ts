@@ -83,7 +83,7 @@ export async function notifyPhaseChange(
           deadline: deadlineStr,
           turnNumber: game.turnNumber || 1,
           year: game.currentYear || 1454,
-          season: game.currentSeason || 'Primavera'
+          season: game.currentSeason || 'spring'
         })
 
         return {

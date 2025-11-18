@@ -7,7 +7,7 @@
  * - Calcular siguiente estación
  * - Establecer nuevo phaseDeadline
  * - Resetear hasSubmittedOrders
- * - Verificar eliminación de jugadores (solo en Primavera)
+ * - Verificar eliminación de jugadores (solo en spring)
  */
 
 import * as admin from 'firebase-admin';
@@ -25,13 +25,13 @@ export async function advanceToNextTurn(context: ResolutionContext): Promise<voi
   let nextSeason: string;
   let nextYear = year;
 
-  if (season === 'Primavera') {
-    nextSeason = 'Verano';
-  } else if (season === 'Verano') {
-    nextSeason = 'Otoño';
+  if (season === 'spring') {
+    nextSeason = 'summer';
+  } else if (season === 'summer') {
+    nextSeason = 'fall';
   } else {
-    // Otoño → Primavera del siguiente año
-    nextSeason = 'Primavera';
+    // fall → spring del siguiente año
+    nextSeason = 'spring';
     nextYear++;
   }
 
@@ -73,8 +73,8 @@ export async function advanceToNextTurn(context: ResolutionContext): Promise<voi
   }
   await batch.commit();
 
-  // Verificar eliminación de jugadores (solo en Primavera después de mantenimiento)
-  if (nextSeason === 'Primavera') {
+  // Verificar eliminación de jugadores (solo en spring después de mantenimiento)
+  if (nextSeason === 'spring') {
     await checkPlayerElimination(context);
   }
 

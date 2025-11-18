@@ -10,13 +10,13 @@ export default function Separator({
   className = ''
 }: SeparatorProps) {
   const colors = {
-    gold: 'border-renaissance-gold',
+    gold: 'border-[#3d3020]',
     burgundy: 'border-burgundy-400',
     gray: 'border-gray-700'
   }
 
   const fillColors = {
-    gold: 'text-renaissance-gold',
+    gold: 'text-[#3d3020]',
     burgundy: 'text-burgundy-400',
     gray: 'text-gray-700'
   }

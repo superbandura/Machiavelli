@@ -90,13 +90,13 @@ export default function MyGamesList() {
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'waiting':
-        return { label: 'Esperando jugadores', color: 'text-yellow-400' }
+        return { label: 'Esperando jugadores', color: 'text-renaissance-gold-light' }
       case 'active':
-        return { label: 'En curso', color: 'text-green-400' }
+        return { label: 'En curso', color: 'text-renaissance-olive-light' }
       case 'finished':
-        return { label: 'Finalizada', color: 'text-gray-400' }
+        return { label: 'Finalizada', color: 'text-parchment-300' }
       default:
-        return { label: status, color: 'text-gray-400' }
+        return { label: status, color: 'text-parchment-300' }
     }
   }
 
@@ -134,9 +134,9 @@ export default function MyGamesList() {
 
   if (loading) {
     return (
-      <div className="bg-gray-800 rounded-lg p-6">
-        <h3 className="text-2xl font-bold mb-4 text-white">Mis Partidas</h3>
-        <div className="text-center py-8 text-gray-400">
+      <div className="bg-[#3d3020] border-4 border-[#6b5d42] rounded-lg p-4 shadow-ornate">
+        <h3 className="text-xl font-heading font-bold mb-3 text-renaissance-gold">Mis Partidas</h3>
+        <div className="text-center py-6 text-parchment-100 font-serif">
           <div className="animate-pulse">Cargando tus partidas...</div>
         </div>
       </div>
@@ -145,9 +145,9 @@ export default function MyGamesList() {
 
   if (myGames.length === 0) {
     return (
-      <div className="bg-gray-800 rounded-lg p-6">
-        <h3 className="text-2xl font-bold mb-4 text-white">Mis Partidas</h3>
-        <div className="text-gray-400 text-center py-8">
+      <div className="bg-[#3d3020] border-4 border-[#6b5d42] rounded-lg p-4 shadow-ornate">
+        <h3 className="text-xl font-heading font-bold mb-3 text-renaissance-gold">Mis Partidas</h3>
+        <div className="text-parchment-100 font-serif text-center py-6">
           No estás en ninguna partida aún.
           <br />
           ¡Únete a una partida disponible o crea una nueva!
@@ -157,32 +157,32 @@ export default function MyGamesList() {
   }
 
   return (
-    <div className="bg-gray-800 rounded-lg p-6">
-      <h3 className="text-2xl font-bold mb-4 text-white">
+    <div className="bg-[#3d3020] border-4 border-[#6b5d42] rounded-lg p-4 shadow-ornate">
+      <h3 className="text-xl font-heading font-bold mb-3 text-renaissance-gold">
         Mis Partidas ({myGames.length})
       </h3>
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {myGames.map((game) => {
           const statusInfo = getStatusLabel(game.status)
 
           return (
             <div
               key={game.id}
-              className="bg-gray-900 rounded-lg p-4 border border-gray-700 hover:border-gray-600 transition-colors"
+              className="bg-[#2d2416] rounded-lg p-3 border-2 border-[#8b7355] hover:border-renaissance-gold transition-colors"
             >
               <div className="flex justify-between items-start mb-2">
                 <div>
-                  <div className="flex items-center gap-3">
-                    <h4 className="text-lg font-bold text-white">{game.name || game.scenario}</h4>
-                    <span className={`text-xs font-medium ${statusInfo.color}`}>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-base font-heading font-bold text-renaissance-gold">{game.name || game.scenario}</h4>
+                    <span className={`text-xs font-serif font-medium ${statusInfo.color}`}>
                       {statusInfo.label}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-400 mt-1">
-                    Jugando como: <span className="font-medium text-white">{game.playerFaction}</span>
+                  <p className="text-sm font-serif text-parchment-200 mt-1">
+                    Jugando como: <span className="font-semibold text-parchment-100">{game.playerFaction}</span>
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs font-serif text-parchment-300 mt-0.5">
                     Última actualización: {formatDate(game.updatedAt as Timestamp)}
                   </p>
                 </div>
@@ -190,7 +190,7 @@ export default function MyGamesList() {
                   {canDeleteGame(game) && (
                     <button
                       onClick={() => handleOpenDeleteDialog(game)}
-                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-medium transition-colors"
+                      className="px-3 py-1.5 bg-burgundy-500 hover:bg-burgundy-600 text-white rounded font-heading font-medium transition-colors text-sm shadow-ornate"
                       title="Eliminar partida"
                     >
                       Eliminar
@@ -198,39 +198,39 @@ export default function MyGamesList() {
                   )}
                   <button
                     onClick={() => navigate(`/game/${game.id}`)}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium transition-colors"
+                    className="px-3 py-1.5 bg-renaissance-bronze hover:bg-renaissance-bronze-light text-white rounded font-heading font-medium transition-colors text-sm shadow-ornate"
                   >
                     {game.status === 'finished' ? 'Ver Resultados' : 'Continuar'}
                   </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 text-sm mt-3">
-                <div>
-                  <span className="text-gray-400">Turno:</span>
-                  <span className="ml-2 text-white font-medium">
+              <div className="grid grid-cols-2 gap-3 text-sm mt-2">
+                <div className="font-serif">
+                  <span className="text-parchment-300">Turno:</span>
+                  <span className="ml-2 text-parchment-100 font-semibold">
                     {game.turnNumber} - {game.currentYear} {game.currentSeason}
                   </span>
                 </div>
 
-                <div>
-                  <span className="text-gray-400">Fase:</span>
-                  <span className="ml-2 text-white font-medium capitalize">
+                <div className="font-serif">
+                  <span className="text-parchment-300">Fase:</span>
+                  <span className="ml-2 text-parchment-100 font-semibold capitalize">
                     {getPhaseLabel(game.currentPhase)}
                   </span>
                 </div>
 
-                <div>
-                  <span className="text-gray-400">Jugadores:</span>
-                  <span className="ml-2 text-white font-medium">
+                <div className="font-serif">
+                  <span className="text-parchment-300">Jugadores:</span>
+                  <span className="ml-2 text-parchment-100 font-semibold">
                     {game.playersCount} / {game.maxPlayers}
                   </span>
                 </div>
 
                 {game.phaseDeadline && game.status === 'active' && (
-                  <div>
-                    <span className="text-gray-400">Deadline:</span>
-                    <span className="ml-2 text-white font-medium text-xs">
+                  <div className="font-serif">
+                    <span className="text-parchment-300">Deadline:</span>
+                    <span className="ml-2 text-parchment-100 font-semibold text-xs">
                       {new Date((game.phaseDeadline as Timestamp).seconds * 1000).toLocaleDateString('es-ES', {
                         day: 'numeric',
                         month: 'short',

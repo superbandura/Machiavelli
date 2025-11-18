@@ -1,22 +1,19 @@
 import { useState, useEffect } from 'react'
-import { Player, Unit, Game } from '@/types'
-import { FactionDocument } from '@/types/faction'
-import { MapData } from '@/types/map'
+import { Player, Game, GameMap } from '@/types'
 import { getProvinceIncome } from '@/utils/gameMapHelpers'
-import { getFactionImageName } from '@/utils/factionHelpers'
 
 interface HeaderTreasuryInfoProps {
   player: Player
-  factions: FactionDocument[]
-  units: Unit[]
-  gameMap: MapData
+  gameMap: GameMap
   provinceFaction: Record<string, string>
   currentSeason: string
   game: Game
+  unreadMessagesCount?: number
   onDiplomacyClick?: () => void
+  onHistoryClick?: () => void
 }
 
-export default function HeaderTreasuryInfo({ player, factions, units, gameMap, provinceFaction, currentSeason, game, onDiplomacyClick }: HeaderTreasuryInfoProps) {
+export default function HeaderTreasuryInfo({ player, gameMap, provinceFaction, currentSeason, game, unreadMessagesCount = 0, onDiplomacyClick, onHistoryClick }: HeaderTreasuryInfoProps) {
   const [showTooltip, setShowTooltip] = useState(false)
   const [timeRemaining, setTimeRemaining] = useState<string>('')
   const [isUrgent, setIsUrgent] = useState(false)
@@ -71,7 +68,12 @@ export default function HeaderTreasuryInfo({ player, factions, units, gameMap, p
   }, [game.phaseDeadline])
 
   // Obtener nombre de la fase en español
-  const getPhaseNameInSpanish = (phase: string): string => {
+  const getPhaseNameInSpanish = (phase: string, status: string): string => {
+    // Si el juego está en espera (waiting), mostrar eso en lugar de la fase
+    if (status === 'waiting') {
+      return 'En Espera'
+    }
+
     const phaseNames: Record<string, string> = {
       diplomatic: 'Diplomática',
       orders: 'Órdenes',
@@ -79,12 +81,6 @@ export default function HeaderTreasuryInfo({ player, factions, units, gameMap, p
     }
     return phaseNames[phase] || phase
   }
-
-  // Encontrar la facción del jugador
-  const playerFaction = factions.find(f => f.id === player.faction)
-
-  // Generar la ruta del emblema basándose en el ID de la facción
-  const emblemPath = playerFaction?.emblemUrl || `/factions/${getFactionImageName(player.faction)}.png`
 
   // Calcular provincias controladas e ingresos (igual que TreasuryPanel)
   const controlledProvinces = Object.entries(gameMap.provinces)
@@ -99,28 +95,64 @@ export default function HeaderTreasuryInfo({ player, factions, units, gameMap, p
   const totalIncome = controlledProvinces.reduce((sum, p) => sum + p.income, 0)
 
   // Calcular ingresos previstos en primavera (solo en primavera se cobran impuestos)
-  const springIncome = currentSeason === 'Primavera' ? totalIncome : 0
+  const springIncome = currentSeason === 'spring' ? totalIncome : 0
 
   return (
     <div className="flex items-center gap-3">
-      {/* Fase actual - clickeable para diplomacia */}
-      <div
-        className="flex items-center gap-2 px-4 py-2 bg-[#1d1408] rounded-lg border border-[#8b7355] cursor-pointer hover:border-[#c9a961] transition-colors"
-        onClick={onDiplomacyClick}
-        title="Click para ver diplomacia"
-      >
-        <img
-          src="/icons/ordenes.png"
-          alt="Fase"
-          className="w-6 h-6 object-contain"
-        />
-        <div>
-          <div className="text-[10px] text-[#c9a961] uppercase tracking-wider">Fase</div>
-          <div className="text-base font-bold text-[#f4e4c1] leading-tight">
-            {getPhaseNameInSpanish(game.currentPhase)}
-          </div>
+      {/* Fase actual */}
+      <div className="px-4 py-2 bg-[#1d1408] rounded-lg border border-[#8b7355]">
+        <div className="text-[10px] text-[#c9a961] uppercase tracking-wider">
+          {game.status === 'waiting' ? 'Estado' : 'Fase'}
+        </div>
+        <div className="text-base font-bold text-[#f4e4c1] leading-tight">
+          {getPhaseNameInSpanish(game.currentPhase, game.status)}
         </div>
       </div>
+
+      {/* Botón de Diplomacia */}
+      <button
+        onClick={onDiplomacyClick}
+        className="relative flex items-center gap-2 px-4 py-2 bg-[#1d1408] rounded-lg border border-[#8b7355] cursor-pointer hover:border-[#c9a961] hover:bg-[#2d2416] transition-colors"
+        title="Abrir Diplomacia"
+      >
+        <img
+          src="/icons/diplo.png"
+          alt="Diplomacia"
+          className="w-10 h-10 object-contain"
+        />
+        <div>
+          <div className="text-[10px] text-[#c9a961] uppercase tracking-wider">Diplomacia</div>
+          <div className="text-sm font-bold text-[#f4e4c1] leading-tight">
+            Ver mensajes
+          </div>
+        </div>
+
+        {/* Badge de mensajes sin leer */}
+        {unreadMessagesCount > 0 && (
+          <div className="absolute -top-2 -right-2 bg-[#d4af37] text-[#2c1810] text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-white shadow-lg">
+            {unreadMessagesCount}
+          </div>
+        )}
+      </button>
+
+      {/* Botón de Historial */}
+      <button
+        onClick={onHistoryClick}
+        className="flex items-center gap-2 px-4 py-2 bg-[#1d1408] rounded-lg border border-[#8b7355] cursor-pointer hover:border-[#c9a961] hover:bg-[#2d2416] transition-colors"
+        title="Abrir Historial de Turnos"
+      >
+        <img
+          src="/icons/historial.png"
+          alt="Historial"
+          className="w-10 h-10 object-contain"
+        />
+        <div>
+          <div className="text-[10px] text-[#c9a961] uppercase tracking-wider">Historial</div>
+          <div className="text-sm font-bold text-[#f4e4c1] leading-tight">
+            Ver turnos
+          </div>
+        </div>
+      </button>
 
       {/* Tiempo restante */}
       {game.status === 'active' && game.phaseDeadline && (
@@ -132,7 +164,7 @@ export default function HeaderTreasuryInfo({ player, factions, units, gameMap, p
           <img
             src="/icons/reloj.png"
             alt="Reloj"
-            className="w-6 h-6 object-contain"
+            className="w-10 h-10 object-contain"
           />
           <div>
             <div className="text-[10px] text-[#c9a961] uppercase tracking-wider">Tiempo</div>
@@ -147,20 +179,18 @@ export default function HeaderTreasuryInfo({ player, factions, units, gameMap, p
 
       {/* Tesoro - con tooltip */}
       <div
-        className="relative flex items-center gap-2 px-4 py-2 bg-[#1d1408] rounded-lg border border-[#8b7355] cursor-pointer hover:border-[#c9a961] transition-colors"
+        className="relative px-4 py-2 bg-[#1d1408] rounded-lg border border-[#8b7355] cursor-pointer hover:border-[#c9a961] transition-colors min-w-[140px]"
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
       >
-        <img
-          src="/icons/tesoro.png"
-          alt="Tesoro"
-          className="w-6 h-6 object-contain"
-        />
-        <div>
-          <div className="text-[10px] text-[#c9a961] uppercase tracking-wider">Tesoro</div>
-          <div className="text-xl font-bold text-[#f4d03f] leading-tight">
-            {player.treasury}
-          </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-[#c9a961] uppercase tracking-wider">Tesoro:</span>
+          <span className="text-xl font-bold text-[#f4d03f]">{player.treasury}</span>
+          <img
+            src="/icons/tesoro.png"
+            alt="Tesoro"
+            className="w-10 h-10 object-contain"
+          />
         </div>
 
         {/* Tooltip */}

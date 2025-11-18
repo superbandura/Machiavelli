@@ -104,7 +104,7 @@ export default function Register() {
             Machiavelli
           </h1>
           <p className="text-xl font-serif text-[#2c2416] italic">
-            Renaissance Strategy Game
+            "Melius est amari quam timeri"
           </p>
         </div>
 
@@ -125,23 +125,23 @@ export default function Register() {
 
         {/* Formulario con borde ornamental */}
         <div className="border-4 border-[#6b5d42] rounded-lg shadow-ornate">
-          <div className="bg-parchment-100 py-10 rounded-lg">
-            <h2 className="text-center text-3xl font-heading text-[#1d1408] mb-8 px-20">
+          <div className="bg-parchment-100 py-6 rounded-lg">
+            <h2 className="text-center text-2xl font-heading text-[#1d1408] mb-4 px-12">
               Crear Cuenta
             </h2>
 
-            <form className="space-y-6 px-20" onSubmit={handleSubmit}>
+            <form className="space-y-4 px-12" onSubmit={handleSubmit}>
               {error && (
                 <div className="bg-burgundy-300/10 border-2 border-[#6b5d42] text-[#1d1408] px-4 py-3 rounded-lg font-serif">
                   {error}
                 </div>
               )}
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div>
                   <label
                     htmlFor="displayName"
-                    className="block text-sm font-semibold font-serif text-[#1d1408] mb-2"
+                    className="block text-sm font-semibold font-serif text-[#1d1408] mb-1"
                   >
                     Nombre de usuario
                   </label>
@@ -151,7 +151,7 @@ export default function Register() {
                     required
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
-                    className="block w-full px-4 py-3 bg-parchment-50 border-2 border-[#6b5d42] rounded-lg text-[#1d1408] placeholder-[#6b5d42] font-serif focus:outline-none focus:ring-2 focus:ring-[#6b5d42] focus:border-transparent transition-all"
+                    className="block w-full px-3 py-2 bg-parchment-50 border-2 border-[#6b5d42] rounded-lg text-[#1d1408] placeholder-[#6b5d42] font-serif focus:outline-none focus:ring-2 focus:ring-[#6b5d42] focus:border-transparent transition-all"
                     placeholder="Lorenzo de Medici"
                   />
                 </div>
@@ -159,7 +159,7 @@ export default function Register() {
                 <div>
                   <label
                     htmlFor="email"
-                    className="block text-sm font-semibold font-serif text-[#1d1408] mb-2"
+                    className="block text-sm font-semibold font-serif text-[#1d1408] mb-1"
                   >
                     Email
                   </label>
@@ -169,7 +169,7 @@ export default function Register() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="block w-full px-4 py-3 bg-parchment-50 border-2 border-[#6b5d42] rounded-lg text-[#1d1408] placeholder-[#6b5d42] font-serif focus:outline-none focus:ring-2 focus:ring-[#6b5d42] focus:border-transparent transition-all"
+                    className="block w-full px-3 py-2 bg-parchment-50 border-2 border-[#6b5d42] rounded-lg text-[#1d1408] placeholder-[#6b5d42] font-serif focus:outline-none focus:ring-2 focus:ring-[#6b5d42] focus:border-transparent transition-all"
                     placeholder="tu@email.com"
                   />
                 </div>
@@ -177,7 +177,7 @@ export default function Register() {
                 <div>
                   <label
                     htmlFor="password"
-                    className="block text-sm font-semibold font-serif text-[#1d1408] mb-2"
+                    className="block text-sm font-semibold font-serif text-[#1d1408] mb-1"
                   >
                     Contraseña
                   </label>
@@ -187,7 +187,7 @@ export default function Register() {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="block w-full px-4 py-3 bg-parchment-50 border-2 border-[#6b5d42] rounded-lg text-[#1d1408] placeholder-[#6b5d42] font-serif focus:outline-none focus:ring-2 focus:ring-[#6b5d42] focus:border-transparent transition-all"
+                    className="block w-full px-3 py-2 bg-parchment-50 border-2 border-[#6b5d42] rounded-lg text-[#1d1408] placeholder-[#6b5d42] font-serif focus:outline-none focus:ring-2 focus:ring-[#6b5d42] focus:border-transparent transition-all"
                     placeholder="••••••••"
                   />
                 </div>
@@ -195,7 +195,7 @@ export default function Register() {
                 <div>
                   <label
                     htmlFor="confirmPassword"
-                    className="block text-sm font-semibold font-serif text-[#1d1408] mb-2"
+                    className="block text-sm font-semibold font-serif text-[#1d1408] mb-1"
                   >
                     Confirmar Contraseña
                   </label>
@@ -205,7 +205,7 @@ export default function Register() {
                     required
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="block w-full px-4 py-3 bg-parchment-50 border-2 border-[#6b5d42] rounded-lg text-[#1d1408] placeholder-[#6b5d42] font-serif focus:outline-none focus:ring-2 focus:ring-[#6b5d42] focus:border-transparent transition-all"
+                    className="block w-full px-3 py-2 bg-parchment-50 border-2 border-[#6b5d42] rounded-lg text-[#1d1408] placeholder-[#6b5d42] font-serif focus:outline-none focus:ring-2 focus:ring-[#6b5d42] focus:border-transparent transition-all"
                     placeholder="••••••••"
                   />
                 </div>
@@ -215,13 +215,13 @@ export default function Register() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full flex justify-center py-3 px-6 border-2 border-[#6b5d42] rounded-lg shadow-ornate text-base font-bold font-heading text-white bg-[#6b5d42] hover:bg-[#544a35] hover:shadow-glow-gold focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#6b5d42] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
+                  className="w-full flex justify-center py-2 px-4 border-2 border-[#6b5d42] rounded-lg shadow-ornate text-base font-bold font-heading text-white bg-[#6b5d42] hover:bg-[#544a35] hover:shadow-glow-gold focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#6b5d42] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
                 >
                   {loading ? 'Creando cuenta...' : 'Crear Cuenta'}
                 </button>
               </div>
 
-              <div className="text-center pt-4">
+              <div className="text-center pt-2">
                 <p className="text-sm font-serif text-[#2c2416]">
                   ¿Ya tienes cuenta?{' '}
                   <Link

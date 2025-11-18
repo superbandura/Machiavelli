@@ -119,9 +119,9 @@ export default function GamesList({ onJoinGame }: GamesListProps) {
 
   if (loading) {
     return (
-      <div className="bg-gray-800 rounded-lg p-6">
-        <h3 className="text-2xl font-bold mb-4 text-white">Partidas Disponibles</h3>
-        <div className="text-center py-8 text-gray-400">
+      <div className="bg-[#3d3020] border-4 border-[#6b5d42] rounded-lg p-4 shadow-ornate">
+        <h3 className="text-xl font-heading font-bold mb-3 text-renaissance-gold">Partidas Disponibles</h3>
+        <div className="text-center py-6 text-parchment-100 font-serif">
           <div className="animate-pulse">Cargando partidas...</div>
         </div>
       </div>
@@ -130,9 +130,9 @@ export default function GamesList({ onJoinGame }: GamesListProps) {
 
   if (games.length === 0) {
     return (
-      <div className="bg-gray-800 rounded-lg p-6">
-        <h3 className="text-2xl font-bold mb-4 text-white">Partidas Disponibles</h3>
-        <div className="text-gray-400 text-center py-8">
+      <div className="bg-[#3d3020] border-4 border-[#6b5d42] rounded-lg p-4 shadow-ornate">
+        <h3 className="text-xl font-heading font-bold mb-3 text-renaissance-gold">Partidas Disponibles</h3>
+        <div className="text-parchment-100 font-serif text-center py-6">
           No hay partidas disponibles en este momento.
           <br />
           ¡Crea una nueva partida para empezar!
@@ -142,21 +142,21 @@ export default function GamesList({ onJoinGame }: GamesListProps) {
   }
 
   return (
-    <div className="bg-gray-800 rounded-lg p-6">
-      <h3 className="text-2xl font-bold mb-4 text-white">
+    <div className="bg-[#3d3020] border-4 border-[#6b5d42] rounded-lg p-4 shadow-ornate">
+      <h3 className="text-xl font-heading font-bold mb-3 text-renaissance-gold">
         Partidas Disponibles ({games.length})
       </h3>
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {games.map((game) => (
           <div
             key={game.id}
-            className="bg-gray-900 rounded-lg p-4 border border-gray-700 hover:border-gray-600 transition-colors"
+            className="bg-[#2d2416] rounded-lg p-3 border-2 border-[#8b7355] hover:border-renaissance-gold transition-colors"
           >
             <div className="flex justify-between items-start mb-2">
               <div>
-                <h4 className="text-lg font-bold text-white">{game.scenario}</h4>
-                <p className="text-sm text-gray-400">
+                <h4 className="text-base font-heading font-bold text-renaissance-gold">{game.scenario}</h4>
+                <p className="text-sm font-serif text-parchment-200">
                   Creada {formatDate(game.createdAt as Timestamp)}
                 </p>
               </div>
@@ -164,7 +164,7 @@ export default function GamesList({ onJoinGame }: GamesListProps) {
                 {canDeleteGame(game) && (
                   <button
                     onClick={() => handleOpenDeleteDialog(game)}
-                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-medium transition-colors"
+                    className="px-3 py-1.5 bg-burgundy-500 hover:bg-burgundy-600 text-white rounded font-heading font-medium transition-colors text-sm shadow-ornate"
                     title="Eliminar partida"
                   >
                     Eliminar
@@ -172,62 +172,62 @@ export default function GamesList({ onJoinGame }: GamesListProps) {
                 )}
                 <button
                   onClick={() => onJoinGame(game.id, game.name || game.scenario, game.maxPlayers)}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-medium transition-colors"
+                  className="px-3 py-1.5 bg-renaissance-bronze hover:bg-renaissance-bronze-light text-white rounded font-heading font-medium transition-colors text-sm shadow-ornate"
                 >
                   Unirse
                 </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 text-sm mt-3">
-              <div>
-                <span className="text-gray-400">Jugadores:</span>
-                <span className="ml-2 text-white font-medium">
+            <div className="grid grid-cols-2 gap-3 text-sm mt-2">
+              <div className="font-serif">
+                <span className="text-parchment-300">Jugadores:</span>
+                <span className="ml-2 text-parchment-100 font-semibold">
                   {game.playersCount} / {game.maxPlayers}
                 </span>
               </div>
 
-              <div>
-                <span className="text-gray-400">Turno:</span>
-                <span className="ml-2 text-white font-medium">
+              <div className="font-serif">
+                <span className="text-parchment-300">Turno:</span>
+                <span className="ml-2 text-parchment-100 font-semibold">
                   {game.currentYear} - {game.currentSeason}
                 </span>
               </div>
 
-              <div>
-                <span className="text-gray-400">Fase diplomática:</span>
-                <span className="ml-2 text-white font-medium">
+              <div className="font-serif">
+                <span className="text-parchment-300">Fase diplomática:</span>
+                <span className="ml-2 text-parchment-100 font-semibold">
                   {game.phaseDurations.diplomatic}h
                 </span>
               </div>
 
-              <div>
-                <span className="text-gray-400">Fase de órdenes:</span>
-                <span className="ml-2 text-white font-medium">
+              <div className="font-serif">
+                <span className="text-parchment-300">Fase de órdenes:</span>
+                <span className="ml-2 text-parchment-100 font-semibold">
                   {game.phaseDurations.orders}h
                 </span>
               </div>
             </div>
 
             {/* Opciones de juego */}
-            <div className="flex flex-wrap gap-2 mt-3">
+            <div className="flex flex-wrap gap-2 mt-2">
               {game.gameSettings.advancedRules && (
-                <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded">
+                <span className="px-2 py-0.5 bg-renaissance-bronze/20 text-renaissance-bronze-light text-xs rounded border border-renaissance-bronze font-serif">
                   Juego Avanzado
                 </span>
               )}
               {game.gameSettings.optionalRules.famine && (
-                <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded">
+                <span className="px-2 py-0.5 bg-renaissance-gold/20 text-renaissance-gold-light text-xs rounded border border-renaissance-gold font-serif">
                   Hambre
                 </span>
               )}
               {game.gameSettings.optionalRules.plague && (
-                <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded">
+                <span className="px-2 py-0.5 bg-burgundy-400/20 text-burgundy-300 text-xs rounded border border-burgundy-400 font-serif">
                   Peste
                 </span>
               )}
               {game.gameSettings.optionalRules.assassination && (
-                <span className="px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded">
+                <span className="px-2 py-0.5 bg-parchment-300/20 text-parchment-200 text-xs rounded border border-parchment-300 font-serif">
                   Asesinato
                 </span>
               )}

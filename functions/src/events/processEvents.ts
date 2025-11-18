@@ -1,8 +1,8 @@
 /**
  * Procesamiento de Eventos Especiales
  *
- * - Hambre (Famine): Solo Primavera, 33% probabilidad
- * - Peste (Plague): Solo Verano, 33% probabilidad
+ * - Hambre (Famine): Solo spring, 33% probabilidad
+ * - Peste (Plague): Solo summer, 33% probabilidad
  *
  * Se ejecuta ANTES de la resolución de turnos
  */
@@ -53,12 +53,12 @@ export async function processSpecialEvents(gameId: string, db: admin.firestore.F
   console.log(`Season: ${game.currentSeason}, Events config:`, eventsConfig);
 
   // Procesar según estación
-  if (game.currentSeason === 'Primavera' && eventsConfig.famine) {
+  if (game.currentSeason === 'spring' && eventsConfig.famine) {
     const famineEvents = await processFamine(game, db, game.map);
     events.push(...famineEvents);
   }
 
-  if (game.currentSeason === 'Verano') {
+  if (game.currentSeason === 'summer') {
     // Retirar marcadores de hambre
     if (game.famineProvinces && game.famineProvinces.length > 0) {
       console.log(`Removing famine markers from: ${game.famineProvinces.join(', ')}`);

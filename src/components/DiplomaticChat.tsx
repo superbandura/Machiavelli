@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { collection, addDoc, query, where, onSnapshot, orderBy, updateDoc, doc, serverTimestamp, Timestamp } from 'firebase/firestore'
+import { collection, addDoc, query, where, onSnapshot, updateDoc, doc, serverTimestamp, Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Player, DiplomaticMessage } from '@/types'
 import WaxSeal from './decorative/icons/WaxSeal'
-import Separator from './decorative/Separator'
 
 interface DiplomaticChatProps {
   gameId: string
@@ -42,8 +41,7 @@ export default function DiplomaticChat({
 
     const messagesQuery = query(
       collection(db, 'diplomatic_messages'),
-      where('gameId', '==', gameId),
-      orderBy('sentAt', 'asc')
+      where('gameId', '==', gameId)
     )
 
     const unsubscribe = onSnapshot(messagesQuery, async (snapshot) => {
@@ -54,11 +52,18 @@ export default function DiplomaticChat({
         // Solo mostrar mensajes que involucran al jugador actual
         if (
           data.to === 'all' ||
-          data.from === currentPlayer.id ||
-          data.to === currentPlayer.id
+          data.from === currentPlayer.userId ||
+          data.to === currentPlayer.userId
         ) {
           messagesData.push({ ...data, id: doc.id })
         }
+      })
+
+      // Ordenar mensajes por fecha en el cliente
+      messagesData.sort((a, b) => {
+        const timeA = a.sentAt?.toMillis?.() ?? 0
+        const timeB = b.sentAt?.toMillis?.() ?? 0
+        return timeA - timeB
       })
 
       setMessages(messagesData)
@@ -67,8 +72,8 @@ export default function DiplomaticChat({
       const unreadMessages = snapshot.docs.filter(doc => {
         const data = doc.data()
         return (
-          data.to === currentPlayer.id &&
-          data.from !== currentPlayer.id &&
+          data.to === currentPlayer.userId &&
+          data.from !== currentPlayer.userId &&
           !data.isRead
         )
       })
@@ -81,7 +86,7 @@ export default function DiplomaticChat({
     })
 
     return () => unsubscribe()
-  }, [gameId, currentPlayer.id])
+  }, [gameId, currentPlayer.userId])
 
   // Enviar mensaje
   const handleSendMessage = async () => {
@@ -91,7 +96,7 @@ export default function DiplomaticChat({
     try {
       await addDoc(collection(db, 'diplomatic_messages'), {
         gameId,
-        from: currentPlayer.id,
+        from: currentPlayer.userId,
         to: selectedRecipient,
         content: newMessage.trim(),
         turnNumber,
@@ -115,25 +120,25 @@ export default function DiplomaticChat({
     }
     return messages.filter(
       msg =>
-        (msg.from === selectedConversation && msg.to === currentPlayer.id) ||
-        (msg.from === currentPlayer.id && msg.to === selectedConversation) ||
+        (msg.from === selectedConversation && msg.to === currentPlayer.userId) ||
+        (msg.from === currentPlayer.userId && msg.to === selectedConversation) ||
         (msg.to === 'all')
     )
   }
 
   // Obtener nombre del jugador
-  const getPlayerName = (playerId: string): string => {
-    if (playerId === 'all') return 'Todos'
-    const player = players.find(p => p.id === playerId)
+  const getPlayerName = (userId: string): string => {
+    if (userId === 'all') return 'Todos'
+    const player = players.find(p => p.userId === userId)
     return player?.faction || 'Desconocido'
   }
 
   // Contar mensajes no leídos por jugador
-  const getUnreadCount = (playerId: string): number => {
+  const getUnreadCount = (userId: string): number => {
     return messages.filter(
       msg =>
-        msg.from === playerId &&
-        msg.to === currentPlayer.id &&
+        msg.from === userId &&
+        msg.to === currentPlayer.userId &&
         !msg.isRead
     ).length
   }
@@ -192,7 +197,7 @@ export default function DiplomaticChat({
           </div>
         ) : (
           filteredMessages.map((msg) => {
-            const isOwnMessage = msg.from === currentPlayer.id
+            const isOwnMessage = msg.from === currentPlayer.userId
             const isPublic = msg.to === 'all'
 
             return (

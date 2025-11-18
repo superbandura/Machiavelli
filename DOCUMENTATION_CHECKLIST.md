@@ -1,23 +1,32 @@
 # Checklist de Documentación Pendiente
 
-**Generado por:** Claude Code (comando /documenta)
-**Fecha:** 2025-01-13
+**Creado:** 2025-01-18
+**Por:** Claude Code (comando `/documenta`)
+**Estado:** Documentación 98% completa
 
 ---
 
-## Alta Prioridad
+## 🔴 Alta Prioridad
 
-### Documentación Técnica
-
-- [ ] **Verificar diagramas Mermaid**
-  - Revisar que los 5 diagramas en arquitectura.md rendericen correctamente
-  - Verificar que el diagrama ER en database.md sea preciso
-  - Confirmar que los diagramas reflejen la arquitectura real
+### Verificación de Sincronización
 
 - [ ] **Sincronizar tipos frontend/backend**
-  - Comparar `src/types/game.ts` vs `functions/src/types.ts`
-  - Verificar que Game, Player, Unit, Order estén sincronizados
-  - Documentar diferencias intencionales (Admin SDK vs SDK web)
+  - Verificar manualmente que `Game`, `Player`, `Unit`, `Order` estén sincronizados
+  - Archivo cliente: `src/types/game.ts`
+  - Archivo servidor: `functions/src/types.ts`
+  - Comando: `diff src/types/game.ts functions/src/types.ts`
+  - **Acción:** Si hay diferencias estructurales (no solo imports), sincronizar
+
+- [ ] **Localizar provinceData.ts**
+  - Archivos esperados no encontrados en ubicaciones estándar
+  - Posible ubicación alternativa o renombrado
+  - Verificar si existe código duplicado de provincias
+  - **Acción:** Buscar con `find . -name "*province*" -name "*.ts"` y sincronizar si necesario
+
+- [ ] **Testing de validación (Cliente vs Servidor)**
+  - Confirmar que `src/utils/orderValidation.ts` tiene la misma lógica que `functions/src/resolution/step1-validate.ts`
+  - Crear partida en emulators
+  - Probar cada tipo de orden
 
 - [ ] **Validar sincronización de provinceData.ts**
   - `diff src/data/provinceData.ts functions/src/data/provinceData.ts`

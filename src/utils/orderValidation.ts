@@ -15,7 +15,25 @@ export interface ValidationResult {
 }
 
 /**
- * Valida una orden dada a una unidad
+ * Valida una orden militar dada a una unidad
+ *
+ * Esta función verifica la legalidad de una orden según el tipo de acción,
+ * la unidad que la ejecuta, y el contexto del juego. Es utilizada tanto
+ * en el cliente (para feedback instantáneo) como en el servidor (validación definitiva).
+ *
+ * @param map - Mapa del juego con provincias y adyacencias
+ * @param order - Orden a validar
+ * @param unit - Unidad que ejecuta la orden
+ * @param allUnits - Todas las unidades del juego (para apoyos y convoys)
+ * @returns Resultado de validación con isValid y error opcional
+ *
+ * @example
+ * ```typescript
+ * const result = validateOrder(game.map, order, unit, allUnits)
+ * if (!result.isValid) {
+ *   console.error(`Orden inválida: ${result.error}`)
+ * }
+ * ```
  */
 export const validateOrder = (
   map: GameMap,
@@ -49,7 +67,12 @@ export const validateOrder = (
 }
 
 /**
- * Validar orden de Mantener (Hold)
+ * Valida orden de Mantener (Hold)
+ *
+ * La orden "Mantener" siempre es válida - la unidad permanece en su posición
+ * defendiendo con fuerza 1 + apoyos recibidos.
+ *
+ * @returns Siempre retorna { isValid: true }
  */
 const validateHoldOrder = (): ValidationResult => {
   // Hold siempre es válido
@@ -57,7 +80,17 @@ const validateHoldOrder = (): ValidationResult => {
 }
 
 /**
- * Validar orden de Avanzar (Move)
+ * Valida orden de Avanzar (Move)
+ *
+ * Verifica que:
+ * - La unidad no sea una guarnición (garrisons no pueden moverse)
+ * - La provincia destino sea adyacente
+ * - El tipo de terreno sea compatible (armies → tierra/puertos, fleets → mar/puertos)
+ *
+ * @param map - Mapa del juego
+ * @param order - Orden con targetProvince especificada
+ * @param unit - Unidad que se moverá
+ * @returns Resultado de validación
  */
 const validateMoveOrder = (map: GameMap, order: Order, unit: Unit): ValidationResult => {
   if (!order.targetProvince) {
@@ -91,7 +124,20 @@ const validateMoveOrder = (map: GameMap, order: Order, unit: Unit): ValidationRe
 }
 
 /**
- * Validar orden de Apoyar (Support)
+ * Valida orden de Apoyar (Support)
+ *
+ * Verifica que:
+ * - Se haya especificado una unidad a apoyar
+ * - La unidad a apoyar exista
+ * - La provincia de la unidad apoyada sea adyacente a la unidad que apoya
+ *
+ * Nota: No valida si el apoyo es ofensivo/defensivo (requiere conocer órdenes de otras unidades)
+ *
+ * @param map - Mapa del juego
+ * @param order - Orden con supportedUnit especificada
+ * @param unit - Unidad que apoya
+ * @param allUnits - Todas las unidades del juego
+ * @returns Resultado de validación
  */
 const validateSupportOrder = (
   map: GameMap,
@@ -121,7 +167,21 @@ const validateSupportOrder = (
 }
 
 /**
- * Validar orden de Convoy (Transport)
+ * Valida orden de Convoy (Transport)
+ *
+ * Verifica que:
+ * - Solo flotas pueden transportar
+ * - La flota esté en zona marítima
+ * - Se haya especificado un ejército a transportar
+ * - El ejército exista y sea de tipo 'army'
+ *
+ * Nota: No valida la ruta completa del convoy (requiere órdenes de otras flotas)
+ *
+ * @param map - Mapa del juego
+ * @param order - Orden con supportedUnit especificada (unitId del ejército)
+ * @param unit - Flota que transporta
+ * @param allUnits - Todas las unidades del juego
+ * @returns Resultado de validación
  */
 const validateConvoyOrder = (
   map: GameMap,
@@ -160,7 +220,20 @@ const validateConvoyOrder = (
 }
 
 /**
- * Validar orden de Asediar (Siege)
+ * Valida orden de Asediar (Siege)
+ *
+ * Verifica que:
+ * - La unidad no sea una guarnición (garrisons no pueden asediar)
+ * - Se haya especificado una ciudad objetivo
+ * - La unidad esté en la provincia de la ciudad
+ * - La provincia tenga una ciudad
+ *
+ * Nota: No valida ownership de la ciudad (requiere información del servidor)
+ *
+ * @param map - Mapa del juego
+ * @param order - Orden con targetProvince especificada
+ * @param unit - Unidad que asedia
+ * @returns Resultado de validación
  */
 const validateBesiegeOrder = (map: GameMap, order: Order, unit: Unit): ValidationResult => {
   // Las guarniciones no pueden asediar
@@ -190,7 +263,21 @@ const validateBesiegeOrder = (map: GameMap, order: Order, unit: Unit): Validatio
 }
 
 /**
- * Validar orden de Convertirse (Convert)
+ * Valida orden de Convertirse (Convert)
+ *
+ * Verifica que:
+ * - Fleet ↔ Army: Solo en puertos
+ * - Garrison → Army: En cualquier ciudad
+ *
+ * Conversiones permitidas:
+ * - Fleet → Army (en puerto)
+ * - Army → Fleet (en puerto)
+ * - Garrison → Army (en cualquier ciudad)
+ *
+ * @param map - Mapa del juego
+ * @param order - Orden con targetProvince reutilizada para tipo destino
+ * @param unit - Unidad que se convierte
+ * @returns Resultado de validación
  */
 const validateConvertOrder = (map: GameMap, order: Order, unit: Unit): ValidationResult => {
   if (!order.targetProvince) {
@@ -231,14 +318,32 @@ const validateConvertOrder = (map: GameMap, order: Order, unit: Unit): Validatio
 }
 
 /**
- * Obtener provincias válidas como destino para una orden de movimiento
+ * Obtiene provincias válidas como destino para una orden de movimiento
+ *
+ * Filtra provincias adyacentes según el tipo de unidad:
+ * - Army: Solo tierra y puertos
+ * - Fleet: Solo mar y puertos
+ * - Garrison: Vacío (no se mueven)
+ *
+ * @param map - Mapa del juego
+ * @param unit - Unidad a mover
+ * @returns Array de IDs de provincias válidas como destino
  */
 export const getValidMoveDestinations = (map: GameMap, unit: Unit): string[] => {
   return getValidAdjacentProvinces(map, unit.currentPosition, unit.type)
 }
 
 /**
- * Obtener unidades válidas para apoyar
+ * Obtiene unidades válidas para apoyar
+ *
+ * Filtra unidades que:
+ * - No sean la unidad misma
+ * - Estén en provincia adyacente a la unidad que apoya
+ *
+ * @param map - Mapa del juego
+ * @param unit - Unidad que apoyará
+ * @param allUnits - Todas las unidades del juego
+ * @returns Array de unidades que pueden ser apoyadas
  */
 export const getValidSupportTargets = (
   map: GameMap,

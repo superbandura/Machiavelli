@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { collection, addDoc, query, where, onSnapshot, orderBy, updateDoc, doc, serverTimestamp, Timestamp } from 'firebase/firestore'
+import { collection, addDoc, query, where, onSnapshot, updateDoc, doc, serverTimestamp, Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Player, DiplomaticMessage, Game } from '@/types'
-import { FACTIONS } from '@/data/factions'
+import { getFactionImageName } from '@/utils/factionHelpers'
 import WaxSeal from './decorative/icons/WaxSeal'
-import Separator from './decorative/Separator'
 
 interface DiplomacyModalProps {
   game: Game
@@ -25,6 +24,7 @@ export default function DiplomacyModal({
   const [selectedRecipient, setSelectedRecipient] = useState<string>('all')
   const [filterTurn, setFilterTurn] = useState<number | 'all'>('all')
   const [isSending, setIsSending] = useState(false)
+  const [hoveredFaction, setHoveredFaction] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Auto-scroll al final de los mensajes
@@ -42,8 +42,7 @@ export default function DiplomacyModal({
 
     const messagesQuery = query(
       collection(db, 'diplomatic_messages'),
-      where('gameId', '==', game.id),
-      orderBy('sentAt', 'asc')
+      where('gameId', '==', game.id)
     )
 
     const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
@@ -54,18 +53,25 @@ export default function DiplomacyModal({
         // Solo mostrar mensajes que involucran al jugador actual
         if (
           data.to === 'all' ||
-          data.from === currentPlayer.id ||
-          data.to === currentPlayer.id
+          data.from === currentPlayer.userId ||
+          data.to === currentPlayer.userId
         ) {
           messagesData.push({ ...data, id: docSnap.id })
         }
+      })
+
+      // Ordenar mensajes por fecha en el cliente
+      messagesData.sort((a, b) => {
+        const timeA = a.sentAt?.toMillis?.() ?? 0
+        const timeB = b.sentAt?.toMillis?.() ?? 0
+        return timeA - timeB
       })
 
       setMessages(messagesData)
     })
 
     return () => unsubscribe()
-  }, [game.id, currentPlayer.id])
+  }, [game.id, currentPlayer.userId])
 
   // Enviar mensaje
   const handleSendMessage = async () => {
@@ -75,7 +81,7 @@ export default function DiplomacyModal({
     try {
       await addDoc(collection(db, 'diplomatic_messages'), {
         gameId: game.id,
-        from: currentPlayer.id,
+        from: currentPlayer.userId,
         to: selectedRecipient,
         content: newMessage.trim(),
         turnNumber: game.turnNumber,
@@ -93,11 +99,11 @@ export default function DiplomacyModal({
   }
 
   // Marcar mensajes como leídos cuando se abre una conversación
-  const markMessagesAsRead = async (playerId: string) => {
+  const markMessagesAsRead = async (userId: string) => {
     const unreadMessages = messages.filter(
       msg =>
-        msg.from === playerId &&
-        msg.to === currentPlayer.id &&
+        msg.from === userId &&
+        msg.to === currentPlayer.userId &&
         !msg.isRead
     )
 
@@ -119,12 +125,12 @@ export default function DiplomacyModal({
     // Filtrar por tab (facción)
     if (selectedTab !== 'all') {
       const playersInFaction = players.filter(p => p.faction === selectedTab)
-      const playerIds = playersInFaction.map(p => p.id)
+      const userIds = playersInFaction.map(p => p.userId)
 
       filtered = filtered.filter(
         msg =>
-          playerIds.includes(msg.from) ||
-          (playerIds.includes(msg.to) && msg.from === currentPlayer.id) ||
+          userIds.includes(msg.from) ||
+          (userIds.includes(msg.to) && msg.from === currentPlayer.userId) ||
           msg.to === 'all'
       )
     }
@@ -140,12 +146,12 @@ export default function DiplomacyModal({
   // Contar mensajes no leídos por facción
   const getUnreadCountByFaction = (faction: string): number => {
     const playersInFaction = players.filter(p => p.faction === faction)
-    const playerIds = playersInFaction.map(p => p.id)
+    const userIds = playersInFaction.map(p => p.userId)
 
     return messages.filter(
       msg =>
-        playerIds.includes(msg.from) &&
-        msg.to === currentPlayer.id &&
+        userIds.includes(msg.from) &&
+        msg.to === currentPlayer.userId &&
         !msg.isRead
     ).length
   }
@@ -154,34 +160,46 @@ export default function DiplomacyModal({
   const getTotalUnreadCount = (): number => {
     return messages.filter(
       msg =>
-        msg.to === currentPlayer.id &&
-        msg.from !== currentPlayer.id &&
+        msg.to === currentPlayer.userId &&
+        msg.from !== currentPlayer.userId &&
         !msg.isRead
     ).length
   }
 
   // Obtener nombre del jugador
-  const getPlayerName = (playerId: string): string => {
-    if (playerId === 'all') return 'Todos'
-    const player = players.find(p => p.id === playerId)
+  const getPlayerName = (userId: string): string => {
+    if (userId === 'all') return 'Todos'
+    const player = players.find(p => p.userId === userId)
     return player?.faction || 'Desconocido'
   }
 
   // Obtener facción del jugador
-  const getPlayerFaction = (playerId: string): string => {
-    const player = players.find(p => p.id === playerId)
+  const getPlayerFaction = (userId: string): string => {
+    const player = players.find(p => p.userId === userId)
     return player?.faction || ''
   }
 
   // Verificar si es fase diplomática
   const isDiplomaticPhase = game.currentPhase === 'diplomatic'
 
-  // Cambiar tab y marcar como leídos
+  // Cambiar tab y marcar como leídos, además seleccionar destinatario automáticamente
   const handleTabChange = (tab: string) => {
     setSelectedTab(tab)
+
+    // Seleccionar destinatario automáticamente según la pestaña
+    if (tab === 'all') {
+      setSelectedRecipient('all')
+    } else {
+      // Encontrar el primer jugador de esa facción
+      const playerInFaction = players.find(p => p.faction === tab && p.userId !== currentPlayer.userId)
+      if (playerInFaction) {
+        setSelectedRecipient(playerInFaction.userId)
+      }
+    }
+
     if (tab !== 'all') {
       const playersInFaction = players.filter(p => p.faction === tab)
-      playersInFaction.forEach(p => markMessagesAsRead(p.id))
+      playersInFaction.forEach(p => markMessagesAsRead(p.userId))
     }
   }
 
@@ -195,18 +213,18 @@ export default function DiplomacyModal({
   const availableTurns = Array.from(new Set(messages.map(m => m.turnNumber))).sort((a, b) => b - a)
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 border-3 border-burgundy-500 rounded-lg w-full max-w-5xl h-[85vh] flex flex-col shadow-ornate-lg">
+    <div className="fixed inset-0 bg-[#2d1810]/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-[#d4c4a1] border-4 border-[#8b4513] rounded-lg w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl">
         {/* Header ornamentado */}
-        <div className="p-5 border-b-2 border-burgundy-500/50 bg-gray-800 flex justify-between items-center rounded-t-lg">
+        <div className="p-5 border-b-4 border-[#8b4513] bg-gradient-to-r from-[#c4b49a] to-[#d4c4a1] flex justify-between items-center rounded-t-lg">
           <div className="flex items-center gap-3">
             <WaxSeal variant="burgundy" size="lg" />
             <div>
-              <h2 className="text-3xl font-heading font-bold text-burgundy-300 flex items-center gap-2">
+              <h2 className="text-3xl font-heading font-bold text-[#8b4513] flex items-center gap-2">
                 Sala de Diplomacia
               </h2>
               {getTotalUnreadCount() > 0 && (
-                <div className="text-sm font-serif text-renaissance-gold mt-1">
+                <div className="text-sm font-serif text-[#d4af37] mt-1 font-semibold">
                   {getTotalUnreadCount()} carta{getTotalUnreadCount() !== 1 ? 's' : ''} sin leer
                 </div>
               )}
@@ -215,7 +233,7 @@ export default function DiplomacyModal({
           <div className="flex items-center gap-4">
             {/* Filtro por turno */}
             <select
-              className="bg-gray-900 border-2 border-burgundy-400 rounded-lg px-3 py-2 text-sm font-serif text-parchment-200 focus:border-burgundy-300 transition-colors"
+              className="bg-[#f4e4c1] border-2 border-[#8b7355] rounded-lg px-3 py-2 text-sm font-serif text-[#2d1810] focus:border-[#d4af37] focus:outline-none transition-colors"
               value={filterTurn}
               onChange={(e) => setFilterTurn(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
             >
@@ -227,7 +245,7 @@ export default function DiplomacyModal({
 
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-burgundy-300 text-3xl transition-colors font-bold"
+              className="text-[#2d1810] hover:text-[#8b4513] text-3xl transition-colors font-bold"
               title="Cerrar"
             >
               ✕
@@ -235,44 +253,74 @@ export default function DiplomacyModal({
           </div>
         </div>
 
-        {/* Tabs por facción */}
-        <div className="border-b border-gray-700 bg-gray-800 px-4">
-          <div className="flex gap-2 overflow-x-auto">
+        {/* Tabs por facción con emblemas */}
+        <div className="border-b-2 border-[#8b4513] bg-[#c4b49a] px-4 relative">
+          <div className="flex gap-2 overflow-x-auto py-3 pt-16">
             {/* Tab "Todos" */}
             <button
               onClick={() => handleTabChange('all')}
-              className={`px-4 py-2 font-medium transition-colors whitespace-nowrap ${
+              onMouseEnter={() => setHoveredFaction('all')}
+              onMouseLeave={() => setHoveredFaction(null)}
+              className={`relative flex items-center justify-center p-4 transition-all rounded-t-lg ${
                 selectedTab === 'all'
-                  ? 'border-b-2 border-purple-500 text-purple-400'
-                  : 'text-gray-400 hover:text-white'
+                  ? 'bg-[#d4c4a1] border-b-3 border-[#8b4513] shadow-sm'
+                  : 'hover:bg-[#b4a48a]'
               }`}
             >
-              Todos
+              <span className="text-3xl">📜</span>
               {selectedTab !== 'all' && getTotalUnreadCount() > 0 && (
-                <span className="ml-2 bg-purple-600 text-white text-xs px-2 py-0.5 rounded-full">
+                <span className="absolute -top-1 -right-1 bg-[#d4af37] text-[#2d1810] text-xs font-bold px-1.5 py-0.5 rounded-full shadow-sm min-w-[20px] text-center z-10">
                   {getTotalUnreadCount()}
                 </span>
               )}
+
+              {/* Tooltip */}
+              {hoveredFaction === 'all' && (
+                <div className="fixed px-4 py-2 bg-[#2d1810] border-2 border-[#d4af37] rounded-lg shadow-2xl whitespace-nowrap z-[100]" style={{ top: 'calc(100% - 50px)', left: '50%', transform: 'translateX(-50%)' }}>
+                  <div className="text-sm font-serif text-[#f4e4c1] font-semibold">Todos</div>
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-0.5 w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent border-t-[#d4af37]"></div>
+                </div>
+              )}
             </button>
 
-            {/* Tabs por facción */}
-            {uniqueFactions.map(faction => {
+            {/* Tabs por facción - solo emblemas */}
+            {uniqueFactions.map((faction) => {
               const unreadCount = getUnreadCountByFaction(faction)
               return (
                 <button
                   key={faction}
                   onClick={() => handleTabChange(faction)}
-                  className={`px-4 py-2 font-medium transition-colors whitespace-nowrap ${
+                  onMouseEnter={() => setHoveredFaction(faction)}
+                  onMouseLeave={() => setHoveredFaction(null)}
+                  className={`relative flex items-center justify-center p-4 transition-all rounded-t-lg ${
                     selectedTab === faction
-                      ? 'border-b-2 border-purple-500 text-purple-400'
-                      : 'text-gray-400 hover:text-white'
+                      ? 'bg-[#d4c4a1] border-b-3 border-[#8b4513] shadow-sm'
+                      : 'hover:bg-[#b4a48a]'
                   }`}
                 >
-                  {faction}
+                  <img
+                    src={`/factions/${getFactionImageName(faction)}.png`}
+                    alt={faction}
+                    className="w-14 h-14 object-contain pointer-events-none"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none'
+                    }}
+                  />
                   {unreadCount > 0 && (
-                    <span className="ml-2 bg-purple-600 text-white text-xs px-2 py-0.5 rounded-full">
+                    <span className="absolute -top-1 -right-1 bg-[#d4af37] text-[#2d1810] text-xs font-bold px-1.5 py-0.5 rounded-full shadow-sm min-w-[20px] text-center z-10">
                       {unreadCount}
                     </span>
+                  )}
+
+                  {/* Tooltip renacentista */}
+                  {hoveredFaction === faction && (
+                    <div
+                      className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-4 py-2 bg-[#2d1810] border-2 border-[#d4af37] rounded-lg shadow-2xl whitespace-nowrap z-[100]"
+                    >
+                      <div className="text-sm font-serif text-[#f4e4c1] font-semibold">{faction}</div>
+                      {/* Flecha del tooltip */}
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-0.5 w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent border-t-[#d4af37]"></div>
+                    </div>
                   )}
                 </button>
               )
@@ -281,18 +329,18 @@ export default function DiplomacyModal({
         </div>
 
         {!isDiplomaticPhase && (
-          <div className="mx-4 mt-4 text-xs text-yellow-400 bg-yellow-900/20 border border-yellow-700 rounded p-2">
+          <div className="mx-4 mt-4 text-sm font-serif text-[#8b4513] bg-[#f4d03f]/20 border-2 border-[#d4af37] rounded-lg p-3">
             ⚠️ Los mensajes solo se pueden enviar en la Fase Diplomática
           </div>
         )}
 
         {/* Lista de mensajes */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-900">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#d4c4a1]">
           {filteredMessages.length === 0 ? (
-            <div className="text-center text-gray-400 py-8">
+            <div className="text-center text-[#4d3830] py-8">
               <div className="text-4xl mb-2">📭</div>
-              <div>No hay mensajes</div>
-              <div className="text-xs mt-1">
+              <div className="font-serif text-lg">No hay mensajes</div>
+              <div className="text-sm font-serif mt-1 text-[#6d5d4d]">
                 {filterTurn !== 'all'
                   ? 'No hay mensajes en este turno'
                   : 'Sé el primero en negociar'}
@@ -300,10 +348,9 @@ export default function DiplomacyModal({
             </div>
           ) : (
             filteredMessages.map((msg) => {
-              const isOwnMessage = msg.from === currentPlayer.id
+              const isOwnMessage = msg.from === currentPlayer.userId
               const isPublic = msg.to === 'all'
               const senderFaction = getPlayerFaction(msg.from)
-              const senderColor = Object.values(FACTIONS).find(f => f.name === senderFaction)?.color
 
               return (
                 <div
@@ -311,44 +358,48 @@ export default function DiplomacyModal({
                   className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-lg p-3 ${
+                    className={`max-w-[80%] rounded-lg p-3 font-serif shadow-md ${
                       isOwnMessage
-                        ? 'bg-blue-600 text-white'
+                        ? 'bg-[#5b7c99] text-white border-2 border-[#4d6a84]'
                         : isPublic
-                        ? 'bg-purple-900/50 border border-purple-700'
-                        : 'bg-gray-700'
+                        ? 'bg-[#f4e4c1] border-2 border-[#d4af37] text-[#2d1810]'
+                        : 'bg-[#c4b49a] border-2 border-[#8b7355] text-[#2d1810]'
                     }`}
                   >
                     {/* Cabecera del mensaje */}
-                    <div className="flex items-center gap-2 mb-1">
-                      {!isOwnMessage && senderColor && (
-                        <div
-                          className="w-3 h-3 rounded-full border border-white/20"
-                          style={{ backgroundColor: senderColor }}
+                    <div className="flex items-center gap-2 mb-2">
+                      {!isOwnMessage && (
+                        <img
+                          src={`/factions/${getFactionImageName(senderFaction)}.png`}
+                          alt={senderFaction}
+                          className="w-5 h-5 object-contain"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none'
+                          }}
                         />
                       )}
-                      <span className="font-bold text-sm">
+                      <span className={`font-bold text-sm ${isOwnMessage ? 'text-white' : 'text-[#2d1810]'}`}>
                         {isOwnMessage ? 'Tú' : getPlayerName(msg.from)}
                       </span>
                       {isPublic && (
-                        <span className="text-xs bg-purple-700 px-2 py-0.5 rounded">
+                        <span className="text-xs bg-[#d4af37] text-[#2d1810] px-2 py-0.5 rounded font-bold">
                           Público
                         </span>
                       )}
                       {!isPublic && !isOwnMessage && (
-                        <span className="text-xs bg-gray-600 px-2 py-0.5 rounded">
+                        <span className="text-xs bg-[#8b7355] text-[#f4e4c1] px-2 py-0.5 rounded">
                           Privado
                         </span>
                       )}
                     </div>
 
                     {/* Contenido del mensaje */}
-                    <div className="text-sm whitespace-pre-wrap break-words">
+                    <div className={`text-sm whitespace-pre-wrap break-words ${isOwnMessage ? 'text-white' : 'text-[#2d1810]'}`}>
                       {msg.content}
                     </div>
 
                     {/* Metadata */}
-                    <div className="flex items-center justify-between mt-2 text-xs opacity-75">
+                    <div className={`flex items-center justify-between mt-2 text-xs ${isOwnMessage ? 'text-white/75' : 'text-[#4d3830]'}`}>
                       <span>
                         Turno {msg.turnNumber} - {msg.sentAt ? new Date((msg.sentAt as Timestamp).toMillis()).toLocaleString('es-ES', {
                           day: '2-digit',
@@ -367,23 +418,23 @@ export default function DiplomacyModal({
         </div>
 
         {/* Input de nuevo mensaje */}
-        <div className="p-4 border-t border-gray-700 bg-gray-800 rounded-b-lg">
+        <div className="p-4 border-t-4 border-[#8b4513] bg-gradient-to-r from-[#c4b49a] to-[#d4c4a1] rounded-b-lg">
           {isDiplomaticPhase ? (
             <>
-              <div className="mb-2">
-                <label className="block text-xs font-medium mb-1 text-gray-400">
+              <div className="mb-3">
+                <label className="block text-xs font-serif font-semibold mb-1 text-[#2d1810]">
                   Destinatario
                 </label>
                 <select
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm"
+                  className="w-full bg-[#f4e4c1] border-2 border-[#8b7355] rounded-lg px-3 py-2 text-sm font-serif text-[#2d1810] focus:border-[#d4af37] focus:outline-none transition-colors"
                   value={selectedRecipient}
                   onChange={(e) => setSelectedRecipient(e.target.value)}
                 >
                   <option value="all">📢 Mensaje público (todos)</option>
                   {players
-                    .filter(p => p.id !== currentPlayer.id)
+                    .filter(p => p.userId !== currentPlayer.userId)
                     .map(player => (
-                      <option key={player.id} value={player.id}>
+                      <option key={player.id} value={player.userId}>
                         🔒 {player.faction} (privado)
                       </option>
                     ))}
@@ -392,8 +443,8 @@ export default function DiplomacyModal({
 
               <div className="flex gap-2">
                 <textarea
-                  className="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm resize-none"
-                  placeholder="Escribe tu mensaje diplomático..."
+                  className="flex-1 bg-[#f4e4c1] border-2 border-[#8b7355] rounded-lg px-3 py-2 text-sm font-serif text-[#2d1810] resize-none focus:border-[#d4af37] focus:outline-none transition-colors placeholder:text-[#8b7355] placeholder:italic"
+                  placeholder="Redacta tu misiva diplomática..."
                   rows={2}
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
@@ -407,22 +458,22 @@ export default function DiplomacyModal({
                 <button
                   onClick={handleSendMessage}
                   disabled={!newMessage.trim() || isSending}
-                  className={`px-4 py-2 rounded font-medium transition-colors ${
+                  className={`px-4 py-2 rounded-lg font-serif font-bold transition-all ${
                     !newMessage.trim() || isSending
-                      ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                      : 'bg-purple-600 hover:bg-purple-700 text-white'
+                      ? 'bg-[#a49471] text-[#6d5d4d] cursor-not-allowed'
+                      : 'bg-[#d4af37] hover:bg-[#b8941f] text-[#2d1810] shadow-md hover:shadow-lg'
                   }`}
                 >
-                  {isSending ? '...' : '📤'}
+                  {isSending ? '⏳' : '✉️'}
                 </button>
               </div>
 
-              <div className="text-xs text-gray-400 mt-2">
+              <div className="text-xs font-serif text-[#4d3830] mt-2 italic">
                 Presiona Enter para enviar, Shift+Enter para nueva línea
               </div>
             </>
           ) : (
-            <div className="text-center text-gray-400 text-sm py-3">
+            <div className="text-center text-[#4d3830] font-serif text-sm py-3">
               Solo puedes enviar mensajes durante la Fase Diplomática
             </div>
           )}

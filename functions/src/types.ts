@@ -45,7 +45,7 @@ export interface Game {
   status: 'waiting' | 'active' | 'finished';
   turnNumber: number;
   currentYear: number;
-  currentSeason: 'Primavera' | 'Verano' | 'Otoño';
+  currentSeason: 'spring' | 'summer' | 'fall';
   currentPhase: 'diplomatic' | 'orders' | 'resolution';
   phaseDeadline: admin.firestore.Timestamp;
   phaseStartedAt: admin.firestore.Timestamp;

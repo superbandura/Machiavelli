@@ -12,7 +12,7 @@ import { ResolutionContext, Unit } from '../types';
 import { hasCity, getIncome } from '../utils/mapHelpers';
 
 /**
- * Procesar ingresos y mantenimiento (solo Primavera)
+ * Procesar ingresos y mantenimiento (solo spring)
  */
 async function processMaintenanceAndIncome(context: ResolutionContext): Promise<void> {
   console.log('=== MAINTENANCE AND INCOME (Spring) ===');
@@ -129,8 +129,8 @@ async function processMaintenanceAndIncome(context: ResolutionContext): Promise<
 export async function processEconomicActions(context: ResolutionContext): Promise<void> {
   console.log('Processing economic actions...');
 
-  // PASO 0: Ingresos y Mantenimiento (solo Primavera)
-  if (context.season === 'Primavera') {
+  // PASO 0: Ingresos y Mantenimiento (solo spring)
+  if (context.season === 'spring') {
     await processMaintenanceAndIncome(context);
   }
 

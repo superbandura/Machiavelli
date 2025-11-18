@@ -27,11 +27,13 @@ export default function GameBoard({
   onAdjacencyToggle
 }: GameBoardProps) {
   const [svgContent, setSvgContent] = useState<string>('')
-  const [hoveredProvince, setHoveredProvince] = useState<string | null>(null)
   const [initialScale, setInitialScale] = useState(0.6) // Escala inicial calculada dinámicamente
   const svgContainerRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null) // Ref para calcular dimensiones
   const hoveredProvinceRef = useRef<string | null>(null) // Ref para evitar re-renders del useEffect
+  const setHoveredProvince = (province: string | null) => {
+    hoveredProvinceRef.current = province
+  }
 
   // Calcular initialScale dinámicamente para que el mapa llene la altura del contenedor
   useEffect(() => {

@@ -100,17 +100,34 @@ service cloud.firestore {
 
     // ==================== DIPLOMATIC MESSAGES ====================
     match /diplomatic_messages/{messageId} {
-      // Los jugadores pueden leer mensajes donde son remitente o destinatario
-      // Los mensajes públicos (to == 'all') son visibles para todos los jugadores del juego
-      allow read: if isAuthenticated() && (
+      // Permitir queries (list) a jugadores del juego
+      // El filtrado de mensajes privados se hace en el cliente por seguridad
+      allow list: if isAuthenticated() && isPlayer(resource.data.gameId);
+
+      // Leer mensajes individuales solo si eres remitente, destinatario, o es público
+      allow get: if isAuthenticated() && (
         resource.data.from == request.auth.uid ||
         resource.data.to == request.auth.uid ||
         (resource.data.to == 'all' && isPlayer(resource.data.gameId))
       );
 
-      // Los jugadores pueden crear mensajes diplomáticos
+      // Los jugadores pueden crear mensajes diplomáticos solo durante la fase diplomática
+      // Validaciones:
+      // - El usuario debe estar autenticado
+      // - El remitente debe ser el usuario autenticado
+      // - El usuario debe ser jugador de la partida
+      // - La partida debe estar en fase diplomática
+      // - El contenido debe tener longitud razonable (max 1000 caracteres)
+      // - El campo phase debe ser exactamente 'diplomatic'
+      // - El turnNumber debe coincidir con el turno actual del juego
       allow create: if isAuthenticated() &&
-        request.resource.data.from == request.auth.uid;
+        request.resource.data.from == request.auth.uid &&
+        isPlayer(request.resource.data.gameId) &&
+        get(/databases/$(database)/documents/games/$(request.resource.data.gameId)).data.currentPhase == 'diplomatic' &&
+        request.resource.data.content.size() > 0 &&
+        request.resource.data.content.size() <= 1000 &&
+        request.resource.data.phase == 'diplomatic' &&
+        request.resource.data.turnNumber == get(/databases/$(database)/documents/games/$(request.resource.data.gameId)).data.turnNumber;
 
       // Los jugadores pueden actualizar el campo isRead de sus propios mensajes (como destinatarios)
       allow update: if isAuthenticated() &&

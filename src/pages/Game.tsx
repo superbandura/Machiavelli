@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { doc, getDoc, getDocs, collection, query, where, onSnapshot, addDoc, updateDoc, Timestamp } from 'firebase/firestore'
+import { doc, getDoc, getDocs, collection, query, where, onSnapshot, addDoc, updateDoc, Timestamp, orderBy } from 'firebase/firestore'
+import type { DiplomaticMessage } from '@/types/game'
 import { getFunctions, httpsCallable } from 'firebase/functions'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/store/authStore'
@@ -10,17 +11,17 @@ import { getAllFactions } from '@/lib/factionService'
 import { getFactionImageName } from '@/utils/factionHelpers'
 import GameBoard from '@/components/GameBoard'
 // OrdersPanel removido - ahora se usa OrdersModal desde ProvinceInfoPanel
-import TurnIndicator from '@/components/TurnIndicator'
-import DiplomaticChat from '@/components/DiplomaticChat'
 import DiplomacyModal from '@/components/DiplomacyModal'
+import FactionDiplomacyModal from '@/components/FactionDiplomacyModal'
 import TreasuryPanel from '@/components/TreasuryPanel'
-import TurnHistory from '@/components/TurnHistory'
+import HistoryModal from '@/components/HistoryModal'
 import VictoryScreen from '@/components/VictoryScreen'
 import FamineMitigationPanel from '@/components/FamineMitigationPanel'
 import InactivePlayerVoting from '@/components/InactivePlayerVoting'
 import ProvinceInfoPanel from '@/components/ProvinceInfoPanel'
 import UnitManagementModal from '@/components/UnitManagementModal'
 import HeaderTreasuryInfo from '@/components/HeaderTreasuryInfo'
+import { CollapsibleSection } from '@/components/CollapsibleSection'
 
 export default function Game() {
   const { gameId } = useParams<{ gameId: string }>()
@@ -33,21 +34,25 @@ export default function Game() {
   const [units, setUnits] = useState<Unit[]>([])
   const [players, setPlayers] = useState<Player[]>([])
   const [factions, setFactions] = useState<FactionDocument[]>([])
+  const [messages, setMessages] = useState<(DiplomaticMessage & { id: string })[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   // Estado del mapa
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null)
-  const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null)
-
-  // Estado de la pestaña activa (chat o historial)
-  const [activeTab, setActiveTab] = useState<'chat' | 'history'>('chat')
 
   // Estado para forzar avance de fase (testing)
   const [isAdvancingPhase, setIsAdvancingPhase] = useState(false)
 
   // Estado del modal de diplomacia
   const [isDiplomacyModalOpen, setIsDiplomacyModalOpen] = useState(false)
+
+  // Estado del modal de diplomacia por facción
+  const [isFactionDiplomacyModalOpen, setIsFactionDiplomacyModalOpen] = useState(false)
+  const [selectedFaction, setSelectedFaction] = useState<string | null>(null)
+
+  // Estado del modal de historial
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
 
   // Estado del modal de gestión de unidades
   const [unitManagementModalUnit, setUnitManagementModalUnit] = useState<Unit | null>(null)
@@ -151,6 +156,28 @@ export default function Game() {
     return () => unsubscribe()
   }, [gameId])
 
+  // Suscribirse a mensajes diplomáticos para badges de mensajes sin leer
+  useEffect(() => {
+    if (!gameId) return
+
+    const messagesQuery = query(
+      collection(db, 'diplomatic_messages'),
+      where('gameId', '==', gameId),
+      orderBy('sentAt', 'asc')
+    )
+
+    const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
+      const messagesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as (DiplomaticMessage & { id: string })[]
+
+      setMessages(messagesData)
+    })
+
+    return () => unsubscribe()
+  }, [gameId])
+
   // Listener en tiempo real para el currentPlayer (actualiza treasury automáticamente)
   useEffect(() => {
     if (!player?.id) return
@@ -241,17 +268,44 @@ export default function Game() {
   // Handlers (usar useCallback para evitar recreación en cada render)
   const handleProvinceClick = useCallback((provinceId: string) => {
     setSelectedProvince(provinceId)
-    setSelectedUnit(null)
-  }, [])
-
-  const handleUnitClick = useCallback((unit: Unit) => {
-    setSelectedUnit(unit)
-    setSelectedProvince(unit.currentPosition)
   }, [])
 
   const handleBackToLobby = () => {
     navigate('/lobby')
   }
+
+  // Función para contar mensajes sin leer por facción
+  const getUnreadCountByFaction = useCallback((faction: string): number => {
+    if (!player) return 0
+
+    const playersInFaction = players.filter(p => p.faction === faction)
+    const playerIds = playersInFaction.map(p => p.id)
+
+    return messages.filter(
+      msg =>
+        playerIds.includes(msg.from) &&
+        msg.to === player.id &&
+        !msg.isRead
+    ).length
+  }, [messages, players, player])
+
+  // Función para contar total de mensajes sin leer
+  const getTotalUnreadCount = useCallback((): number => {
+    if (!player) return 0
+
+    return messages.filter(
+      msg =>
+        msg.to === player.id &&
+        msg.from !== player.id &&
+        !msg.isRead
+    ).length
+  }, [messages, player])
+
+  // Función para abrir modal de diplomacia por facción
+  const handleFactionClick = useCallback((faction: string) => {
+    setSelectedFaction(faction)
+    setIsFactionDiplomacyModalOpen(true)
+  }, [])
 
   const handleForcePhaseAdvance = async () => {
     if (!gameId || !game) return
@@ -383,21 +437,21 @@ export default function Game() {
       {/* Header */}
       <header className="bg-[#2d2416] border-b border-[#1d1408] p-4">
         <div className="flex justify-between items-center">
-          {/* Panel izquierdo - Info de partida + Fase + Tiempo + Tesoro */}
+          {/* Panel izquierdo - Emblema grande + Info de partida + Fase + Tiempo + Tesoro */}
           <div className="flex items-center gap-3">
+            {/* Emblema de la facción - Grande, sin panel */}
+            <img
+              src={`/factions/${getFactionImageName(player.faction)}.png`}
+              alt={player.faction}
+              className="h-14 w-auto object-contain drop-shadow-lg"
+              title={player.faction}
+              onError={(e) => {
+                e.currentTarget.style.display = 'none'
+              }}
+            />
+
             {/* Info de la partida */}
             <div className="flex items-center gap-2 px-4 py-2 bg-[#1d1408] rounded-lg border border-[#8b7355]">
-              {/* Emblema de la facción */}
-              <img
-                src={`/factions/${getFactionImageName(player.faction)}.png`}
-                alt={player.faction}
-                className="w-8 h-8 object-contain"
-                title={player.faction}
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none'
-                }}
-              />
-              <div className="h-8 w-px bg-[#8b7355]"></div>
               <img
                 src="/icons/mapa.png"
                 alt="Partida"
@@ -432,13 +486,13 @@ export default function Game() {
             {/* Panel de fase, tiempo y tesoro */}
             <HeaderTreasuryInfo
               player={player}
-              factions={factions}
-              units={visibleUnits}
-              gameMap={game.map || { provinces: {}, adjacencies: {} }}
+              gameMap={game.map || { provinces: {} }}
               provinceFaction={provinceFaction}
               currentSeason={game.currentSeason}
               game={game}
+              unreadMessagesCount={getTotalUnreadCount()}
               onDiplomacyClick={() => setIsDiplomacyModalOpen(true)}
+              onHistoryClick={() => setIsHistoryModalOpen(true)}
             />
           </div>
 
@@ -513,31 +567,31 @@ export default function Game() {
               {players
                 .filter(p => p.id !== player.id) // Excluir jugador actual
                 .map((p) => {
+                  const unreadCount = getUnreadCountByFaction(p.faction)
+
                   return (
                     <button
                       key={p.id}
                       className="group relative transition-transform hover:scale-110"
                       title={p.faction}
-                      onClick={() => {
-                        // TODO: Abrir modal de facción
-                        console.log('Click en facción:', p.faction)
-                      }}
+                      onClick={() => handleFactionClick(p.faction)}
                     >
-                      {/* Borde decorativo estilo escudo */}
-                      <div className="relative bg-white rounded-sm border-4 border-[#8b7355] shadow-xl p-2">
-                        {/* Borde interno dorado */}
-                        <div className="absolute inset-0 border-2 border-[#c9a961] rounded-sm m-1"></div>
+                      {/* Emblema sin fondo */}
+                      <img
+                        src={`/factions/${getFactionImageName(p.faction)}.png`}
+                        alt={p.faction}
+                        className="w-20 h-20 object-contain group-hover:scale-110 transition-all cursor-pointer drop-shadow-xl"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none'
+                        }}
+                      />
 
-                        {/* Emblema */}
-                        <img
-                          src={`/factions/${getFactionImageName(p.faction)}.png`}
-                          alt={p.faction}
-                          className="w-16 h-16 object-contain relative z-10 group-hover:brightness-110 transition-all cursor-pointer"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none'
-                          }}
-                        />
-                      </div>
+                      {/* Badge de mensajes sin leer */}
+                      {unreadCount > 0 && (
+                        <div className="absolute -top-1 -right-1 bg-[#d4af37] text-[#2c1810] text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-white shadow-lg">
+                          {unreadCount}
+                        </div>
+                      )}
                     </button>
                   )
                 })}
@@ -545,107 +599,112 @@ export default function Game() {
           )}
         </div>
 
-        {/* Panel lateral derecho */}
+        {/* Panel lateral derecho - Secciones colapsables */}
         <aside className="w-80 bg-[#d4c4a1] border-l border-[#b4a481] flex flex-col overflow-y-auto">
-          {/* Paneles superiores - agrupados para no colapsar */}
-          <div className="flex-shrink-0">
-            {/* TreasuryPanel - Información económica detallada */}
-            <div className="p-2 border-b border-[#b4a481]">
-              <TreasuryPanel
-                player={player}
-                units={visibleUnits}
-                currentSeason={game.currentSeason}
-                gameMap={game.map || { provinces: {}, adjacencies: {} }}
-                provinceFaction={provinceFaction}
-              />
-            </div>
+          {/* Sección: Economía/Tesoro - Expandida por defecto */}
+          <CollapsibleSection
+            title="Economía"
+            icon="/icons/economia.png"
+            defaultExpanded={true}
+          >
+            <TreasuryPanel
+              player={player}
+              units={visibleUnits}
+              currentSeason={game.currentSeason}
+              gameMap={game.map || { provinces: {}, adjacencies: {} }}
+              provinceFaction={provinceFaction}
+            />
+          </CollapsibleSection>
 
-            {/* FamineMitigationPanel - Mitigar hambrunas */}
-            {(game as any).famineProvinces && (game as any).famineProvinces.length > 0 && (
-              <div className="p-2 border-b border-[#b4a481]">
-                <FamineMitigationPanel
-                  game={game}
-                  player={player}
-                  units={visibleUnits}
-                  famineProvinces={(game as any).famineProvinces}
-                  currentPhase={game.currentPhase}
-                  onMitigateFamine={handleMitigateFamine}
-                />
-              </div>
-            )}
-
-            {/* InactivePlayerVoting - Votar sobre jugadores inactivos */}
-            {players.some(p => p.status === 'inactive') && (
-              <div className="p-2 border-b border-[#b4a481]">
-                <InactivePlayerVoting
-                  gameId={gameId!}
-                  currentPlayer={player}
-                  players={players}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Tabs de navegación */}
-          <div className="flex border-b border-[#b4a481] flex-shrink-0">
-            <button
-              onClick={() => setActiveTab('chat')}
-              className={`flex-1 px-2 py-2 font-medium text-xs transition-colors ${
-                activeTab === 'chat'
-                  ? 'bg-gray-900 text-purple-400 border-b-2 border-purple-500'
-                  : 'bg-gray-800 text-gray-400 hover:text-gray-300'
-              }`}
+          {/* Sección: Eventos Especiales - Solo visible si hay eventos activos */}
+          {((game as any).famineProvinces && (game as any).famineProvinces.length > 0) ||
+           players.some(p => p.status === 'inactive') ? (
+            <CollapsibleSection
+              title="Eventos Especiales"
+              icon="⚠️"
+              defaultExpanded={true}
             >
-              💬 Diplomacia
-            </button>
-            <button
-              onClick={() => setActiveTab('history')}
-              className={`flex-1 px-2 py-2 font-medium text-xs transition-colors ${
-                activeTab === 'history'
-                  ? 'bg-gray-900 text-yellow-400 border-b-2 border-yellow-500'
-                  : 'bg-gray-800 text-gray-400 hover:text-gray-300'
-              }`}
-            >
-              📜 Historial
-            </button>
-          </div>
+              <div className="space-y-4">
+                {/* Mitigación de hambrunas */}
+                {(game as any).famineProvinces && (game as any).famineProvinces.length > 0 && (
+                  <FamineMitigationPanel
+                    game={game}
+                    player={player}
+                    units={visibleUnits}
+                    famineProvinces={(game as any).famineProvinces}
+                    currentPhase={game.currentPhase}
+                    onMitigateFamine={handleMitigateFamine}
+                  />
+                )}
 
-          {/* Contenido de las pestañas */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {activeTab === 'chat' ? (
-              <DiplomaticChat
-                gameId={gameId!}
-                currentPlayer={player}
-                players={players}
-                currentPhase={game.currentPhase}
-                turnNumber={game.turnNumber}
-              />
-            ) : (
-              <TurnHistory gameId={gameId!} />
-            )}
-          </div>
+                {/* Votaciones sobre jugadores inactivos */}
+                {players.some(p => p.status === 'inactive') && (
+                  <InactivePlayerVoting
+                    gameId={gameId!}
+                    currentPlayer={player}
+                    players={players}
+                  />
+                )}
+              </div>
+            </CollapsibleSection>
+          ) : null}
 
-          {/* Jugadores */}
-          <div className="p-2 border-t border-[#b4a481] flex-shrink-0">
-            <h3 className="font-bold mb-1 text-sm">Jugadores ({players.length})</h3>
-            <div className="space-y-0.5 text-xs">
+          {/* Sección: Jugadores */}
+          <CollapsibleSection
+            title="Jugadores"
+            icon="/icons/jugadores.png"
+            defaultExpanded={false}
+          >
+            <div className="space-y-2">
               {players.map((p) => (
-                <div
-                  key={p.id}
-                  className={`flex justify-between items-center ${
-                    p.id === player.id ? 'text-blue-400 font-bold' : 'text-gray-300'
-                  }`}
-                >
-                  <span>{p.faction}</span>
-                  <span className="text-[10px] text-gray-500">
-                    {p.isAlive ? '✓ Vivo' : '✗ Eliminado'}
-                  </span>
-                </div>
+                  <div
+                    key={p.id}
+                    className={`p-3 rounded-lg border-2 transition-all ${
+                      p.id === player.id
+                        ? 'border-[#8b4513] bg-[#c4b49a] shadow-md'
+                        : 'border-[#b4a481] bg-[#c4b49a]/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {/* Emblema de la facción */}
+                      <img
+                        src={`/factions/${getFactionImageName(p.faction)}.png`}
+                        alt={p.faction}
+                        className="w-10 h-10 object-contain"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none'
+                        }}
+                      />
+                      <div className="flex-1">
+                        <div className={`font-serif font-bold text-sm ${
+                          p.id === player.id ? 'text-[#8b4513]' : 'text-[#2d1810]'
+                        }`}>
+                          {p.faction}
+                          {p.id === player.id && ' (Tú)'}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-[#4d3830] mt-1">
+                          <span className={p.isAlive ? 'text-green-700' : 'text-red-700'}>
+                            {p.isAlive ? '✓ Vivo' : '✗ Eliminado'}
+                          </span>
+                          {p.status === 'inactive' && (
+                            <span className="text-orange-700">• Inactivo</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
               ))}
             </div>
-          </div>
+          </CollapsibleSection>
         </aside>
       </main>
+
+      {/* Footer */}
+      <footer className="bg-[#2d2416] border-t border-[#1d1408] px-4 py-2">
+        <div className="text-center text-[#c9a961] text-xs">
+          © {new Date().getFullYear()} Adrián Díaz Mesa - Machiavelli
+        </div>
+      </footer>
 
       {/* Modal de diplomacia */}
       {isDiplomacyModalOpen && (
@@ -656,6 +715,28 @@ export default function Game() {
           onClose={() => setIsDiplomacyModalOpen(false)}
         />
       )}
+
+      {/* Modal de diplomacia por facción (simplificado) */}
+      {isFactionDiplomacyModalOpen && selectedFaction && (
+        <FactionDiplomacyModal
+          isOpen={isFactionDiplomacyModalOpen}
+          onClose={() => {
+            setIsFactionDiplomacyModalOpen(false)
+            setSelectedFaction(null)
+          }}
+          game={game}
+          currentPlayer={player}
+          targetFaction={selectedFaction}
+          players={players}
+        />
+      )}
+
+      {/* Modal de historial */}
+      <HistoryModal
+        gameId={gameId!}
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+      />
 
       {/* Modal de gestión de unidades */}
       {unitManagementModalUnit && player && game && (

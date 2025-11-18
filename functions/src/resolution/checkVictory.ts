@@ -2,7 +2,7 @@
  * Verificar Condiciones de Victoria
  *
  * Se verifica al final de cada turno:
- * - Victoria Estándar: X ciudades en Otoño
+ * - Victoria Estándar: X ciudades en fall
  * - Victoria por Tiempo: 12 turnos completados
  */
 
@@ -22,8 +22,8 @@ export async function checkVictoryConditions(context: ResolutionContext): Promis
   // Contar ciudades controladas por cada jugador
   const cityCounts = countCitiesPerPlayer(players, units, context.map);
 
-  // 1. VICTORIA ESTÁNDAR: X ciudades al final de Otoño
-  if (currentSeason === 'Otoño') {
+  // 1. VICTORIA ESTÁNDAR: X ciudades al final de fall
+  if (currentSeason === 'fall') {
     const requiredCities = gameData.scenarioData.victoryConditions.victoryPoints;
 
     for (const player of players) {

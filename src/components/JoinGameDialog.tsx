@@ -3,6 +3,7 @@ import { collection, query, where, getDocs, setDoc, updateDoc, doc, getDoc, serv
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/store/authStore'
 import { FACTIONS } from '@/data/factions'
+import { getFactionImageName } from '@/utils/factionHelpers'
 
 interface JoinGameDialogProps {
   isOpen: boolean
@@ -212,14 +213,14 @@ export default function JoinGameDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-gray-800 rounded-lg max-w-lg w-full">
+      <div className="bg-[#3d3020] border-4 border-[#6b5d42] rounded-lg max-w-2xl w-full shadow-ornate">
         <div className="p-6">
           {/* Header */}
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-white">Unirse a Partida</h2>
+            <h2 className="text-2xl font-heading font-bold text-renaissance-gold">Unirse a Partida</h2>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-white text-2xl"
+              className="text-parchment-300 hover:text-parchment-100 text-3xl font-bold"
             >
               ×
             </button>
@@ -228,14 +229,14 @@ export default function JoinGameDialog({
           {/* Content */}
           <div className="space-y-4">
             {error && (
-              <div className="bg-red-500/10 border border-red-500 text-red-500 px-4 py-3 rounded">
+              <div className="bg-burgundy-500/10 border-2 border-burgundy-500 text-burgundy-300 px-4 py-3 rounded-lg font-serif">
                 {error}
               </div>
             )}
 
             <div>
-              <h3 className="text-lg font-medium text-white mb-2">{gameName}</h3>
-              <p className="text-sm text-gray-400">
+              <h3 className="text-xl font-heading font-bold text-parchment-100 mb-2">{gameName}</h3>
+              <p className="text-sm font-serif text-parchment-200">
                 Selecciona una facción para jugar
               </p>
             </div>
@@ -243,10 +244,10 @@ export default function JoinGameDialog({
             {/* Facciones */}
             {loadingFactions ? (
               <div className="text-center py-8">
-                <div className="animate-pulse text-gray-400">Cargando facciones...</div>
+                <div className="animate-pulse text-parchment-200 font-serif">Cargando facciones...</div>
               </div>
             ) : (
-              <div className="space-y-2 max-h-96 overflow-y-auto">
+              <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
                 {availableFactions.map((faction) => (
                   <button
                     key={faction.id}
@@ -254,25 +255,27 @@ export default function JoinGameDialog({
                     disabled={!faction.available}
                     className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
                       selectedFaction === faction.id
-                        ? 'border-blue-500 bg-blue-500/10'
+                        ? 'border-renaissance-gold bg-renaissance-gold/10 shadow-glow-gold'
                         : faction.available
-                        ? 'border-gray-600 hover:border-gray-500 bg-gray-700'
-                        : 'border-gray-700 bg-gray-800 opacity-50 cursor-not-allowed'
+                        ? 'border-[#8b7355] hover:border-renaissance-bronze bg-[#2d2416]'
+                        : 'border-[#6b5d42] bg-[#1d1408] opacity-50 cursor-not-allowed'
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-8 h-8 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: faction.color }}
+                    <div className="flex items-center gap-4">
+                      {/* Emblema de la facción */}
+                      <img
+                        src={`/factions/${getFactionImageName(faction.id)}.png`}
+                        alt={faction.name}
+                        className="w-12 h-12 object-contain flex-shrink-0"
                       />
                       <div className="flex-1">
-                        <div className="font-bold text-white">{faction.name}</div>
+                        <div className="font-heading font-bold text-parchment-100 text-lg">{faction.name}</div>
                         {!faction.available && (
-                          <div className="text-xs text-red-400">Ya ocupada</div>
+                          <div className="text-xs font-serif text-burgundy-400 mt-1">Ya ocupada</div>
                         )}
                       </div>
                       {selectedFaction === faction.id && (
-                        <div className="text-blue-400">✓</div>
+                        <div className="text-renaissance-gold text-2xl">✓</div>
                       )}
                     </div>
                   </button>
@@ -281,10 +284,10 @@ export default function JoinGameDialog({
             )}
 
             {/* Información adicional */}
-            <div className="bg-gray-900 rounded-lg p-3 text-sm text-gray-400">
+            <div className="bg-[#2d2416] border-2 border-[#8b7355] rounded-lg p-3 text-sm font-serif">
               <div className="flex justify-between">
-                <span>Jugadores:</span>
-                <span className="text-white font-medium">
+                <span className="text-parchment-300">Jugadores:</span>
+                <span className="text-parchment-100 font-semibold">
                   {availableFactions.filter(f => !f.available).length} / {maxPlayers}
                 </span>
               </div>
@@ -295,14 +298,14 @@ export default function JoinGameDialog({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded font-medium transition-colors"
+                className="flex-1 px-4 py-3 bg-[#6b5d42] hover:bg-[#544a35] text-parchment-100 rounded-lg font-heading font-bold transition-colors shadow-ornate"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleJoin}
                 disabled={loading || !selectedFaction || loadingFactions}
-                className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-3 bg-renaissance-bronze hover:bg-renaissance-bronze-light text-white rounded-lg font-heading font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-ornate"
               >
                 {loading ? 'Uniéndose...' : 'Unirse a Partida'}
               </button>

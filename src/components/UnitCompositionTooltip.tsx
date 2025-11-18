@@ -19,14 +19,6 @@ const TROOP_LABELS: Record<string, string> = {
   cog: 'Cocas'
 }
 
-function isArmyComposition(comp: ArmyComposition | GarrisonComposition | FleetComposition): comp is ArmyComposition {
-  return 'troops' in comp && ('lightCavalry' in comp.troops || 'heavyCavalry' in comp.troops)
-}
-
-function isGarrisonComposition(comp: ArmyComposition | GarrisonComposition | FleetComposition): comp is GarrisonComposition {
-  return 'troops' in comp && !('lightCavalry' in comp.troops) && !('heavyCavalry' in comp.troops)
-}
-
 function isFleetComposition(comp: ArmyComposition | GarrisonComposition | FleetComposition): comp is FleetComposition {
   return 'ships' in comp
 }
