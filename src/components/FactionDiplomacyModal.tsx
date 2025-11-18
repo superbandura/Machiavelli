@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import type { Game, Player, DiplomaticMessage } from '@/types/game'
@@ -24,16 +24,26 @@ export default function FactionDiplomacyModal({
   const [messages, setMessages] = useState<(DiplomaticMessage & { id: string })[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [isSending, setIsSending] = useState(false)
+  const [hasMarkedAsRead, setHasMarkedAsRead] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Get players from target faction
-  const targetPlayers = players.filter(p => p.faction === targetFaction)
-  const targetUserIds = targetPlayers.map(p => p.userId)
+  const targetUserIds = useMemo(() => {
+    const targetPlayers = players.filter(p => p.faction === targetFaction)
+    return targetPlayers.map(p => p.userId)
+  }, [players, targetFaction])
 
   // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // Reset hasMarkedAsRead flag when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setHasMarkedAsRead(false)
+    }
+  }, [isOpen])
 
   // Real-time listener for messages
   useEffect(() => {
@@ -60,15 +70,13 @@ export default function FactionDiplomacyModal({
         const isToTargetFaction = targetUserIds.includes(msg.to)
         const isFromMe = msg.from === currentPlayer.userId
         const isToMe = msg.to === currentPlayer.userId
-        const isPublic = msg.to === 'all'
 
-        // Show if:
+        // Show ONLY private messages:
         // - Sent by target faction to me
         // - Sent by me to target faction
-        // - Public messages from/to target faction
         return (
-          (isFromTargetFaction && (isToMe || isPublic)) ||
-          (isFromMe && (isToTargetFaction || isPublic))
+          (isFromTargetFaction && isToMe) ||
+          (isFromMe && isToTargetFaction)
         )
       })
 
@@ -85,9 +93,9 @@ export default function FactionDiplomacyModal({
     return () => unsubscribe()
   }, [isOpen, game.id, game.turnNumber, currentPlayer.userId, targetUserIds])
 
-  // Mark messages as read when modal opens
+  // Mark messages as read when messages are available (with protection against loops)
   useEffect(() => {
-    if (!isOpen || messages.length === 0) return
+    if (!isOpen || hasMarkedAsRead || messages.length === 0) return
 
     const markAsRead = async () => {
       const unreadMessages = messages.filter(
@@ -97,19 +105,27 @@ export default function FactionDiplomacyModal({
           !msg.isRead
       )
 
-      for (const msg of unreadMessages) {
-        try {
-          await updateDoc(doc(db, 'diplomatic_messages', msg.id), {
-            isRead: true
-          })
-        } catch (error) {
-          console.error('Error marcando mensaje como leído:', error)
-        }
+      if (unreadMessages.length === 0) {
+        setHasMarkedAsRead(true)
+        return
       }
+
+      console.log(`[FactionDiplomacyModal] Marcando ${unreadMessages.length} mensajes como leídos`)
+
+      const updatePromises = unreadMessages.map(msg =>
+        updateDoc(doc(db, 'diplomatic_messages', msg.id), {
+          isRead: true
+        }).catch(error => {
+          console.error('Error marcando mensaje como leído:', error)
+        })
+      )
+
+      await Promise.all(updatePromises)
+      setHasMarkedAsRead(true)
     }
 
     markAsRead()
-  }, [isOpen, messages, currentPlayer.userId, targetUserIds])
+  }, [isOpen, messages, currentPlayer.userId, targetUserIds, hasMarkedAsRead])
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || isSending) return
@@ -125,7 +141,7 @@ export default function FactionDiplomacyModal({
     try {
       // Send to the first player of the target faction
       // (In a real scenario, you might want to send to all players of that faction)
-      const recipientId = targetPlayers[0]?.userId
+      const recipientId = targetUserIds[0]
 
       if (!recipientId) {
         alert('No se encontró un destinatario en esa facción')
@@ -267,9 +283,22 @@ export default function FactionDiplomacyModal({
               <button
                 onClick={handleSendMessage}
                 disabled={!newMessage.trim() || isSending}
-                className="px-4 py-2 bg-[#d4af37] hover:bg-[#c19b2e] disabled:bg-gray-400 disabled:cursor-not-allowed text-[#2c1810] font-semibold rounded border-2 border-[#8b4513] transition-colors"
+                className={`p-2 transition-all ${
+                  !newMessage.trim() || isSending
+                    ? 'opacity-50 cursor-not-allowed'
+                    : 'hover:scale-110'
+                }`}
+                title="Enviar mensaje"
               >
-                {isSending ? '...' : '📨 Enviar'}
+                {isSending ? (
+                  <span className="text-2xl">⏳</span>
+                ) : (
+                  <img
+                    src="/icons/diplo.png"
+                    alt="Enviar"
+                    className="w-10 h-10"
+                  />
+                )}
               </button>
             </div>
           ) : (

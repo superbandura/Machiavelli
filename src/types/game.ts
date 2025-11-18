@@ -1,6 +1,17 @@
 import { Timestamp } from 'firebase/firestore'
 import type { ArmyComposition, GarrisonComposition, FleetComposition } from './scenario'
 
+// ==================== MARITIME ROUTES ====================
+/**
+ * Representa una ruta marítima entre dos provincias
+ */
+export interface MaritimeRoute {
+  path: string[]           // Array de IDs de provincias: ['GEN', 'LS', 'TS', 'NAP']
+  distance: number         // Número de saltos totales
+  seaZones: string[]       // Solo las zonas de tipo 'sea': ['LS', 'TS']
+  estimatedDays: number    // Días estimados de viaje (1 día por zona marítima)
+}
+
 // ==================== MAP DATA ====================
 export type ProvinceType = 'land' | 'sea' | 'port'
 
@@ -129,6 +140,12 @@ export interface Unit {
   // Composición detallada (nombre y tropas/naves específicas)
   name?: string
   composition?: ArmyComposition | GarrisonComposition | FleetComposition
+
+  // Tropas embarcadas (solo para flotas)
+  embarkedTroops?: {
+    troops: Partial<Record<import('@/types/scenario').ArmyTroopType, number>>
+    sourceUnitId?: string // ID del ejército que embarcó (para rastreo)
+  }
 }
 
 // ==================== ORDERS ====================
@@ -149,6 +166,14 @@ export interface Order {
   convoyRoute?: string[] // Para convoy
   isValid: boolean // Validado por Cloud Function
   validationError?: string
+
+  // Ruta marítima para campañas anfibias
+  maritimeRoute?: {
+    path: string[]          // Ruta completa: ['GEN', 'LS', 'TS', 'NAP']
+    estimatedDays: number   // Días estimados de viaje
+    departureDay?: number   // Día del turno en que zarpa (para resolución futura)
+    arrivalDay?: number     // Día estimado de llegada (para resolución futura)
+  }
 }
 
 export interface ExtraExpense {
@@ -162,6 +187,14 @@ export interface ExtraExpense {
   selectedNumbers?: number[] // Números del dado elegidos (1-6), entre 1 y 3 números
   diceRoll?: number // Resultado del dado (1-6) - se llena durante la resolución
   success?: boolean // Si el asesinato tuvo éxito - se llena durante la resolución
+}
+
+// ==================== MILITARY CAMPAIGNS ====================
+export interface MilitaryCampaign {
+  targetProvince: string // ID de la provincia objetivo
+  declaredBy: string // playerId del jugador que declara la campaña
+  turnDeclared: number // Turno en que se declaró (para futuras restricciones)
+  year: number // Año de la declaración
 }
 
 // ==================== DIPLOMATIC MESSAGES ====================

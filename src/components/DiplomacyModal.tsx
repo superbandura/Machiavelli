@@ -38,7 +38,7 @@ export default function DiplomacyModal({
 
   // Suscripción a mensajes en tiempo real
   useEffect(() => {
-    if (!game.id || !currentPlayer.id) return
+    if (!game.id || !currentPlayer.userId) return
 
     const messagesQuery = query(
       collection(db, 'diplomatic_messages'),
@@ -107,15 +107,19 @@ export default function DiplomacyModal({
         !msg.isRead
     )
 
-    for (const msg of unreadMessages) {
-      try {
-        await updateDoc(doc(db, 'diplomatic_messages', msg.id), {
-          isRead: true
-        })
-      } catch (error) {
+    if (unreadMessages.length === 0) return
+
+    console.log(`[DiplomacyModal] Marcando ${unreadMessages.length} mensajes de ${userId} como leídos`)
+
+    const updatePromises = unreadMessages.map(msg =>
+      updateDoc(doc(db, 'diplomatic_messages', msg.id), {
+        isRead: true
+      }).catch(error => {
         console.error('Error marcando mensaje como leído:', error)
-      }
-    }
+      })
+    )
+
+    await Promise.all(updatePromises)
   }
 
   // Obtener mensajes filtrados por tab y turno
@@ -123,15 +127,18 @@ export default function DiplomacyModal({
     let filtered = messages
 
     // Filtrar por tab (facción)
-    if (selectedTab !== 'all') {
+    if (selectedTab === 'all') {
+      // Pestaña "Todos" solo muestra mensajes públicos
+      filtered = filtered.filter(msg => msg.to === 'all')
+    } else {
+      // Pestañas de facción muestran conversaciones con esa facción
       const playersInFaction = players.filter(p => p.faction === selectedTab)
       const userIds = playersInFaction.map(p => p.userId)
 
       filtered = filtered.filter(
         msg =>
-          userIds.includes(msg.from) ||
-          (userIds.includes(msg.to) && msg.from === currentPlayer.userId) ||
-          msg.to === 'all'
+          (userIds.includes(msg.from) && msg.to === currentPlayer.userId) ||
+          (userIds.includes(msg.to) && msg.from === currentPlayer.userId)
       )
     }
 
@@ -267,7 +274,11 @@ export default function DiplomacyModal({
                   : 'hover:bg-[#b4a48a]'
               }`}
             >
-              <span className="text-3xl">📜</span>
+              <img
+                src="/icons/historial.png"
+                alt="Todos"
+                className="w-14 h-14 object-contain"
+              />
               {selectedTab !== 'all' && getTotalUnreadCount() > 0 && (
                 <span className="absolute -top-1 -right-1 bg-[#d4af37] text-[#2d1810] text-xs font-bold px-1.5 py-0.5 rounded-full shadow-sm min-w-[20px] text-center z-10">
                   {getTotalUnreadCount()}
@@ -338,7 +349,6 @@ export default function DiplomacyModal({
         <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#d4c4a1]">
           {filteredMessages.length === 0 ? (
             <div className="text-center text-[#4d3830] py-8">
-              <div className="text-4xl mb-2">📭</div>
               <div className="font-serif text-lg">No hay mensajes</div>
               <div className="text-sm font-serif mt-1 text-[#6d5d4d]">
                 {filterTurn !== 'all'
@@ -421,24 +431,13 @@ export default function DiplomacyModal({
         <div className="p-4 border-t-4 border-[#8b4513] bg-gradient-to-r from-[#c4b49a] to-[#d4c4a1] rounded-b-lg">
           {isDiplomaticPhase ? (
             <>
-              <div className="mb-3">
-                <label className="block text-xs font-serif font-semibold mb-1 text-[#2d1810]">
-                  Destinatario
-                </label>
-                <select
-                  className="w-full bg-[#f4e4c1] border-2 border-[#8b7355] rounded-lg px-3 py-2 text-sm font-serif text-[#2d1810] focus:border-[#d4af37] focus:outline-none transition-colors"
-                  value={selectedRecipient}
-                  onChange={(e) => setSelectedRecipient(e.target.value)}
-                >
-                  <option value="all">📢 Mensaje público (todos)</option>
-                  {players
-                    .filter(p => p.userId !== currentPlayer.userId)
-                    .map(player => (
-                      <option key={player.id} value={player.userId}>
-                        🔒 {player.faction} (privado)
-                      </option>
-                    ))}
-                </select>
+              <div className="mb-2 px-2">
+                <span className="text-sm font-serif font-semibold text-[#2d1810]">
+                  {selectedRecipient === 'all'
+                    ? 'Enviando a: Todos'
+                    : `Enviando a: ${players.find(p => p.userId === selectedRecipient)?.faction || 'Selecciona destinatario'}`
+                  }
+                </span>
               </div>
 
               <div className="flex gap-2">
@@ -458,13 +457,22 @@ export default function DiplomacyModal({
                 <button
                   onClick={handleSendMessage}
                   disabled={!newMessage.trim() || isSending}
-                  className={`px-4 py-2 rounded-lg font-serif font-bold transition-all ${
+                  className={`p-2 transition-all ${
                     !newMessage.trim() || isSending
-                      ? 'bg-[#a49471] text-[#6d5d4d] cursor-not-allowed'
-                      : 'bg-[#d4af37] hover:bg-[#b8941f] text-[#2d1810] shadow-md hover:shadow-lg'
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'hover:scale-110'
                   }`}
+                  title="Enviar mensaje"
                 >
-                  {isSending ? '⏳' : '✉️'}
+                  {isSending ? (
+                    <span className="text-2xl">⏳</span>
+                  ) : (
+                    <img
+                      src="/icons/diplo.png"
+                      alt="Enviar"
+                      className="w-10 h-10"
+                    />
+                  )}
                 </button>
               </div>
 

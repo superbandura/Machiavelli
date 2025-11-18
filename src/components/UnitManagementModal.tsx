@@ -6,7 +6,9 @@
  * - Renombrar unidad
  */
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { doc, onSnapshot } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 import type { Unit, Player, Game } from '@/types/game'
 import type { ArmyComposition, FleetComposition, GarrisonComposition } from '@/types/scenario'
 import {
@@ -15,6 +17,8 @@ import {
   transferUnits,
   disbandTroops,
   renameUnit,
+  embarkTroops,
+  disembarkTroops,
 } from '@/utils/unitOperations'
 import {
   ARMY_TROOP_COSTS,
@@ -24,6 +28,9 @@ import {
   SHIP_BATCH_SIZE,
   MINIMUM_GARRISON_MILITIA,
 } from '@/data/recruitmentCosts'
+import { SHIP_CAPACITY } from '@/data/constants'
+import { calculateFleetCapacity, getAvailableCapacity, calculateEmbarkedTroopsCount } from '@/utils/embarkHelpers'
+import type { ArmyTroopType } from '@/types/scenario'
 
 interface UnitManagementModalProps {
   unit: Unit
@@ -33,7 +40,7 @@ interface UnitManagementModalProps {
   onClose: () => void
 }
 
-type TabType = 'recruit' | 'transfer' | 'disband' | 'rename'
+type TabType = 'recruit' | 'transfer' | 'embark' | 'disband' | 'rename'
 
 const TROOP_LABELS: Record<string, string> = {
   militia: 'Milicia',
@@ -75,6 +82,9 @@ export default function UnitManagementModal({
   const [activeTab, setActiveTab] = useState<TabType>('recruit')
   const [loading, setLoading] = useState(false)
 
+  // Estado real-time de la unidad (para actualizar capacidad después de embarcar)
+  const [currentUnit, setCurrentUnit] = useState<Unit>(unit)
+
   // Estado para reclutamiento
   const [recruitQuantities, setRecruitQuantities] = useState<Record<string, number>>({})
 
@@ -85,8 +95,35 @@ export default function UnitManagementModal({
   // Estado para licenciar
   const [disbandQuantities, setDisbandQuantities] = useState<Record<string, number>>({})
 
+  // Estado para embarque
+  const [embarkSourceArmyId, setEmbarkSourceArmyId] = useState<string>('')
+  const [embarkQuantities, setEmbarkQuantities] = useState<Record<string, number>>({})
+
+  // Estado para desembarque
+  const [disembarkTargetArmyId, setDisembarkTargetArmyId] = useState<string>('')
+  const [disembarkQuantities, setDisembarkQuantities] = useState<Record<string, number>>({})
+  const [newArmyName, setNewArmyName] = useState<string>('')
+
   // Estado para renombrar
   const [newName, setNewName] = useState(unit.name || '')
+
+  // Listener real-time para actualizar datos de la unidad
+  useEffect(() => {
+    const gameRef = doc(db, 'games', game.id)
+
+    const unsubscribe = onSnapshot(gameRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const gameData = snapshot.data() as Game
+        const updatedUnit = gameData.units.find((u) => u.id === unit.id)
+
+        if (updatedUnit) {
+          setCurrentUnit(updatedUnit)
+        }
+      }
+    })
+
+    return () => unsubscribe()
+  }, [game.id, unit.id])
 
   // Unidades disponibles para transferencia (mismo tipo o compatible, misma provincia)
   const transferableUnits = useMemo(() => {
@@ -107,6 +144,18 @@ export default function UnitManagementModal({
       }
 
       return false
+    })
+  }, [allUnits, unit, currentPlayer])
+
+  // Ejércitos disponibles para embarque (solo para flotas)
+  const embarkableArmies = useMemo(() => {
+    if (unit.type !== 'fleet') return []
+
+    return allUnits.filter((u) => {
+      if (u.type !== 'army') return false
+      if (u.owner !== currentPlayer.id) return false
+      if (u.currentPosition !== unit.currentPosition) return false
+      return true
     })
   }, [allUnits, unit, currentPlayer])
 
@@ -211,6 +260,93 @@ export default function UnitManagementModal({
 
       setDisbandQuantities({})
       alert('✓ Tropas licenciadas')
+      onClose()
+    } catch (error: any) {
+      alert(`Error: ${error.message}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleEmbark = async () => {
+    if (!embarkSourceArmyId) {
+      alert('Selecciona un ejército origen')
+      return
+    }
+
+    const totalToEmbark = Object.values(embarkQuantities).reduce((sum, n) => sum + n, 0)
+    if (totalToEmbark === 0) {
+      alert('Selecciona tropas para embarcar')
+      return
+    }
+
+    try {
+      setLoading(true)
+
+      // Convertir a formato correcto
+      const troopsToEmbark: Partial<Record<ArmyTroopType, number>> = {}
+      for (const [troopType, quantity] of Object.entries(embarkQuantities)) {
+        if (quantity > 0) {
+          troopsToEmbark[troopType as ArmyTroopType] = quantity
+        }
+      }
+
+      await embarkTroops(
+        game.id,
+        currentPlayer.id,
+        unit.id,
+        embarkSourceArmyId,
+        troopsToEmbark
+      )
+
+      setEmbarkQuantities({})
+      setEmbarkSourceArmyId('')
+      alert('✓ Tropas embarcadas exitosamente')
+      onClose()
+    } catch (error: any) {
+      alert(`Error: ${error.message}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDisembark = async () => {
+    const totalToDisembark = Object.values(disembarkQuantities).reduce((sum, n) => sum + n, 0)
+    if (totalToDisembark === 0) {
+      alert('Selecciona tropas para desembarcar')
+      return
+    }
+
+    // Si no hay ejército seleccionado y no hay nombre para nuevo ejército
+    if (!disembarkTargetArmyId && !newArmyName.trim()) {
+      alert('Selecciona un ejército destino o ingresa un nombre para crear uno nuevo')
+      return
+    }
+
+    try {
+      setLoading(true)
+
+      // Convertir a formato correcto
+      const troopsToDisembark: Partial<Record<ArmyTroopType, number>> = {}
+      for (const [troopType, quantity] of Object.entries(disembarkQuantities)) {
+        if (quantity > 0) {
+          troopsToDisembark[troopType as ArmyTroopType] = quantity
+        }
+      }
+
+      await disembarkTroops(
+        game.id,
+        currentPlayer.id,
+        unit.id,
+        disembarkTargetArmyId || null,
+        troopsToDisembark,
+        newArmyName.trim() || undefined
+      )
+
+      setDisembarkQuantities({})
+      setDisembarkTargetArmyId('')
+      setNewArmyName('')
+      alert('✓ Tropas desembarcadas exitosamente')
       onClose()
     } catch (error: any) {
       alert(`Error: ${error.message}`)
@@ -431,7 +567,7 @@ export default function UnitManagementModal({
                   <select
                     value={transferTargetUnitId}
                     onChange={(e) => setTransferTargetUnitId(e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-[#1d1408] font-serif"
+                    className="w-full px-3 py-2 bg-[#f4e4c1] border-2 border-[#4a3f2a] rounded text-[#1d1408] font-serif focus:outline-none focus:border-[#d4af37]"
                   >
                     <option value="">Selecciona una unidad...</option>
                     {transferableUnits.map((u) => (
@@ -510,6 +646,34 @@ export default function UnitManagementModal({
                         const toTransfer = transferQuantities[troopType] || 0
 
                         if (current === 0) return null
+
+                        // Obtener unidad destino
+                        const targetUnit = transferableUnits.find(u => u.id === transferTargetUnitId)
+
+                        // Filtrar caballería si destino es guarnición
+                        const isCavalry = troopType === 'lightCavalry' || troopType === 'heavyCavalry'
+                        if (targetUnit?.type === 'garrison' && isCavalry) {
+                          return (
+                            <div key={troopType} className="flex items-center justify-between p-3 bg-gray-300 border-2 border-gray-400 rounded-lg opacity-60">
+                              <div className="flex items-center gap-4 flex-1">
+                                <img
+                                  src={TROOP_ICONS[troopType]}
+                                  alt={label}
+                                  className="w-16 h-16 object-contain opacity-50"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none'
+                                  }}
+                                />
+                                <div className="flex-1">
+                                  <div className="font-medium text-gray-600 font-serif">{label}</div>
+                                  <div className="text-sm text-red-700 font-semibold">
+                                    ⚠️ Las guarniciones no pueden tener caballería
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        }
 
                         // Validación especial para milicias de guarnición
                         const isGarrisonMilitia = unit.type === 'garrison' && troopType === 'militia'
@@ -739,6 +903,302 @@ export default function UnitManagementModal({
           </div>
         )
 
+      case 'embark':
+        if (unit.type !== 'fleet') return null
+
+        const fleetComp = currentUnit.composition as FleetComposition
+        const totalCapacity = calculateFleetCapacity(fleetComp)
+        const currentEmbarked = currentUnit.embarkedTroops
+          ? calculateEmbarkedTroopsCount(currentUnit.embarkedTroops.troops)
+          : 0
+        const availableCapacity = totalCapacity - currentEmbarked
+
+        const selectedArmy = embarkableArmies.find(a => a.id === embarkSourceArmyId)
+        const selectedArmyComp = selectedArmy?.composition as ArmyComposition | undefined
+
+        const totalToEmbark = Object.values(embarkQuantities).reduce((sum, n) => sum + n, 0)
+
+        return (
+          <div className="space-y-4">
+            {/* Información de capacidad */}
+            <div className="bg-[#4a3f2a] p-3 rounded-lg border-2 border-[#2d2416]">
+              <div className="text-sm text-[#f0d877] font-serif space-y-1">
+                <div>Capacidad total: <span className="font-bold">{totalCapacity}</span></div>
+                <div>Ya embarcadas: <span className="font-bold">{currentEmbarked}</span></div>
+                <div>Disponible: <span className="font-bold text-green-400">{availableCapacity}</span></div>
+                <div>A embarcar: <span className={`font-bold ${totalToEmbark > availableCapacity ? 'text-red-400' : 'text-yellow-300'}`}>{totalToEmbark}</span></div>
+              </div>
+            </div>
+
+            {/* Selector de ejército origen */}
+            <div>
+              <label className="block text-sm font-medium text-[#2c2416] font-serif mb-2">
+                Ejército origen:
+              </label>
+              <select
+                value={embarkSourceArmyId}
+                onChange={(e) => {
+                  setEmbarkSourceArmyId(e.target.value)
+                  setEmbarkQuantities({}) // Reset quantities al cambiar ejército
+                }}
+                className="w-full px-3 py-2 bg-[#f4e4c1] border-2 border-[#4a3f2a] rounded text-[#1d1408] font-serif focus:outline-none focus:border-[#d4af37]"
+                disabled={loading}
+              >
+                <option value="">Selecciona un ejército...</option>
+                {embarkableArmies.map((army) => (
+                  <option key={army.id} value={army.id}>
+                    {army.name || `Ejército ${army.id.substring(0, 8)}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Lista de tropas disponibles */}
+            {selectedArmy && selectedArmyComp && (
+              <div className="space-y-3">
+                <div className="text-sm font-semibold text-[#2c2416] font-serif">
+                  Tropas disponibles para embarcar:
+                </div>
+
+                {(Object.entries(selectedArmyComp.troops) as [ArmyTroopType, number][])
+                  .filter(([_, count]) => count > 0)
+                  .map(([troopType, available]) => {
+                    const toEmbark = embarkQuantities[troopType] || 0
+
+                    return (
+                      <div
+                        key={troopType}
+                        className="flex items-center justify-between p-3 bg-[#d4c4a1] border-2 border-[#4a3f2a] rounded-lg"
+                      >
+                        <div className="flex items-center gap-4 flex-1">
+                          <img
+                            src={TROOP_ICONS[troopType]}
+                            alt={TROOP_LABELS[troopType]}
+                            className="w-12 h-12 object-contain"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none'
+                            }}
+                          />
+                          <div className="flex-1">
+                            <div className="font-medium text-[#1d1408] font-serif">
+                              {TROOP_LABELS[troopType]}
+                            </div>
+                            <div className="text-sm text-[#4a3f2a]">
+                              Disponibles: {available}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() =>
+                              setEmbarkQuantities((prev) => ({
+                                ...prev,
+                                [troopType]: Math.max(0, (prev[troopType] || 0) - 10),
+                              }))
+                            }
+                            disabled={loading || toEmbark === 0}
+                            className="w-8 h-8 bg-[#6b5d42] hover:bg-[#544a35] disabled:opacity-30 disabled:cursor-not-allowed text-white font-bold rounded transition-colors"
+                          >
+                            −
+                          </button>
+
+                          <div className="w-16 text-center font-bold text-[#1d1408]">
+                            {toEmbark}
+                          </div>
+
+                          <button
+                            onClick={() =>
+                              setEmbarkQuantities((prev) => ({
+                                ...prev,
+                                [troopType]: Math.min(available, (prev[troopType] || 0) + 10),
+                              }))
+                            }
+                            disabled={loading || toEmbark >= available}
+                            className="w-8 h-8 bg-[#6b5d42] hover:bg-[#544a35] disabled:opacity-30 disabled:cursor-not-allowed text-white font-bold rounded transition-colors"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+              </div>
+            )}
+
+            {/* Validación de capacidad excedida */}
+            {totalToEmbark > availableCapacity && (
+              <div className="bg-red-100 border-2 border-red-600 rounded-lg p-3 text-sm text-red-800">
+                ⚠️ La cantidad de tropas excede la capacidad disponible de la flota
+              </div>
+            )}
+
+            {/* Botón de confirmar */}
+            <button
+              onClick={handleEmbark}
+              disabled={
+                loading ||
+                !embarkSourceArmyId ||
+                totalToEmbark === 0 ||
+                totalToEmbark > availableCapacity
+              }
+              className="w-full px-4 py-3 bg-[#6b5d42] hover:bg-[#544a35] disabled:opacity-50 disabled:cursor-not-allowed text-white font-heading font-bold border-2 border-[#1d1408] rounded-lg shadow-ornate transition-all"
+            >
+              {loading ? 'Embarcando...' : 'Confirmar Embarque'}
+            </button>
+
+            {/* Sección de desembarque - solo si hay tropas embarcadas */}
+            {currentUnit.embarkedTroops && Object.values(currentUnit.embarkedTroops.troops).some(c => (c || 0) > 0) && (
+              <div className="border-t-4 border-[#6b5d42] pt-6 mt-6 space-y-4">
+                <div className="text-lg font-heading font-bold text-[#2c2416]">
+                  Desembarcar Tropas
+                </div>
+
+                {/* Información de tropas embarcadas */}
+                <div className="bg-blue-900/20 p-3 rounded-lg border-2 border-blue-600">
+                  <div className="text-sm text-[#2c2416] font-serif space-y-1">
+                    <div className="font-semibold mb-2">Tropas actualmente embarcadas:</div>
+                    {(Object.entries(currentUnit.embarkedTroops.troops) as [ArmyTroopType, number | undefined][])
+                      .filter(([_, count]) => (count || 0) > 0)
+                      .map(([troopType, count]) => (
+                        <div key={troopType} className="flex justify-between">
+                          <span>{TROOP_LABELS[troopType]}</span>
+                          <span className="font-bold text-blue-700">{count}</span>
+                        </div>
+                      ))
+                    }
+                  </div>
+                </div>
+
+                {/* Selector de ejército destino */}
+                <div>
+                  <label className="block text-sm font-medium text-[#2c2416] font-serif mb-2">
+                    Ejército destino:
+                  </label>
+                  <select
+                    value={disembarkTargetArmyId}
+                    onChange={(e) => {
+                      setDisembarkTargetArmyId(e.target.value)
+                      setDisembarkQuantities({}) // Reset quantities
+                    }}
+                    className="w-full px-3 py-2 bg-[#f4e4c1] border-2 border-[#4a3f2a] rounded text-[#1d1408] font-serif focus:outline-none focus:border-[#d4af37]"
+                    disabled={loading}
+                  >
+                    <option value="">Crear nuevo ejército</option>
+                    {embarkableArmies.map((army) => (
+                      <option key={army.id} value={army.id}>
+                        {army.name || `Ejército ${army.id.substring(0, 8)}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Input para nombre de nuevo ejército */}
+                {!disembarkTargetArmyId && (
+                  <div>
+                    <label className="block text-sm font-medium text-[#2c2416] font-serif mb-2">
+                      Nombre del nuevo ejército:
+                    </label>
+                    <input
+                      type="text"
+                      value={newArmyName}
+                      onChange={(e) => setNewArmyName(e.target.value)}
+                      placeholder="Ingresa un nombre..."
+                      className="w-full px-3 py-2 bg-[#f4e4c1] border-2 border-[#4a3f2a] rounded text-[#1d1408] font-serif focus:outline-none focus:border-[#d4af37]"
+                      maxLength={50}
+                      disabled={loading}
+                    />
+                  </div>
+                )}
+
+                {/* Lista de tropas embarcadas para desembarcar */}
+                <div className="space-y-3">
+                  <div className="text-sm font-semibold text-[#2c2416] font-serif">
+                    Selecciona tropas para desembarcar:
+                  </div>
+
+                  {(Object.entries(currentUnit.embarkedTroops.troops) as [ArmyTroopType, number | undefined][])
+                    .filter(([_, count]) => (count || 0) > 0)
+                    .map(([troopType, embarked]) => {
+                      const toDisembark = disembarkQuantities[troopType] || 0
+                      const embarkedCount = embarked || 0
+
+                      return (
+                        <div
+                          key={troopType}
+                          className="flex items-center justify-between p-3 bg-[#d4c4a1] border-2 border-[#4a3f2a] rounded-lg"
+                        >
+                          <div className="flex items-center gap-4 flex-1">
+                            <img
+                              src={TROOP_ICONS[troopType]}
+                              alt={TROOP_LABELS[troopType]}
+                              className="w-12 h-12 object-contain"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none'
+                              }}
+                            />
+                            <div className="flex-1">
+                              <div className="font-medium text-[#1d1408] font-serif">
+                                {TROOP_LABELS[troopType]}
+                              </div>
+                              <div className="text-sm text-[#4a3f2a]">
+                                Embarcadas: {embarkedCount}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() =>
+                                setDisembarkQuantities((prev) => ({
+                                  ...prev,
+                                  [troopType]: Math.max(0, (prev[troopType] || 0) - 10),
+                                }))
+                              }
+                              disabled={loading || toDisembark === 0}
+                              className="w-8 h-8 bg-[#6b5d42] hover:bg-[#544a35] disabled:opacity-30 disabled:cursor-not-allowed text-white font-bold rounded transition-colors"
+                            >
+                              −
+                            </button>
+
+                            <div className="w-16 text-center font-bold text-[#1d1408]">
+                              {toDisembark}
+                            </div>
+
+                            <button
+                              onClick={() =>
+                                setDisembarkQuantities((prev) => ({
+                                  ...prev,
+                                  [troopType]: Math.min(embarkedCount, (prev[troopType] || 0) + 10),
+                                }))
+                              }
+                              disabled={loading || toDisembark >= embarkedCount}
+                              className="w-8 h-8 bg-[#6b5d42] hover:bg-[#544a35] disabled:opacity-30 disabled:cursor-not-allowed text-white font-bold rounded transition-colors"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                </div>
+
+                {/* Botón de confirmar desembarque */}
+                <button
+                  onClick={handleDisembark}
+                  disabled={
+                    loading ||
+                    Object.values(disembarkQuantities).reduce((sum, n) => sum + n, 0) === 0
+                  }
+                  className="w-full px-4 py-3 bg-blue-700 hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-heading font-bold border-2 border-blue-900 rounded-lg shadow-ornate transition-all"
+                >
+                  {loading ? 'Desembarcando...' : 'Confirmar Desembarque'}
+                </button>
+              </div>
+            )}
+          </div>
+        )
+
       case 'rename':
         return (
           <div className="space-y-4">
@@ -820,6 +1280,24 @@ export default function UnitManagementModal({
             <img src="/icons/transferir.png" alt="" className="w-6 h-6 object-contain" />
             Transferir
           </button>
+          {unit.type === 'fleet' && embarkableArmies.length > 0 && (
+            <button
+              onClick={() => setActiveTab('embark')}
+              className={`flex-1 px-4 py-3 text-sm font-heading font-semibold transition-colors flex items-center justify-center gap-2 ${
+                activeTab === 'embark'
+                  ? 'bg-[#4a3f2a] text-[#60a5fa] border-b-4 border-blue-400 shadow-inner'
+                  : 'text-[#e8dcc0] hover:bg-[#3d3422]'
+              }`}
+            >
+              <img src="/icons/embarcar.png" alt="" className="w-6 h-6 object-contain"
+                onError={(e) => {
+                  // Fallback si no existe el icono
+                  e.currentTarget.src = '/icons/reclutar.png'
+                }}
+              />
+              Embarque
+            </button>
+          )}
           <button
             onClick={() => setActiveTab('disband')}
             className={`flex-1 px-4 py-3 text-sm font-heading font-semibold transition-colors flex items-center justify-center gap-2 ${

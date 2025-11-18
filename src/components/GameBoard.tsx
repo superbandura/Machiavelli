@@ -4,6 +4,25 @@ import { getProvinceCoordinates } from '@/data/provinceCoordinates'
 import { getFactionColor as getLegacyFactionColor } from '@/data/factions'
 import { FactionDocument } from '@/types/faction'
 import { getFactionColor as getDynamicFactionColor } from '@/lib/factionService'
+import { GameMap, Unit, Player } from '@/types/game'
+import type { MapFilter } from './MapsPanel'
+import { isCampaignTarget, getProvinceIncome } from '@/utils/gameMapHelpers'
+
+// Helper: Obtener color según ingresos (degradado rojo→amarillo→verde)
+// Más pobres (0-2) → rojo oscuro/negro
+// Más ricas (6+) → verde oscuro
+function getIncomeColor(income: number): string {
+  if (income === 0) return '#000000' // Negro para 0 ducados
+  if (income === 1) return '#dc2626' // Rojo oscuro para 1 ducado
+  if (income === 2) return '#ef4444' // Rojo para 2 ducados
+  if (income === 3) return '#f59e0b' // Naranja para 3 ducados
+  if (income === 4) return '#84cc16' // Amarillo-verde para 4 ducados
+  if (income === 5) return '#4ade80' // Verde para 5 ducados
+  if (income >= 6) return '#22c55e' // Verde oscuro para 6+ ducados
+
+  // Interpolación para valores intermedios (por si acaso)
+  return '#ef4444'
+}
 
 interface GameBoardProps {
   onProvinceClick?: (provinceId: string) => void
@@ -14,6 +33,10 @@ interface GameBoardProps {
   adjacencyEditMode?: boolean // Modo de edición de adyacencias
   highlightedAdjacencies?: string[] // Provincias adyacentes a resaltar
   onAdjacencyToggle?: (provinceId: string) => void // Callback para añadir/quitar adyacencia
+  gameMap?: GameMap // Mapa del juego con información de provincias
+  mapFilter?: MapFilter // Filtro de mapa activo
+  player?: Player // Jugador actual (para filtro de campañas)
+  units?: Unit[] // Unidades del juego (para filtro de campañas)
 }
 
 export default function GameBoard({
@@ -24,7 +47,11 @@ export default function GameBoard({
   factions = [],
   adjacencyEditMode = false,
   highlightedAdjacencies = [],
-  onAdjacencyToggle
+  onAdjacencyToggle,
+  gameMap,
+  mapFilter = null,
+  player,
+  units = []
 }: GameBoardProps) {
   const [svgContent, setSvgContent] = useState<string>('')
   const [initialScale, setInitialScale] = useState(0.6) // Escala inicial calculada dinámicamente
@@ -34,6 +61,13 @@ export default function GameBoard({
   const setHoveredProvince = (province: string | null) => {
     hoveredProvinceRef.current = province
   }
+
+  // Estado para tooltip de ingresos
+  const [incomeTooltip, setIncomeTooltip] = useState<{
+    visible: boolean
+    income: number
+    provinceName: string
+  } | null>(null)
 
   // Calcular initialScale dinámicamente para que el mapa llene la altura del contenedor
   useEffect(() => {
@@ -216,8 +250,21 @@ export default function GameBoard({
       // Siempre aplicar borde blanco para indicar hover
       element.style.stroke = '#ffffff'
       element.style.strokeWidth = '2'
+
+      // Mostrar tooltip de ingresos si el filtro está activo
+      if (mapFilter === 'income-heatmap' && gameMap && provinceId) {
+        const income = getProvinceIncome(gameMap, provinceId)
+        const provinceInfo = gameMap.provinces[provinceId]
+        const provinceName = provinceInfo?.name || provinceId
+
+        setIncomeTooltip({
+          visible: true,
+          income,
+          provinceName
+        })
+      }
     }
-  }, [adjacencyEditMode, highlightedAdjacencies, selectedProvince])
+  }, [adjacencyEditMode, highlightedAdjacencies, selectedProvince, mapFilter, gameMap])
 
   const handleMouseLeave = useCallback((e: MouseEvent) => {
     const target = e.target as SVGElement
@@ -239,8 +286,13 @@ export default function GameBoard({
       // Siempre limpiar el borde
       element.style.stroke = ''
       element.style.strokeWidth = ''
+
+      // Ocultar tooltip de ingresos
+      if (mapFilter === 'income-heatmap') {
+        setIncomeTooltip(null)
+      }
     }
-  }, [])
+  }, [mapFilter])
 
   useEffect(() => {
     if (!svgContent || !svgContainerRef.current) return
@@ -300,6 +352,134 @@ export default function GameBoard({
     })
   }, [svgContent, provinceFaction, getFactionColor])
 
+  // Aplicar filtros visuales de mapa (Ciudades, Puertos, etc.)
+  useEffect(() => {
+    if (!svgContainerRef.current || !svgContent) {
+      return
+    }
+
+    const container = svgContainerRef.current
+    const allProvinces = container.querySelectorAll('.land, .sea')
+
+    // Si no hay filtro activo, restaurar colores de facción
+    if (!mapFilter) {
+      allProvinces.forEach((el) => {
+        const element = el as HTMLElement
+        const provinceId = element.id
+
+        // No tocar la provincia seleccionada (amarillo)
+        if (provinceId === selectedProvince) return
+
+        // No tocar las adyacencias resaltadas (verde) en modo edición
+        if (adjacencyEditMode && highlightedAdjacencies.includes(provinceId)) return
+
+        element.removeAttribute('data-map-filter')
+
+        const factionId = provinceFaction[provinceId]
+
+        if (factionId) {
+          // Restaurar color de facción
+          const factionColor = getFactionColor(factionId)
+          element.style.setProperty('fill', factionColor, 'important')
+          element.style.setProperty('fill-opacity', '0.4', 'important')
+        } else {
+          // Restaurar color neutral del SVG
+          if (element.classList.contains('land')) {
+            element.style.setProperty('fill', '#c4b896', 'important')
+          } else if (element.classList.contains('sea')) {
+            element.style.setProperty('fill', '#8ab4d6', 'important')
+          }
+          element.style.setProperty('fill-opacity', '1', 'important')
+        }
+      })
+      return
+    }
+
+    // Aplicar filtro activo
+    let highlightCount = 0
+    let neutralCount = 0
+
+    allProvinces.forEach((el) => {
+      const element = el as HTMLElement
+      const provinceId = element.id
+
+      // No tocar la provincia seleccionada (amarillo)
+      if (provinceId === selectedProvince) return
+
+      // No tocar las adyacencias resaltadas (verde) en modo edición
+      if (adjacencyEditMode && highlightedAdjacencies.includes(provinceId)) return
+
+      let shouldHighlight = false
+      let customColor: string | null = null
+
+      // Determinar si esta provincia cumple el filtro
+      if (mapFilter === 'cities' && gameMap) {
+        const provinceInfo = gameMap.provinces[provinceId]
+        shouldHighlight = provinceInfo?.hasCity === true
+        customColor = '#22c55e' // Verde
+      } else if (mapFilter === 'ports' && gameMap) {
+        const provinceInfo = gameMap.provinces[provinceId]
+        shouldHighlight = provinceInfo?.type === 'port' || provinceInfo?.isPort === true
+        customColor = '#3b82f6' // Azul
+      } else if (mapFilter === 'campaign-targets' && gameMap && player) {
+        // Filtro de campañas militares
+        const factionId = provinceFaction[provinceId]
+        const isPlayerProvince = factionId === player.faction
+
+        if (isPlayerProvince) {
+          // Las provincias del jugador mantienen su color de facción
+          shouldHighlight = true
+          customColor = getFactionColor(player.faction)
+        } else {
+          // Las demás provincias: solo resaltar las que pueden ser atacadas
+          const campaignCheck = isCampaignTarget(
+            gameMap,
+            provinceId,
+            player.id,
+            units,
+            provinceFaction,
+            player.faction
+          )
+          shouldHighlight = campaignCheck.isValid
+          customColor = '#ef4444' // Rojo para objetivos de campaña
+        }
+      } else if (mapFilter === 'income-heatmap' && gameMap) {
+        // Filtro de mapa de calor de ingresos
+        const income = getProvinceIncome(gameMap, provinceId)
+
+        // Solo aplicar color a provincias terrestres con ingresos
+        if (element.classList.contains('land')) {
+          shouldHighlight = true
+          customColor = getIncomeColor(income)
+        } else {
+          // Mares mantienen su color original
+          shouldHighlight = false
+        }
+      }
+
+      if (shouldHighlight && customColor) {
+        highlightCount++
+        // Aplicar color de filtro
+        element.setAttribute('data-map-filter', mapFilter)
+        element.style.setProperty('fill', customColor, 'important')
+        element.style.setProperty('fill-opacity', '0.6', 'important')
+      } else {
+        neutralCount++
+        // Provincias que NO cumplen el filtro → Color neutral (beige o azul mar)
+        element.removeAttribute('data-map-filter')
+
+        // Tierra → beige neutral, Mar → azul mar
+        if (element.classList.contains('land')) {
+          element.style.setProperty('fill', '#c4b896', 'important') // Beige para tierra
+          element.style.setProperty('fill-opacity', '1', 'important')
+        } else if (element.classList.contains('sea')) {
+          element.style.setProperty('fill', '#8ab4d6', 'important') // Azul para mar
+          element.style.setProperty('fill-opacity', '1', 'important')
+        }
+      }
+    })
+  }, [svgContent, mapFilter, gameMap, selectedProvince, adjacencyEditMode, highlightedAdjacencies, provinceFaction, getFactionColor, player, units])
+
   // Pintar provincias adyacentes en verde cuando el modo de edición está activo
   useEffect(() => {
     if (!svgContainerRef.current || !svgContent) return
@@ -308,33 +488,36 @@ export default function GameBoard({
     const allProvinces = container.querySelectorAll('.land, .sea')
 
     // SIEMPRE restaurar colores originales primero (para limpiar verdes anteriores)
-    allProvinces.forEach((el) => {
-      const element = el as HTMLElement
-      const provinceId = element.id
+    // PERO SOLO SI NO HAY FILTRO DE MAPA ACTIVO
+    if (!mapFilter) {
+      allProvinces.forEach((el) => {
+        const element = el as HTMLElement
+        const provinceId = element.id
 
-      // NO restaurar la provincia seleccionada - mantener su amarillo
-      if (provinceId === selectedProvince) {
-        return
-      }
-
-      element.removeAttribute('data-adjacent-highlight')
-
-      const factionId = provinceFaction[provinceId]
-
-      if (factionId) {
-        const factionColor = getFactionColor(factionId)
-        element.style.setProperty('fill', factionColor, 'important')
-        element.style.setProperty('fill-opacity', '0.4', 'important')
-      } else {
-        // Provincia neutral: aplicar color default del SVG
-        if (element.classList.contains('land')) {
-          element.style.setProperty('fill', '#c4b896', 'important')
-        } else if (element.classList.contains('sea')) {
-          element.style.setProperty('fill', '#8ab4d6', 'important')
+        // NO restaurar la provincia seleccionada - mantener su amarillo
+        if (provinceId === selectedProvince) {
+          return
         }
-        element.style.setProperty('fill-opacity', '1', 'important')
-      }
-    })
+
+        element.removeAttribute('data-adjacent-highlight')
+
+        const factionId = provinceFaction[provinceId]
+
+        if (factionId) {
+          const factionColor = getFactionColor(factionId)
+          element.style.setProperty('fill', factionColor, 'important')
+          element.style.setProperty('fill-opacity', '0.4', 'important')
+        } else {
+          // Provincia neutral: aplicar color default del SVG
+          if (element.classList.contains('land')) {
+            element.style.setProperty('fill', '#c4b896', 'important')
+          } else if (element.classList.contains('sea')) {
+            element.style.setProperty('fill', '#8ab4d6', 'important')
+          }
+          element.style.setProperty('fill-opacity', '1', 'important')
+        }
+      })
+    }
 
     // DESPUÉS, si el modo está activo, pintar las adyacencias actuales en verde
     if (adjacencyEditMode && highlightedAdjacencies.length > 0) {
@@ -347,7 +530,7 @@ export default function GameBoard({
         }
       })
     }
-  }, [adjacencyEditMode, highlightedAdjacencies, svgContent, provinceFaction, getFactionColor, selectedProvince])
+  }, [adjacencyEditMode, highlightedAdjacencies, svgContent, provinceFaction, getFactionColor, selectedProvince, mapFilter])
 
   // Resaltar provincia seleccionada
   useEffect(() => {
@@ -359,24 +542,53 @@ export default function GameBoard({
     const previousSelected = container.querySelector('[data-selected="true"]')
     if (previousSelected) {
       const el = previousSelected as HTMLElement
+      const previousProvinceId = el.id
       el.removeAttribute('data-selected')
       el.style.stroke = ''
       el.style.strokeWidth = ''
 
-      // Restaurar color de facción si existe, o aplicar color default del SVG si es neutral
-      const factionColor = el.getAttribute('data-faction-color')
-      if (factionColor) {
-        // Provincia con facción: restaurar color de facción
-        el.style.setProperty('fill', factionColor, 'important')
-        el.style.setProperty('fill-opacity', '0.4', 'important')
-      } else {
-        // Provincia neutral: aplicar color default del SVG según su tipo
-        if (el.classList.contains('land')) {
-          el.style.setProperty('fill', '#c4b896', 'important') // Beige para tierra
-        } else if (el.classList.contains('sea')) {
-          el.style.setProperty('fill', '#8ab4d6', 'important') // Azul para mar
+      // Restaurar color según el estado actual (filtro activo o colores de facción)
+      if (mapFilter && gameMap) {
+        // Si hay filtro activo, aplicar lógica de filtro
+        let shouldHighlight = false
+        const provinceInfo = gameMap.provinces[previousProvinceId]
+
+        if (mapFilter === 'cities') {
+          shouldHighlight = provinceInfo?.hasCity === true
+        } else if (mapFilter === 'ports') {
+          shouldHighlight = provinceInfo?.type === 'port' || provinceInfo?.isPort === true
         }
-        el.style.setProperty('fill-opacity', '1', 'important')
+
+        if (shouldHighlight) {
+          const filterColor = mapFilter === 'cities' ? '#22c55e' : '#3b82f6'
+          el.style.setProperty('fill', filterColor, 'important')
+          el.style.setProperty('fill-opacity', '0.6', 'important')
+        } else {
+          // Provincias que NO cumplen el filtro → Color neutral (beige o azul mar)
+          if (el.classList.contains('land')) {
+            el.style.setProperty('fill', '#c4b896', 'important')
+            el.style.setProperty('fill-opacity', '1', 'important')
+          } else if (el.classList.contains('sea')) {
+            el.style.setProperty('fill', '#8ab4d6', 'important')
+            el.style.setProperty('fill-opacity', '1', 'important')
+          }
+        }
+      } else {
+        // Sin filtro activo: restaurar color de facción o neutral
+        const factionColor = el.getAttribute('data-faction-color')
+        if (factionColor) {
+          // Provincia con facción: restaurar color de facción
+          el.style.setProperty('fill', factionColor, 'important')
+          el.style.setProperty('fill-opacity', '0.4', 'important')
+        } else {
+          // Provincia neutral: aplicar color default del SVG según su tipo
+          if (el.classList.contains('land')) {
+            el.style.setProperty('fill', '#c4b896', 'important') // Beige para tierra
+          } else if (el.classList.contains('sea')) {
+            el.style.setProperty('fill', '#8ab4d6', 'important') // Azul para mar
+          }
+          el.style.setProperty('fill-opacity', '1', 'important')
+        }
       }
     }
 
@@ -391,7 +603,7 @@ export default function GameBoard({
       provinceElement.style.stroke = '#ff6b00'
       provinceElement.style.strokeWidth = '4'
     }
-  }, [selectedProvince])
+  }, [selectedProvince, mapFilter, gameMap])
 
   return (
     <div ref={containerRef} className="relative w-full h-full bg-[#6b5d4a] rounded-lg overflow-hidden">
@@ -497,6 +709,23 @@ export default function GameBoard({
           </>
         )}
       </TransformWrapper>
+
+      {/* Tooltip de ingresos - Posición fija en esquina superior derecha */}
+      {incomeTooltip && incomeTooltip.visible && (
+        <div className="absolute top-4 right-4 pointer-events-none z-50">
+          <div className="bg-[#2d2416] border-2 border-[#c9a961] rounded-lg shadow-2xl px-3 py-2 min-w-[140px]">
+            <div className="text-[#c9a961] font-heading font-bold text-sm mb-1">
+              {incomeTooltip.provinceName}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-lg">💰</span>
+              <span className="text-white font-serif text-base font-semibold">
+                {incomeTooltip.income} {incomeTooltip.income === 1 ? 'ducado' : 'ducados'}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

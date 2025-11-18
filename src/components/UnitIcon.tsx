@@ -5,6 +5,7 @@ interface UnitIconProps {
   size?: 'sm' | 'md' | 'lg'
   className?: string
   bordered?: boolean
+  hasEmbarkedTroops?: boolean // Nuevo: indica si tiene tropas embarcadas
 }
 
 /**
@@ -14,7 +15,7 @@ interface UnitIconProps {
  * - md: 24px (por defecto, para panels)
  * - lg: 32px (para destacar)
  */
-export default function UnitIcon({ type, size = 'md', className = '', bordered = false }: UnitIconProps) {
+export default function UnitIcon({ type, size = 'md', className = '', bordered = false, hasEmbarkedTroops = false }: UnitIconProps) {
   const sizeClasses = {
     sm: 'w-14 h-14',
     md: 'w-14 h-14',
@@ -39,12 +40,18 @@ export default function UnitIcon({ type, size = 'md', className = '', bordered =
   const config = iconConfig[type]
   const sizeClass = sizeClasses[size]
 
+  // Determinar el estilo del borde
+  // Solo flotas con tropas embarcadas tienen borde rojo
+  const borderClass = hasEmbarkedTroops && type === 'fleet'
+    ? 'border-4 border-red-500 rounded p-0.5'
+    : ''
+
   return (
     <div
       className={`
         ${sizeClass}
         inline-flex items-center justify-center
-        ${bordered ? 'border-2 border-red-500 rounded p-0.5' : ''}
+        ${borderClass}
         ${className}
       `}
       title={config.label}
@@ -65,7 +72,7 @@ interface UnitIconWithLabelProps extends UnitIconProps {
   showLabel?: boolean
 }
 
-export function UnitIconWithLabel({ type, size = 'md', showLabel = true, className = '', bordered = false }: UnitIconWithLabelProps) {
+export function UnitIconWithLabel({ type, size = 'md', showLabel = true, className = '', bordered = false, hasEmbarkedTroops = false }: UnitIconWithLabelProps) {
   const labelText = {
     army: 'Ejército',
     fleet: 'Flota',
@@ -74,7 +81,7 @@ export function UnitIconWithLabel({ type, size = 'md', showLabel = true, classNa
 
   return (
     <div className={`inline-flex items-center gap-2 ${className}`}>
-      <UnitIcon type={type} size={size} bordered={bordered} />
+      <UnitIcon type={type} size={size} bordered={bordered} hasEmbarkedTroops={hasEmbarkedTroops} />
       {showLabel && (
         <span className="text-sm text-gray-300 capitalize">
           {labelText[type]}

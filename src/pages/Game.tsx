@@ -9,6 +9,7 @@ import { Game as GameType, Player, Unit, ExtraExpense } from '@/types'
 import { FactionDocument } from '@/types/faction'
 import { getAllFactions } from '@/lib/factionService'
 import { getFactionImageName } from '@/utils/factionHelpers'
+import { isCampaignTarget } from '@/utils/gameMapHelpers'
 import GameBoard from '@/components/GameBoard'
 // OrdersPanel removido - ahora se usa OrdersModal desde ProvinceInfoPanel
 import DiplomacyModal from '@/components/DiplomacyModal'
@@ -22,6 +23,8 @@ import ProvinceInfoPanel from '@/components/ProvinceInfoPanel'
 import UnitManagementModal from '@/components/UnitManagementModal'
 import HeaderTreasuryInfo from '@/components/HeaderTreasuryInfo'
 import { CollapsibleSection } from '@/components/CollapsibleSection'
+import MilitaryCampaignPanel from '@/components/MilitaryCampaignPanel'
+import MapsPanel, { MapFilter } from '@/components/MapsPanel'
 
 export default function Game() {
   const { gameId } = useParams<{ gameId: string }>()
@@ -40,6 +43,15 @@ export default function Game() {
 
   // Estado del mapa
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null)
+  const [mapFilter, setMapFilter] = useState<MapFilter>(null)
+
+  // Manejador de cambio de filtro que deselecciona provincia
+  const handleFilterChange = (filter: MapFilter) => {
+    setMapFilter(filter)
+    if (filter !== null) {
+      setSelectedProvince(null) // Deseleccionar provincia al activar filtro
+    }
+  }
 
   // Estado para forzar avance de fase (testing)
   const [isAdvancingPhase, setIsAdvancingPhase] = useState(false)
@@ -162,8 +174,8 @@ export default function Game() {
 
     const messagesQuery = query(
       collection(db, 'diplomatic_messages'),
-      where('gameId', '==', gameId),
-      orderBy('sentAt', 'asc')
+      where('gameId', '==', gameId)
+      // orderBy removido - no es necesario para contar mensajes y mejora la actualización en tiempo real
     )
 
     const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
@@ -171,6 +183,8 @@ export default function Game() {
         id: doc.id,
         ...doc.data()
       })) as (DiplomaticMessage & { id: string })[]
+
+      console.log(`[Game] Mensajes actualizados: ${messagesData.length} totales`)
 
       setMessages(messagesData)
     })
@@ -279,12 +293,12 @@ export default function Game() {
     if (!player) return 0
 
     const playersInFaction = players.filter(p => p.faction === faction)
-    const playerIds = playersInFaction.map(p => p.id)
+    const userIds = playersInFaction.map(p => p.userId)
 
     return messages.filter(
       msg =>
-        playerIds.includes(msg.from) &&
-        msg.to === player.id &&
+        userIds.includes(msg.from) &&
+        msg.to === player.userId &&
         !msg.isRead
     ).length
   }, [messages, players, player])
@@ -295,8 +309,8 @@ export default function Game() {
 
     return messages.filter(
       msg =>
-        msg.to === player.id &&
-        msg.from !== player.id &&
+        msg.to === player.userId &&
+        msg.from !== player.userId &&
         !msg.isRead
     ).length
   }, [messages, player])
@@ -546,6 +560,39 @@ export default function Game() {
             />
           </div>
 
+          {/* MilitaryCampaignPanel - Solo visible si es objetivo válido de campaña */}
+          {(() => {
+            // Validaciones previas
+            if (!selectedProvince || !player || !game.map) return null
+            if (game.currentPhase !== 'diplomatic' || game.currentSeason !== 'spring') return null
+            if (provinceFaction[selectedProvince] === player.faction) return null
+
+            // Verificar si es objetivo válido ANTES de renderizar
+            const campaignCheck = isCampaignTarget(
+              game.map,
+              selectedProvince,
+              player.id,
+              units,
+              provinceFaction,
+              player.faction
+            )
+
+            // Solo mostrar panel si es válido
+            if (!campaignCheck.isValid) return null
+
+            return (
+              <div className="flex-shrink-0">
+                <MilitaryCampaignPanel
+                  game={game}
+                  provinceId={selectedProvince}
+                  currentPlayer={player}
+                  units={units}
+                  provinceFaction={provinceFaction}
+                />
+              </div>
+            )
+          })()}
+
           {/* OrdersPanel removido - ahora las órdenes se dan desde el modal en ProvinceInfoPanel */}
         </aside>
 
@@ -558,6 +605,10 @@ export default function Game() {
               famineProvinces={(game as any).famineProvinces || []}
               provinceFaction={provinceFaction}
               factions={factions}
+              gameMap={game.map || { provinces: {}, adjacencies: {} }}
+              mapFilter={mapFilter}
+              player={player}
+              units={visibleUnits}
             />
           </div>
 
@@ -679,8 +730,8 @@ export default function Game() {
                         <div className={`font-serif font-bold text-sm ${
                           p.id === player.id ? 'text-[#8b4513]' : 'text-[#2d1810]'
                         }`}>
-                          {p.faction}
-                          {p.id === player.id && ' (Tú)'}
+                          {p.faction} ({p.displayName})
+                          {p.id === player.id && ' - Tú'}
                         </div>
                         <div className="flex items-center gap-2 text-xs text-[#4d3830] mt-1">
                           <span className={p.isAlive ? 'text-green-700' : 'text-red-700'}>
@@ -695,6 +746,18 @@ export default function Game() {
                   </div>
               ))}
             </div>
+          </CollapsibleSection>
+
+          {/* Sección: Mapas */}
+          <CollapsibleSection
+            title="Mapas"
+            icon="/icons/mapa.png"
+            defaultExpanded={false}
+          >
+            <MapsPanel
+              activeFilter={mapFilter}
+              onFilterChange={handleFilterChange}
+            />
           </CollapsibleSection>
         </aside>
       </main>

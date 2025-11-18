@@ -292,6 +292,10 @@ export default function ProvinceInfoPanel({
                   return actionLabels[unitOrder.action] || unitOrder.action
                 }
 
+                // Verificar si tiene tropas embarcadas
+                const hasEmbarkedTroops = unit.type === 'fleet' && unit.embarkedTroops &&
+                  Object.values(unit.embarkedTroops.troops).some(count => (count || 0) > 0)
+
                 return (
                   <div
                     key={unit.id}
@@ -302,9 +306,17 @@ export default function ProvinceInfoPanel({
                       className="flex items-center gap-2 flex-1 cursor-pointer"
                     >
                       {unit.composition ? (
-                        <UnitCompositionTooltip composition={unit.composition}>
+                        <UnitCompositionTooltip
+                          composition={unit.composition}
+                          embarkedTroops={unit.embarkedTroops?.troops}
+                        >
                           <div className="flex items-center gap-2">
-                            <UnitIconWithLabel type={unit.type} size="sm" bordered={true} showLabel={false} />
+                            <UnitIconWithLabel
+                              type={unit.type}
+                              size="sm"
+                              showLabel={false}
+                              hasEmbarkedTroops={hasEmbarkedTroops}
+                            />
                             {unit.name && (
                               <span className="text-sm font-medium text-black">
                                 {unit.name}
@@ -314,7 +326,12 @@ export default function ProvinceInfoPanel({
                         </UnitCompositionTooltip>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <UnitIconWithLabel type={unit.type} size="sm" bordered={true} showLabel={false} />
+                          <UnitIconWithLabel
+                            type={unit.type}
+                            size="sm"
+                            showLabel={false}
+                            hasEmbarkedTroops={hasEmbarkedTroops}
+                          />
                           {unit.name && (
                             <span className="text-sm font-medium text-black">
                               {unit.name}
@@ -375,15 +392,26 @@ export default function ProvinceInfoPanel({
             <div className="space-y-2">
               {otherUnits.map(unit => {
                 const ownerPlayer = players.find(p => p.id === unit.owner)
+                const hasEmbarkedTroops = unit.type === 'fleet' && unit.embarkedTroops &&
+                  Object.values(unit.embarkedTroops.troops).some(count => (count || 0) > 0)
+
                 return (
                   <div
                     key={unit.id}
                     className="flex items-center gap-2 ml-2 text-gray-800"
                   >
                     {unit.composition ? (
-                      <UnitCompositionTooltip composition={unit.composition}>
+                      <UnitCompositionTooltip
+                        composition={unit.composition}
+                        embarkedTroops={unit.embarkedTroops?.troops}
+                      >
                         <div className="flex items-center gap-2">
-                          <UnitIconWithLabel type={unit.type} size="sm" showLabel={false} />
+                          <UnitIconWithLabel
+                            type={unit.type}
+                            size="sm"
+                            showLabel={false}
+                            hasEmbarkedTroops={hasEmbarkedTroops}
+                          />
                           {unit.name && (
                             <span className="text-sm font-medium text-black">
                               {unit.name}
@@ -393,7 +421,12 @@ export default function ProvinceInfoPanel({
                       </UnitCompositionTooltip>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <UnitIconWithLabel type={unit.type} size="sm" showLabel={false} />
+                        <UnitIconWithLabel
+                          type={unit.type}
+                          size="sm"
+                          showLabel={false}
+                          hasEmbarkedTroops={hasEmbarkedTroops}
+                        />
                         {unit.name && (
                           <span className="text-sm font-medium text-black">
                             {unit.name}

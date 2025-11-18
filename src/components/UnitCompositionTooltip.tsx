@@ -1,9 +1,10 @@
 import { ReactNode } from 'react'
-import type { ArmyComposition, GarrisonComposition, FleetComposition } from '@/types/scenario'
+import type { ArmyComposition, GarrisonComposition, FleetComposition, ArmyTroopType } from '@/types/scenario'
 
 interface UnitCompositionTooltipProps {
   composition: ArmyComposition | GarrisonComposition | FleetComposition
   children: ReactNode
+  embarkedTroops?: Partial<Record<ArmyTroopType, number>> // Nuevo: tropas embarcadas para flotas
 }
 
 // Traducciones para tipos de tropas
@@ -23,7 +24,7 @@ function isFleetComposition(comp: ArmyComposition | GarrisonComposition | FleetC
   return 'ships' in comp
 }
 
-export default function UnitCompositionTooltip({ composition, children }: UnitCompositionTooltipProps) {
+export default function UnitCompositionTooltip({ composition, children, embarkedTroops }: UnitCompositionTooltipProps) {
   const renderComposition = () => {
     if (isFleetComposition(composition)) {
       // Flota
@@ -58,6 +59,29 @@ export default function UnitCompositionTooltip({ composition, children }: UnitCo
     }
   }
 
+  const renderEmbarkedTroops = () => {
+    if (!embarkedTroops) return null
+
+    const troops = Object.entries(embarkedTroops).filter(([_, count]) => (count || 0) > 0)
+    if (troops.length === 0) return null
+
+    return (
+      <div className="mt-2 pt-2 border-t border-[#b4a481]">
+        <div className="font-heading font-semibold text-xs text-blue-400 mb-1">
+          Tropas Embarcadas
+        </div>
+        <div className="space-y-1">
+          {troops.map(([type, count]) => (
+            <div key={type} className="flex justify-between gap-3 text-xs">
+              <span className="text-[#c4b491] font-serif">{TROOP_LABELS[type] || type}</span>
+              <span className="text-blue-300 font-heading font-semibold">{count}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   const getTotalCount = () => {
     if (isFleetComposition(composition)) {
       return Object.values(composition.ships).reduce((sum, count) => sum + count, 0)
@@ -80,6 +104,7 @@ export default function UnitCompositionTooltip({ composition, children }: UnitCo
           <div className="mt-2 pt-2 border-t border-[#b4a481] text-xs font-serif text-[#f0d877]">
             Total: {getTotalCount()} {isFleetComposition(composition) ? 'naves' : 'tropas'}
           </div>
+          {renderEmbarkedTroops()}
         </div>
       </div>
     </div>
