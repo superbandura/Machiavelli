@@ -14,6 +14,7 @@ Mantener la documentación sincronizada con el código mediante:
 3. Sincronización de código duplicado entre frontend/backend
 4. Auditoría y actualización de documentación existente
 5. Reporte de gaps y tareas pendientes
+6. Sincronización de CLAUDE.md con INDEX.md
 
 ---
 
@@ -1445,6 +1446,123 @@ Añade enlaces a los nuevos documentos en la sección apropiada:
 
 ---
 
+### FASE 8: SINCRONIZAR CLAUDE.md CON INDEX.md
+
+#### 8.1 Objetivo
+
+Sincronizar la sección "Documentación Completa" en `CLAUDE.md` (líneas 281-307) con la estructura completa de `docs/INDEX.md`, asegurando que todas las referencias estén presentes y correctamente organizadas.
+
+**Propósito:** CLAUDE.md es la guía rápida de entrada para desarrolladores. Debe reflejar la documentación completa disponible sin duplicar contenido extenso.
+
+#### 8.2 Análisis de Estado Actual
+
+**Lee primero:**
+1. `CLAUDE.md` - Sección "Documentación Completa" (líneas 281-307)
+2. `docs/INDEX.md` - Toda la estructura de enlaces
+
+**Identifica:**
+- Referencias presentes en INDEX.md pero ausentes en CLAUDE.md
+- Estructura organizacional (subsecciones, agrupaciones)
+- Formato de enlaces y descripciones
+
+#### 8.3 Referencias Faltantes a Añadir
+
+Basándote en la comparación INDEX.md vs CLAUDE.md, añade las referencias que faltan:
+
+**Para Desarrolladores (sección existente):**
+```markdown
+- **[Sincronización de Código](docs/dev/CODE_SYNCHRONIZATION.md)** - Guía de sync frontend/backend
+```
+
+**Referencia Técnica - Mecánicas de Juego (nueva subsección):**
+```markdown
+- **[Sistema de Transferencias](docs/reference/sistema-transferencias.md)** - Transferencias de ducados
+- **[Jugadores Inactivos](docs/reference/jugadores-inactivos.md)** - Gestión de inactividad
+- **[Casos Límite](docs/reference/casos-limite.md)** - Algoritmos y casos especiales
+```
+
+**Referencia Técnica - Escenarios y Ejemplos (nueva subsección):**
+```markdown
+- **[Ejemplo de Turno](docs/reference/ejemplo-turno.md)** - Turno completo paso a paso
+```
+
+**Referencia Técnica - Diseño y Desarrollo (nueva subsección):**
+```markdown
+- **[Documento de Diseño](docs/reference/Machiavelli.md)** - Visión general del juego
+- **[Plan de Desarrollo](docs/reference/plan-desarrollo.md)** - Roadmap de 8 fases
+- **[Soluciones Aplicadas](docs/reference/SOLUCIONES-APLICADAS.md)** - 36+ problemas resueltos
+```
+
+#### 8.4 Reorganizar Sección "Referencia Técnica"
+
+**Estructura actual (plana, 7 referencias):**
+```markdown
+### Referencia Técnica
+- [Arquitectura](docs/reference/arquitectura.md)
+- [Base de Datos](docs/reference/database.md)
+- ...
+```
+
+**Nueva estructura (organizada en 4 subsecciones, 14 referencias):**
+```markdown
+### Referencia Técnica
+
+#### Arquitectura y Sistema
+- **[Arquitectura](docs/reference/arquitectura.md)** - Diseño completo
+- **[Base de Datos](docs/reference/database.md)** - Esquema Firestore
+- **[Fases del Juego](docs/reference/GAME_PHASES.md)** - Sistema de turnos
+- **[Glosario](docs/reference/glosario.md)** - Términos oficiales
+
+#### Mecánicas de Juego
+- **[Órdenes Militares](docs/reference/ordenes-militares.md)** - Todas las órdenes
+- **[Eventos Especiales](docs/reference/eventos-especiales.md)** - Hambruna, Peste, Asesinato
+- **[Sistema de Transferencias](docs/reference/sistema-transferencias.md)** - Transferencias de ducados
+- **[Jugadores Inactivos](docs/reference/jugadores-inactivos.md)** - Gestión de inactividad
+- **[Casos Límite](docs/reference/casos-limite.md)** - Algoritmos y casos especiales
+
+#### Escenarios y Ejemplos
+- **[Escenarios](docs/reference/escenarios.md)** - Italia 1454, 1494, Tutorial
+- **[Ejemplo de Turno](docs/reference/ejemplo-turno.md)** - Turno completo paso a paso
+
+#### Diseño y Desarrollo
+- **[Documento de Diseño](docs/reference/Machiavelli.md)** - Visión general del juego
+- **[Plan de Desarrollo](docs/reference/plan-desarrollo.md)** - Roadmap de 8 fases
+- **[Soluciones Aplicadas](docs/reference/SOLUCIONES-APLICADAS.md)** - 36+ problemas resueltos
+```
+
+#### 8.5 Actualizar Fecha de Última Modificación
+
+Al final de CLAUDE.md (última sección antes del final), encuentra la línea:
+```markdown
+**Última actualización:** 2025-01-13
+```
+
+Cámbiala a la fecha actual del sistema.
+
+#### 8.6 Validación Post-Cambios
+
+Verifica:
+- [ ] Todas las referencias existen en `docs/` (usa Glob para validar rutas)
+- [ ] Formato de enlaces es consistente: `- **[Título](ruta)** - Descripción`
+- [ ] Subsecciones usan `####` (cuatro #)
+- [ ] Secciones principales usan `###` (tres #)
+- [ ] Orden de secciones: Jugadores → Desarrolladores → Operaciones → Referencia Técnica
+- [ ] Enlace final a INDEX.md se mantiene: `**Navegación:** Ver **[docs/INDEX.md](docs/INDEX.md)**`
+- [ ] Fecha actualizada correctamente
+
+#### 8.7 Mensaje de Confirmación
+
+Al completar, reporta:
+```
+✅ CLAUDE.md sincronizado con INDEX.md
+   - Referencias añadidas: 8
+   - Subsecciones creadas: 4
+   - Total referencias: 22
+   - Fecha actualizada: [fecha actual]
+```
+
+---
+
 ## DIRECTRICES DE EJECUCIÓN
 
 ### Calidad de Documentación
@@ -1525,6 +1643,6 @@ Al terminar, muestra en terminal:
 
 ## EJECUCIÓN
 
-Procede con las 7 fases en orden. Lee TODOS los archivos mencionados antes de generar documentación. Sé exhaustivo y preciso.
+Procede con las 8 fases en orden. Lee TODOS los archivos mencionados antes de generar documentación. Sé exhaustivo y preciso.
 
 **¡Comienza ahora!**
