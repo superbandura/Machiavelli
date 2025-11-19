@@ -9,7 +9,6 @@ import OrdersModal from './OrdersModal'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { FACTIONS } from '@/data/factions'
-import { getCampaignStatusLabel, getCampaignStatusColor } from '@/utils/campaignHelpers'
 
 interface ProvinceInfoPanelProps {
   game: Game

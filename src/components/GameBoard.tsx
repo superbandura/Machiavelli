@@ -6,7 +6,7 @@ import { FactionDocument } from '@/types/faction'
 import { getFactionColor as getDynamicFactionColor } from '@/lib/factionService'
 import { GameMap, Unit, Player, MilitaryCampaign } from '@/types/game'
 import type { MapFilter } from './MapsPanel'
-import { isCampaignTarget, getProvinceIncome, getProvinceInfo } from '@/utils/gameMapHelpers'
+import { isCampaignTarget, getProvinceIncome } from '@/utils/gameMapHelpers'
 import { FACTIONS } from '@/data/factions'
 
 /**

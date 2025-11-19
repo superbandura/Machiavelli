@@ -28,8 +28,7 @@ import {
   SHIP_BATCH_SIZE,
   MINIMUM_GARRISON_MILITIA,
 } from '@/data/recruitmentCosts'
-import { SHIP_CAPACITY } from '@/data/constants'
-import { calculateFleetCapacity, getAvailableCapacity, calculateEmbarkedTroopsCount } from '@/utils/embarkHelpers'
+import { calculateFleetCapacity, calculateEmbarkedTroopsCount } from '@/utils/embarkHelpers'
 import type { ArmyTroopType } from '@/types/scenario'
 
 interface UnitManagementModalProps {

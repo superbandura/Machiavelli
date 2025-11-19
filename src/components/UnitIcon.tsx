@@ -15,7 +15,7 @@ interface UnitIconProps {
  * - md: 24px (por defecto, para panels)
  * - lg: 32px (para destacar)
  */
-export default function UnitIcon({ type, size = 'md', className = '', bordered = false, hasEmbarkedTroops = false }: UnitIconProps) {
+export default function UnitIcon({ type, size = 'md', className = '', hasEmbarkedTroops = false }: UnitIconProps) {
   const sizeClasses = {
     sm: 'w-14 h-14',
     md: 'w-14 h-14',

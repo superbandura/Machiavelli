@@ -10,7 +10,6 @@
 import type { MilitaryCampaign, Player, Game } from '@/types/game'
 import { FACTIONS } from '@/data/factions'
 import { getProvinceInfo } from '@/utils/gameMapHelpers'
-import { getCampaignStatusLabel, getCampaignStatusColor } from '@/utils/campaignHelpers'
 
 interface CampaignsPanelProps {
   campaigns: MilitaryCampaign[]
