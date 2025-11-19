@@ -191,10 +191,18 @@ export interface ExtraExpense {
 
 // ==================== MILITARY CAMPAIGNS ====================
 export interface MilitaryCampaign {
+  id: string // Document ID de Firestore
+  gameId: string // Referencia al juego
   targetProvince: string // ID de la provincia objetivo
   declaredBy: string // playerId del jugador que declara la campaña
+  declaredByFaction: string // Facción del jugador que declara
   turnDeclared: number // Turno en que se declaró (para futuras restricciones)
   year: number // Año de la declaración
+  status: 'planning' | 'active' | 'completed' // Estado de la campaña
+  participatingUnits: string[] // Array de unitIds que participan
+  route?: MaritimeRoute // Ruta marítima si es campaña anfibia
+  createdAt: Timestamp // Timestamp de creación
+  resolvedAt?: Timestamp // Timestamp de resolución (cuando se completa)
 }
 
 // ==================== DIPLOMATIC MESSAGES ====================

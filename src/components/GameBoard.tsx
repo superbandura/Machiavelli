@@ -4,9 +4,10 @@ import { getProvinceCoordinates } from '@/data/provinceCoordinates'
 import { getFactionColor as getLegacyFactionColor } from '@/data/factions'
 import { FactionDocument } from '@/types/faction'
 import { getFactionColor as getDynamicFactionColor } from '@/lib/factionService'
-import { GameMap, Unit, Player } from '@/types/game'
+import { GameMap, Unit, Player, MilitaryCampaign } from '@/types/game'
 import type { MapFilter } from './MapsPanel'
-import { isCampaignTarget, getProvinceIncome } from '@/utils/gameMapHelpers'
+import { isCampaignTarget, getProvinceIncome, getProvinceInfo } from '@/utils/gameMapHelpers'
+import { FACTIONS } from '@/data/factions'
 
 // Helper: Obtener color según ingresos (degradado rojo→amarillo→verde)
 // Más pobres (0-2) → rojo oscuro/negro
@@ -37,6 +38,7 @@ interface GameBoardProps {
   mapFilter?: MapFilter // Filtro de mapa activo
   player?: Player // Jugador actual (para filtro de campañas)
   units?: Unit[] // Unidades del juego (para filtro de campañas)
+  campaigns?: MilitaryCampaign[] // Campañas activas (para filtro y tooltip)
 }
 
 export default function GameBoard({
@@ -51,7 +53,8 @@ export default function GameBoard({
   gameMap,
   mapFilter = null,
   player,
-  units = []
+  units = [],
+  campaigns = []
 }: GameBoardProps) {
   const [svgContent, setSvgContent] = useState<string>('')
   const [initialScale, setInitialScale] = useState(0.6) // Escala inicial calculada dinámicamente
@@ -67,6 +70,13 @@ export default function GameBoard({
     visible: boolean
     income: number
     provinceName: string
+  } | null>(null)
+
+  // Estado para tooltip de campañas
+  const [campaignTooltip, setCampaignTooltip] = useState<{
+    visible: boolean
+    provinceName: string
+    campaigns: MilitaryCampaign[]
   } | null>(null)
 
   // Calcular initialScale dinámicamente para que el mapa llene la altura del contenedor
@@ -263,8 +273,26 @@ export default function GameBoard({
           provinceName
         })
       }
+
+      // Mostrar tooltip de campañas si el filtro está activo
+      if (mapFilter === 'campaign-targets' && gameMap && provinceId) {
+        const activeCampaigns = campaigns.filter(
+          c => c.targetProvince === provinceId && (c.status === 'planning' || c.status === 'active')
+        )
+
+        if (activeCampaigns.length > 0) {
+          const provinceInfo = gameMap.provinces[provinceId]
+          const provinceName = provinceInfo?.name || provinceId
+
+          setCampaignTooltip({
+            visible: true,
+            provinceName,
+            campaigns: activeCampaigns
+          })
+        }
+      }
     }
-  }, [adjacencyEditMode, highlightedAdjacencies, selectedProvince, mapFilter, gameMap])
+  }, [adjacencyEditMode, highlightedAdjacencies, selectedProvince, mapFilter, gameMap, campaigns])
 
   const handleMouseLeave = useCallback((e: MouseEvent) => {
     const target = e.target as SVGElement
@@ -290,6 +318,11 @@ export default function GameBoard({
       // Ocultar tooltip de ingresos
       if (mapFilter === 'income-heatmap') {
         setIncomeTooltip(null)
+      }
+
+      // Ocultar tooltip de campañas
+      if (mapFilter === 'campaign-targets') {
+        setCampaignTooltip(null)
       }
     }
   }, [mapFilter])
@@ -426,10 +459,16 @@ export default function GameBoard({
         const factionId = provinceFaction[provinceId]
         const isPlayerProvince = factionId === player.faction
 
+        // Verificar si hay campañas activas sobre esta provincia
+        const activeCampaigns = campaigns.filter(
+          c => c.targetProvince === provinceId && (c.status === 'planning' || c.status === 'active')
+        )
+        const hasCampaign = activeCampaigns.length > 0
+
         if (isPlayerProvince) {
-          // Las provincias del jugador mantienen su color de facción
+          // Provincias del jugador: rojo intenso si tienen campaña, color de facción si no
           shouldHighlight = true
-          customColor = getFactionColor(player.faction)
+          customColor = hasCampaign ? '#b91c1c' : getFactionColor(player.faction)
         } else {
           // Las demás provincias: solo resaltar las que pueden ser atacadas
           const campaignCheck = isCampaignTarget(
@@ -440,8 +479,9 @@ export default function GameBoard({
             provinceFaction,
             player.faction
           )
-          shouldHighlight = campaignCheck.isValid
-          customColor = '#ef4444' // Rojo para objetivos de campaña
+          shouldHighlight = campaignCheck.isValid || hasCampaign
+          // Rojo muy intenso (#b91c1c) si tiene campaña declarada, rojo muy suave (#fca5a5) si es objetivo válido
+          customColor = hasCampaign ? '#b91c1c' : '#fca5a5'
         }
       } else if (mapFilter === 'income-heatmap' && gameMap) {
         // Filtro de mapa de calor de ingresos
@@ -722,6 +762,86 @@ export default function GameBoard({
               <span className="text-white font-serif text-base font-semibold">
                 {incomeTooltip.income} {incomeTooltip.income === 1 ? 'ducado' : 'ducados'}
               </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tooltip de campañas - Posición fija en esquina superior derecha */}
+      {campaignTooltip && campaignTooltip.visible && (
+        <div className="absolute top-4 right-4 pointer-events-none z-50">
+          <div className="bg-[#2d2416] border-2 border-[#c9a961] rounded-lg shadow-2xl p-2 min-w-[200px]">
+            <div className="text-[#c9a961] font-heading font-bold text-sm mb-2">
+              {campaignTooltip.provinceName}
+            </div>
+            <div className="space-y-2">
+              {campaignTooltip.campaigns.map(campaign => {
+                const attackerFaction = FACTIONS[campaign.declaredByFaction]
+
+                // Obtener facción defensora
+                const defenderFactionName = gameMap?.provinces[campaign.targetProvince]?.controlledBy || 'neutral'
+                const defenderFaction = FACTIONS[defenderFactionName]
+
+                return (
+                  <div
+                    key={campaign.id}
+                    className="bg-[#d4c4a1] border border-[#b4a481] rounded p-2"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      {/* Emblema del atacante */}
+                      <img
+                        src={`/factions/${campaign.declaredByFaction.toLowerCase()}.png`}
+                        alt={attackerFaction?.name || campaign.declaredByFaction}
+                        title={`Atacante: ${attackerFaction?.name || campaign.declaredByFaction}`}
+                        className="w-5 h-5 object-contain"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none'
+                          const parent = e.currentTarget.parentElement
+                          if (parent && !parent.querySelector('.fallback-emblem-attacker')) {
+                            const fallback = document.createElement('div')
+                            fallback.className = 'fallback-emblem-attacker w-4 h-4 rounded-full border border-[#4a3f2a]'
+                            fallback.style.backgroundColor = attackerFaction?.color || '#9ca3af'
+                            fallback.title = attackerFaction?.name || 'Desconocido'
+                            parent.insertBefore(fallback, e.currentTarget)
+                          }
+                        }}
+                      />
+
+                      {/* Flecha roja */}
+                      <span className="text-red-600 text-sm font-bold">→</span>
+
+                      {/* Emblema del defensor */}
+                      <img
+                        src={`/factions/${defenderFactionName.toLowerCase()}.png`}
+                        alt={defenderFaction?.name || defenderFactionName}
+                        title={`Defensor: ${defenderFaction?.name || defenderFactionName}`}
+                        className="w-5 h-5 object-contain"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none'
+                          const parent = e.currentTarget.parentElement
+                          if (parent && !parent.querySelector('.fallback-emblem-defender')) {
+                            const fallback = document.createElement('div')
+                            fallback.className = 'fallback-emblem-defender w-4 h-4 rounded-full border border-[#4a3f2a]'
+                            fallback.style.backgroundColor = defenderFaction?.color || '#9ca3af'
+                            fallback.title = defenderFaction?.name || 'Desconocido'
+                            parent.insertBefore(fallback, e.currentTarget)
+                          }
+                        }}
+                      />
+
+                      {/* Indicador de campaña anfibia */}
+                      {campaign.route && (
+                        <img
+                          src="/icons/puerto_mini.png"
+                          alt="Anfibia"
+                          className="w-3 h-3 object-contain"
+                          title="Campaña Anfibia"
+                        />
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         </div>

@@ -98,6 +98,29 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ==================== CAMPAIGNS ====================
+    match /campaigns/{campaignId} {
+      // Los jugadores pueden leer todas las campañas (se filtran por gameId en el cliente)
+      allow read: if isAuthenticated();
+
+      // Los jugadores pueden crear campañas solo durante la fase diplomática
+      // Validaciones:
+      // - El usuario debe estar autenticado
+      // - El declarante debe ser el usuario autenticado
+      // - La partida debe estar en fase diplomática
+      allow create: if isAuthenticated() &&
+        request.resource.data.declaredBy == request.auth.uid &&
+        get(/databases/$(database)/documents/games/$(request.resource.data.gameId)).data.currentPhase == 'diplomatic';
+
+      // Los jugadores pueden actualizar sus propias campañas durante la fase diplomática
+      allow update: if isAuthenticated() &&
+        resource.data.declaredBy == request.auth.uid &&
+        get(/databases/$(database)/documents/games/$(resource.data.gameId)).data.currentPhase == 'diplomatic';
+
+      // Solo Cloud Functions pueden eliminar campañas
+      allow delete: if false;
+    }
+
     // ==================== DIPLOMATIC MESSAGES ====================
     match /diplomatic_messages/{messageId} {
       // Permitir queries (list) a jugadores del juego

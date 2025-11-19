@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Game, Player, Unit, MilitaryCampaign, MaritimeRoute } from '@/types'
+import { useEffect, useState } from 'react'
+import { Game, Player, Unit, MaritimeRoute } from '@/types'
 import { getProvinceInfo, isCampaignTarget, isCoastalProvince, findAmphibiousRoute } from '@/utils/gameMapHelpers'
 import { FleetComposition } from '@/types/scenario'
 
@@ -9,6 +9,7 @@ interface MilitaryCampaignPanelProps {
   currentPlayer: Player
   units: Unit[]
   provinceFaction: Record<string, string>
+  onOpenCampaignModal: (provinceId: string) => void
 }
 
 export default function MilitaryCampaignPanel({
@@ -16,11 +17,9 @@ export default function MilitaryCampaignPanel({
   provinceId,
   currentPlayer,
   units,
-  provinceFaction
+  provinceFaction,
+  onOpenCampaignModal
 }: MilitaryCampaignPanelProps) {
-  // Estado local para campañas declaradas (solo visual por ahora)
-  const [declaredCampaigns, setDeclaredCampaigns] = useState<MilitaryCampaign[]>([])
-
   // Estado para campañas anfibias (simplificado)
   const [maritimeRoute, setMaritimeRoute] = useState<MaritimeRoute | null>(null)
   const [fleetOrigin, setFleetOrigin] = useState<string | null>(null)
@@ -79,30 +78,9 @@ export default function MilitaryCampaignPanel({
     }
   }, [game.map, provinceId, units, currentPlayer.id, campaignCheck.isValid])
 
-  // Verificar si ya hay una campaña declarada para esta provincia
-  const existingCampaign = declaredCampaigns.find(
-    c => c.targetProvince === provinceId && c.declaredBy === currentPlayer.id
-  )
-
-  const handleDeclareCampaign = () => {
+  const handleOpenCampaignModal = () => {
     if (!campaignCheck.isValid) return
-
-    const newCampaign: MilitaryCampaign = {
-      targetProvince: provinceId,
-      declaredBy: currentPlayer.id,
-      turnDeclared: game.turnNumber,
-      year: game.currentYear
-    }
-
-    setDeclaredCampaigns([...declaredCampaigns, newCampaign])
-  }
-
-  const handleCancelCampaign = () => {
-    setDeclaredCampaigns(
-      declaredCampaigns.filter(
-        c => !(c.targetProvince === provinceId && c.declaredBy === currentPlayer.id)
-      )
-    )
+    onOpenCampaignModal(provinceId)
   }
 
   // Helper para convertir nombre de facción a nombre de archivo
@@ -245,47 +223,26 @@ export default function MilitaryCampaignPanel({
 
       {/* Botón de acción */}
       <div className="space-y-2">
-        {!existingCampaign ? (
-          <button
-            onClick={handleDeclareCampaign}
-            disabled={!campaignCheck.isValid}
-            className={`
-              w-full flex justify-center items-center
-              transition-opacity duration-200
-              ${
-                campaignCheck.isValid
-                  ? 'cursor-pointer opacity-100 hover:opacity-80'
-                  : 'cursor-not-allowed opacity-50'
-              }
-            `}
-          >
-            <img
-              src="/icons/reclutar.png"
-              alt="Declarar Campaña Militar"
-              title="Declarar Campaña Militar"
-              className="w-16 h-16"
-            />
-          </button>
-        ) : (
-          <div className="space-y-2">
-            <div className="bg-red-100 border-2 border-red-600 rounded px-3 py-3 text-center">
-              <div className="text-red-800 font-bold text-sm mb-1">
-                🎯 Campaña Declarada
-              </div>
-              <div className="text-xs text-red-700">
-                Año {existingCampaign.year} - Turno {existingCampaign.turnDeclared}
-              </div>
-            </div>
-            <button
-              onClick={handleCancelCampaign}
-              className="w-full py-2 px-4 rounded font-semibold text-xs
-                bg-gray-600 hover:bg-gray-700 text-white
-                transition-colors duration-200"
-            >
-              Cancelar Campaña
-            </button>
-          </div>
-        )}
+        <button
+          onClick={handleOpenCampaignModal}
+          disabled={!campaignCheck.isValid}
+          className={`
+            w-full flex justify-center items-center
+            transition-opacity duration-200
+            ${
+              campaignCheck.isValid
+                ? 'cursor-pointer opacity-100 hover:opacity-80'
+                : 'cursor-not-allowed opacity-50'
+            }
+          `}
+        >
+          <img
+            src="/icons/reclutar.png"
+            alt="Planificar Campaña Militar"
+            title="Planificar Campaña Militar"
+            className="w-16 h-16"
+          />
+        </button>
       </div>
 
       {/* Información adicional */}

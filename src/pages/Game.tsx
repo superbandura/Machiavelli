@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { doc, getDoc, getDocs, collection, query, where, onSnapshot, addDoc, updateDoc, Timestamp, orderBy } from 'firebase/firestore'
-import type { DiplomaticMessage } from '@/types/game'
+import type { DiplomaticMessage, MilitaryCampaign } from '@/types/game'
 import { getFunctions, httpsCallable } from 'firebase/functions'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/store/authStore'
@@ -25,6 +25,8 @@ import HeaderTreasuryInfo from '@/components/HeaderTreasuryInfo'
 import { CollapsibleSection } from '@/components/CollapsibleSection'
 import MilitaryCampaignPanel from '@/components/MilitaryCampaignPanel'
 import MapsPanel, { MapFilter } from '@/components/MapsPanel'
+import CampaignManagementModal from '@/components/CampaignManagementModal'
+import CampaignsPanel from '@/components/CampaignsPanel'
 
 export default function Game() {
   const { gameId } = useParams<{ gameId: string }>()
@@ -38,12 +40,19 @@ export default function Game() {
   const [players, setPlayers] = useState<Player[]>([])
   const [factions, setFactions] = useState<FactionDocument[]>([])
   const [messages, setMessages] = useState<(DiplomaticMessage & { id: string })[]>([])
+  const [campaigns, setCampaigns] = useState<MilitaryCampaign[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   // Estado del mapa
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null)
   const [mapFilter, setMapFilter] = useState<MapFilter>(null)
+
+  // Estado del modal de campaña
+  const [campaignModalData, setCampaignModalData] = useState<{
+    province: string
+    campaign?: MilitaryCampaign
+  } | null>(null)
 
   // Manejador de cambio de filtro que deselecciona provincia
   const handleFilterChange = (filter: MapFilter) => {
@@ -187,6 +196,31 @@ export default function Game() {
       console.log(`[Game] Mensajes actualizados: ${messagesData.length} totales`)
 
       setMessages(messagesData)
+    })
+
+    return () => unsubscribe()
+  }, [gameId])
+
+  // Suscribirse a campañas activas
+  useEffect(() => {
+    if (!gameId) return
+
+    const campaignsQuery = query(
+      collection(db, 'campaigns'),
+      where('gameId', '==', gameId),
+      where('status', 'in', ['planning', 'active'])
+    )
+
+    const unsubscribe = onSnapshot(campaignsQuery, (snapshot) => {
+      const campaignsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as MilitaryCampaign[]
+
+      console.log(`[Game] Campañas actualizadas: ${campaignsData.length} totales`)
+      console.log('[Game] Campañas completas:', campaignsData)
+
+      setCampaigns(campaignsData)
     })
 
     return () => unsubscribe()
@@ -556,7 +590,11 @@ export default function Game() {
               currentPlayer={player}
               controlledProvinces={myControlledProvinces}
               provinceFaction={provinceFaction}
+              campaigns={campaigns}
               onUnitClick={(unit) => setUnitManagementModalUnit(unit)}
+              onCampaignClick={(campaign) =>
+                setCampaignModalData({ province: campaign.targetProvince, campaign })
+              }
             />
           </div>
 
@@ -566,6 +604,12 @@ export default function Game() {
             if (!selectedProvince || !player || !game.map) return null
             if (game.currentPhase !== 'diplomatic' || game.currentSeason !== 'spring') return null
             if (provinceFaction[selectedProvince] === player.faction) return null
+
+            // Verificar si ya existe una campaña activa sobre esta provincia
+            const hasActiveCampaign = campaigns.some(
+              c => c.targetProvince === selectedProvince && (c.status === 'planning' || c.status === 'active')
+            )
+            if (hasActiveCampaign) return null
 
             // Verificar si es objetivo válido ANTES de renderizar
             const campaignCheck = isCampaignTarget(
@@ -588,6 +632,9 @@ export default function Game() {
                   currentPlayer={player}
                   units={units}
                   provinceFaction={provinceFaction}
+                  onOpenCampaignModal={(provinceId) =>
+                    setCampaignModalData({ province: provinceId })
+                  }
                 />
               </div>
             )
@@ -609,6 +656,7 @@ export default function Game() {
               mapFilter={mapFilter}
               player={player}
               units={visibleUnits}
+              campaigns={campaigns}
             />
           </div>
 
@@ -748,6 +796,25 @@ export default function Game() {
             </div>
           </CollapsibleSection>
 
+          {/* Sección: Campañas */}
+          <CollapsibleSection
+            title="Campañas"
+            icon="/icons/campañas.png"
+            defaultExpanded={false}
+          >
+            <CampaignsPanel
+              campaigns={campaigns}
+              game={game}
+              player={player}
+              onSelectCampaign={(campaign) =>
+                setCampaignModalData({
+                  province: campaign.targetProvince,
+                  campaign
+                })
+              }
+            />
+          </CollapsibleSection>
+
           {/* Sección: Mapas */}
           <CollapsibleSection
             title="Mapas"
@@ -809,6 +876,20 @@ export default function Game() {
           currentPlayer={player}
           allUnits={units}
           onClose={() => setUnitManagementModalUnit(null)}
+        />
+      )}
+
+      {/* Modal de gestión de campaña */}
+      {campaignModalData && player && game && (
+        <CampaignManagementModal
+          targetProvince={campaignModalData.province}
+          existingCampaign={campaignModalData.campaign}
+          game={game}
+          player={player}
+          units={units}
+          provinceFaction={provinceFaction}
+          campaigns={campaigns}
+          onClose={() => setCampaignModalData(null)}
         />
       )}
     </div>

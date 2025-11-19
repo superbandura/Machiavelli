@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Unit, Player, Game, Order } from '@/types'
+import { Unit, Player, Game, Order, MilitaryCampaign } from '@/types'
 import { UnitIconWithLabel } from './UnitIcon'
 import { getProvinceInfo } from '@/utils/gameMapHelpers'
 import UnitCompositionTooltip from './UnitCompositionTooltip'
@@ -8,6 +8,8 @@ import { UNIT_CREATION_COSTS } from '@/data/recruitmentCosts'
 import OrdersModal from './OrdersModal'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import { FACTIONS } from '@/data/factions'
+import { getCampaignStatusLabel, getCampaignStatusColor } from '@/utils/campaignHelpers'
 
 interface ProvinceInfoPanelProps {
   game: Game
@@ -17,7 +19,9 @@ interface ProvinceInfoPanelProps {
   currentPlayer: Player | null
   controlledProvinces: string[]
   provinceFaction?: Record<string, string>
+  campaigns?: MilitaryCampaign[]
   onUnitClick?: (unit: Unit) => void
+  onCampaignClick?: (campaign: MilitaryCampaign) => void
 }
 
 export default function ProvinceInfoPanel({
@@ -28,7 +32,9 @@ export default function ProvinceInfoPanel({
   currentPlayer,
   controlledProvinces,
   provinceFaction = {},
-  onUnitClick
+  campaigns = [],
+  onUnitClick,
+  onCampaignClick
 }: ProvinceInfoPanelProps) {
   const [creatingUnit, setCreatingUnit] = useState(false)
   const [unitName, setUnitName] = useState('')
@@ -82,6 +88,14 @@ export default function ProvinceInfoPanel({
   const otherUnits = unitsInProvince.filter(u => u.owner !== currentPlayer?.id)
   const isControlled = controlledProvinces.includes(provinceId)
   const controller = provinceFaction[provinceId]
+
+  // Helper para detectar si una unidad está asignada a una campaña
+  const getUnitCampaign = (unitId: string): MilitaryCampaign | null => {
+    return campaigns.find(c =>
+      c.participatingUnits.includes(unitId) &&
+      (c.status === 'planning' || c.status === 'active')
+    ) || null
+  }
 
   // Helper para convertir nombre de facción a nombre de archivo
   const getFactionImageName = (factionName: string): string => {
@@ -279,6 +293,8 @@ export default function ProvinceInfoPanel({
             <div className="space-y-2">
               {myUnits.map(unit => {
                 const unitOrder = unitsOrders[unit.id]
+                const unitCampaign = getUnitCampaign(unit.id)
+
                 const getOrderText = () => {
                   if (!unitOrder) return 'Sin órdenes'
                   const actionLabels: Record<string, string> = {
@@ -296,47 +312,100 @@ export default function ProvinceInfoPanel({
                 const hasEmbarkedTroops = unit.type === 'fleet' && unit.embarkedTroops &&
                   Object.values(unit.embarkedTroops.troops).some(count => (count || 0) > 0)
 
+                // Si está en campaña, obtener info de la provincia destino
+                const targetProvinceInfo = unitCampaign ? getProvinceInfo(game.map, unitCampaign.targetProvince) : null
+                // Si la provincia no tiene controlador, usar 'neutral' por defecto
+                const targetFactionId = unitCampaign
+                  ? (provinceFaction[unitCampaign.targetProvince] || 'neutral')
+                  : null
+
                 return (
                   <div
                     key={unit.id}
                     className="flex items-center gap-2 ml-2 p-2 rounded hover:bg-[#c4b491] transition-colors"
                   >
                     <div
-                      onClick={() => onUnitClick?.(unit)}
-                      className="flex items-center gap-2 flex-1 cursor-pointer"
+                      onClick={() => {
+                        if (!unitCampaign) {
+                          onUnitClick?.(unit)
+                        }
+                      }}
+                      className={`flex items-center gap-2 flex-1 ${unitCampaign ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                     >
                       {unit.composition ? (
                         <UnitCompositionTooltip
                           composition={unit.composition}
                           embarkedTroops={unit.embarkedTroops?.troops}
                         >
-                          <div className="flex items-center gap-2">
+                          <div className={`flex items-center gap-2 ${unitCampaign ? 'opacity-50' : ''}`}>
                             <UnitIconWithLabel
                               type={unit.type}
                               size="sm"
                               showLabel={false}
                               hasEmbarkedTroops={hasEmbarkedTroops}
                             />
-                            {unit.name && (
-                              <span className="text-sm font-medium text-black">
-                                {unit.name}
-                              </span>
-                            )}
+                            <div className="flex flex-col">
+                              {unit.name && (
+                                <span className="text-sm font-medium text-black">
+                                  {unit.name}
+                                </span>
+                              )}
+                              {/* Indicador de campaña */}
+                              {unitCampaign && targetProvinceInfo && (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-red-600 font-bold text-xs">→</span>
+                                  {targetFactionId && (
+                                    <img
+                                      src={`/factions/${getFactionImageName(targetFactionId)}.png`}
+                                      alt={targetFactionId}
+                                      className="w-3 h-3 object-contain"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none'
+                                      }}
+                                    />
+                                  )}
+                                  <span className="text-xs text-[#8b7355] font-medium">
+                                    {targetProvinceInfo.name}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </UnitCompositionTooltip>
                       ) : (
-                        <div className="flex items-center gap-2">
+                        <div className={`flex items-center gap-2 ${unitCampaign ? 'opacity-50' : ''}`}>
                           <UnitIconWithLabel
                             type={unit.type}
                             size="sm"
                             showLabel={false}
                             hasEmbarkedTroops={hasEmbarkedTroops}
                           />
-                          {unit.name && (
-                            <span className="text-sm font-medium text-black">
-                              {unit.name}
-                            </span>
-                          )}
+                          <div className="flex flex-col">
+                            {unit.name && (
+                              <span className="text-sm font-medium text-black">
+                                {unit.name}
+                              </span>
+                            )}
+                            {/* Indicador de campaña */}
+                            {unitCampaign && targetProvinceInfo && (
+                              <div className="flex items-center gap-1">
+                                <span className="text-red-600 font-bold text-xs">→</span>
+                                {targetFactionId && (
+                                  <img
+                                    src={`/factions/${getFactionImageName(targetFactionId)}.png`}
+                                    alt={targetFactionId}
+                                    className="w-3 h-3 object-contain"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none'
+                                    }}
+                                  />
+                                )}
+                                <span className="text-xs text-[#8b7355] font-medium">
+                                  {targetProvinceInfo.name}
+                                </span>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                       {unit.status === 'besieged' && (
@@ -459,6 +528,109 @@ export default function ProvinceInfoPanel({
             <div className="flex items-center gap-2 text-green-400 text-xs">
               <span>✓</span>
               <span>Territorio controlado (tienes visibilidad)</span>
+            </div>
+          </div>
+        )}
+
+        {/* Campañas activas sobre esta provincia */}
+        {provinceId && campaigns.filter(c => c.targetProvince === provinceId).length > 0 && (
+          <div className="mt-3 pt-3 border-t border-[#b4a481]">
+            <div className="flex items-center gap-2 mb-2">
+              <img
+                src="/icons/campañas.png"
+                alt="Campañas"
+                className="w-5 h-5 object-contain opacity-80"
+              />
+              <h4 className="font-heading font-semibold text-sm text-[#2d1810]">
+                Campañas Activas
+              </h4>
+            </div>
+            <div className="space-y-2">
+              {campaigns
+                .filter(c => c.targetProvince === provinceId)
+                .map(campaign => {
+                  const targetProvinceInfo = game.map
+                    ? getProvinceInfo(game.map, campaign.targetProvince)
+                    : null
+                  const attackerFaction = FACTIONS[campaign.declaredByFaction]
+                  const isOwn = campaign.declaredBy === currentPlayer?.userId
+
+                  // Obtener facción defensora
+                  const defenderFactionName = game.map?.provinces[campaign.targetProvince]?.controlledBy || 'neutral'
+                  const defenderFaction = FACTIONS[defenderFactionName]
+
+                  return (
+                    <div
+                      key={campaign.id}
+                      onClick={() => onCampaignClick?.(campaign)}
+                      className={`bg-[#d4c4a1] border rounded p-2 cursor-pointer transition-all hover:shadow-md ${
+                        isOwn
+                          ? 'border-renaissance-gold hover:bg-[#c4b49a]'
+                          : 'border-[#b4a481] hover:border-[#8b7355]'
+                      }`}
+                    >
+                      {/* Header compacto con emblemas y objetivo */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          {/* Emblema del atacante */}
+                          <img
+                            src={`/factions/${campaign.declaredByFaction.toLowerCase()}.png`}
+                            alt={attackerFaction?.name || campaign.declaredByFaction}
+                            title={`Atacante: ${attackerFaction?.name || campaign.declaredByFaction}`}
+                            className="w-5 h-5 object-contain"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none'
+                              const parent = e.currentTarget.parentElement
+                              if (parent && !parent.querySelector('.fallback-emblem-attacker')) {
+                                const fallback = document.createElement('div')
+                                fallback.className = 'fallback-emblem-attacker w-4 h-4 rounded-full border border-[#4a3f2a]'
+                                fallback.style.backgroundColor = attackerFaction?.color || '#9ca3af'
+                                fallback.title = attackerFaction?.name || 'Desconocido'
+                                parent.insertBefore(fallback, e.currentTarget)
+                              }
+                            }}
+                          />
+
+                          {/* Flecha */}
+                          <span className="text-red-600 text-sm font-bold">→</span>
+
+                          {/* Emblema del defensor */}
+                          <img
+                            src={`/factions/${defenderFactionName.toLowerCase()}.png`}
+                            alt={defenderFaction?.name || defenderFactionName}
+                            title={`Defensor: ${defenderFaction?.name || defenderFactionName}`}
+                            className="w-5 h-5 object-contain"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none'
+                              const parent = e.currentTarget.parentElement
+                              if (parent && !parent.querySelector('.fallback-emblem-defender')) {
+                                const fallback = document.createElement('div')
+                                fallback.className = 'fallback-emblem-defender w-4 h-4 rounded-full border border-[#4a3f2a]'
+                                fallback.style.backgroundColor = defenderFaction?.color || '#9ca3af'
+                                fallback.title = defenderFaction?.name || 'Desconocido'
+                                parent.insertBefore(fallback, e.currentTarget)
+                              }
+                            }}
+                          />
+
+                          <span className="text-xs font-heading font-semibold text-[#2d1810] truncate">
+                            {targetProvinceInfo?.name || campaign.targetProvince}
+                          </span>
+                        </div>
+
+                        {/* Indicadores */}
+                        <div className="flex items-center gap-1">
+                          {campaign.route && (
+                            <img src="/icons/puerto_mini.png" alt="Anfibia" className="w-3 h-3 object-contain" title="Campaña Anfibia" />
+                          )}
+                          {isOwn && (
+                            <span className="text-xs text-renaissance-gold">★</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
             </div>
           </div>
         )}
