@@ -69,7 +69,7 @@ export async function updateGameState(context: ResolutionContext): Promise<void>
 
     const currentFamineProvinces = gameData.famineProvinces || [];
     const updatedFamineProvinces = currentFamineProvinces.filter(
-      (p: string) => !context.famineMitigated.includes(p)
+      (p: string) => !context.famineMitigated!.includes(p)
     );
 
     gameUpdate.famineProvinces = updatedFamineProvinces;
