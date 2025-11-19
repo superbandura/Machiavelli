@@ -9,9 +9,20 @@ import type { MapFilter } from './MapsPanel'
 import { isCampaignTarget, getProvinceIncome, getProvinceInfo } from '@/utils/gameMapHelpers'
 import { FACTIONS } from '@/data/factions'
 
-// Helper: Obtener color según ingresos (degradado rojo→amarillo→verde)
-// Más pobres (0-2) → rojo oscuro/negro
-// Más ricas (6+) → verde oscuro
+/**
+ * Obtiene el color del mapa según los ingresos de una provincia
+ *
+ * Degradado de colores:
+ * - 0 ducados: Negro
+ * - 1-2 ducados: Rojo oscuro/claro
+ * - 3 ducados: Naranja
+ * - 4 ducados: Amarillo-verde
+ * - 5 ducados: Verde
+ * - 6+ ducados: Verde oscuro
+ *
+ * @param income - Ingresos de la provincia en ducados
+ * @returns Color hexadecimal para el fill del SVG
+ */
 function getIncomeColor(income: number): string {
   if (income === 0) return '#000000' // Negro para 0 ducados
   if (income === 1) return '#dc2626' // Rojo oscuro para 1 ducado
@@ -25,22 +36,59 @@ function getIncomeColor(income: number): string {
   return '#ef4444'
 }
 
+/**
+ * Props para el componente GameBoard
+ */
 interface GameBoardProps {
+  /** Callback cuando se hace click en una provincia */
   onProvinceClick?: (provinceId: string) => void
+  /** ID de la provincia actualmente seleccionada */
   selectedProvince?: string | null
-  famineProvinces?: string[] // Provincias con marcador de hambre
-  provinceFaction?: Record<string, string> // Map de provinceId → factionId (para colorear provincias)
-  factions?: FactionDocument[] // Optional: dynamic factions from Firestore
-  adjacencyEditMode?: boolean // Modo de edición de adyacencias
-  highlightedAdjacencies?: string[] // Provincias adyacentes a resaltar
-  onAdjacencyToggle?: (provinceId: string) => void // Callback para añadir/quitar adyacencia
-  gameMap?: GameMap // Mapa del juego con información de provincias
-  mapFilter?: MapFilter // Filtro de mapa activo
-  player?: Player // Jugador actual (para filtro de campañas)
-  units?: Unit[] // Unidades del juego (para filtro de campañas)
-  campaigns?: MilitaryCampaign[] // Campañas activas (para filtro y tooltip)
+  /** IDs de provincias con marcador de hambruna */
+  famineProvinces?: string[]
+  /** Mapa de provinceId → factionId para colorear provincias según control */
+  provinceFaction?: Record<string, string>
+  /** Facciones dinámicas de Firestore (para obtener colores) */
+  factions?: FactionDocument[]
+  /** Activa modo de edición de adyacencias (para editor de escenarios) */
+  adjacencyEditMode?: boolean
+  /** Provincias adyacentes a resaltar en modo edición */
+  highlightedAdjacencies?: string[]
+  /** Callback para añadir/quitar adyacencia en modo edición */
+  onAdjacencyToggle?: (provinceId: string) => void
+  /** Mapa del juego con información de provincias y adyacencias */
+  gameMap?: GameMap
+  /** Filtro de mapa activo (factions, income, campaign-targets, etc.) */
+  mapFilter?: MapFilter
+  /** Jugador actual (para filtro de campañas) */
+  player?: Player
+  /** Unidades del juego (para validar campañas) */
+  units?: Unit[]
+  /** Campañas activas (para filtro y tooltip) */
+  campaigns?: MilitaryCampaign[]
 }
 
+/**
+ * Componente principal del tablero de juego
+ *
+ * Renderiza el mapa SVG de Italia con:
+ * - Zoom, pan y pinch (via react-zoom-pan-pinch)
+ * - Coloreo dinámico de provincias según filtro activo
+ * - Tooltips de ingresos y campañas
+ * - Marcadores de hambruna
+ * - Modo de edición de adyacencias (para editor)
+ * - Resaltado de provincias objetivo de campañas
+ *
+ * @component
+ * @example
+ * <GameBoard
+ *   gameMap={game.map}
+ *   provinceFaction={provinceFactionMap}
+ *   onProvinceClick={handleProvinceClick}
+ *   mapFilter="income"
+ *   campaigns={activeCampaigns}
+ * />
+ */
 export default function GameBoard({
   onProvinceClick,
   selectedProvince,

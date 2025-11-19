@@ -858,11 +858,15 @@ export async function disembarkTroops(
       const embarkedTroops = { ...fleet.embarkedTroops.troops }
 
       for (const [troopType, count] of Object.entries(troopsToDisembark)) {
-        const available = embarkedTroops[troopType as import('@/types/scenario').ArmyTroopType] || 0
+        const troopKey = troopType as import('@/types/scenario').ArmyTroopType
+        const available = embarkedTroops[troopKey] || 0
         if ((count || 0) > available) {
           throw new Error(`Tropas embarcadas insuficientes de tipo ${troopType}`)
         }
-        embarkedTroops[troopType as import('@/types/scenario').ArmyTroopType] -= (count || 0)
+        const currentValue = embarkedTroops[troopKey]
+        if (currentValue !== undefined) {
+          embarkedTroops[troopKey] = currentValue - (count || 0)
+        }
       }
 
       // Verificar si quedan tropas embarcadas
@@ -901,7 +905,7 @@ export async function disembarkTroops(
             if (totalRemainingEmbarked > 0) {
               fleetUpdate.embarkedTroops = {
                 troops: embarkedTroops,
-                sourceUnitId: fleet.embarkedTroops.sourceUnitId
+                sourceUnitId: fleet.embarkedTroops?.sourceUnitId
               }
             } else {
               delete fleetUpdate.embarkedTroops
@@ -952,7 +956,7 @@ export async function disembarkTroops(
               if (totalRemainingEmbarked > 0) {
                 fleetUpdate.embarkedTroops = {
                   troops: embarkedTroops,
-                  sourceUnitId: fleet.embarkedTroops.sourceUnitId
+                  sourceUnitId: fleet.embarkedTroops?.sourceUnitId
                 }
               } else {
                 delete fleetUpdate.embarkedTroops

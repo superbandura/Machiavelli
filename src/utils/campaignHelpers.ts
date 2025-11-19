@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore'
+import { collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import type { MilitaryCampaign, Unit, ArmyComposition, FleetComposition } from '@/types'
 
@@ -29,7 +29,7 @@ export async function getCampaignsForGame(gameId: string): Promise<MilitaryCampa
  */
 export function validateCampaignUnits(
   units: Unit[],
-  targetProvince: string,
+  _targetProvince: string,
   hasMaritimeRoute: boolean
 ): { isValid: boolean; error?: string } {
   if (units.length === 0) {
@@ -64,30 +64,35 @@ export function calculateCampaignStrength(units: Unit[]): number {
     if (unit.type === 'army' && unit.composition) {
       const armyComp = unit.composition as ArmyComposition
 
-      // Infantería: 1 punto cada una
-      totalStrength += (armyComp.spearmen || 0) * 1
-      totalStrength += (armyComp.crossbowmen || 0) * 1
-      totalStrength += (armyComp.arquebusiers || 0) * 1
+      // Valores de fuerza por tipo de tropa
+      const troopStrength: Record<string, number> = {
+        militia: 1,
+        lancers: 1,
+        pikemen: 1,
+        archers: 1,
+        crossbowmen: 1,
+        lightCavalry: 2,
+        heavyCavalry: 2
+      }
 
-      // Caballería: 2 puntos cada una
-      totalStrength += (armyComp.lightCavalry || 0) * 2
-      totalStrength += (armyComp.heavyCavalry || 0) * 2
-
-      // Artillería: 3 puntos cada una
-      totalStrength += (armyComp.cannons || 0) * 3
+      // Sumar fuerza de todas las tropas
+      for (const [troopType, count] of Object.entries(armyComp.troops)) {
+        totalStrength += (count || 0) * (troopStrength[troopType] || 1)
+      }
     }
 
     if (unit.type === 'fleet' && unit.composition) {
       const fleetComp = unit.composition as FleetComposition
 
       // Naves: 2 puntos cada una
-      totalStrength += (fleetComp.galleys || 0) * 2
-      totalStrength += (fleetComp.carracks || 0) * 2
+      for (const count of Object.values(fleetComp.ships)) {
+        totalStrength += (count || 0) * 2
+      }
 
       // Tropas embarcadas: 1 punto cada una
       if (unit.embarkedTroops?.troops) {
         const embarked = unit.embarkedTroops.troops
-        totalStrength += Object.values(embarked).reduce((sum, count) => sum + (count || 0), 0)
+        totalStrength += Object.values(embarked).reduce((sum: number, count) => sum + (count || 0), 0)
       }
     }
   }
@@ -118,15 +123,15 @@ export function getUnitCompositionSummary(unit: Unit): string {
 
   if (unit.type === 'army') {
     const comp = unit.composition as ArmyComposition
-    const total = Object.values(comp.troops || {}).reduce((sum, count) => sum + (count || 0), 0)
+    const total = Object.values(comp.troops || {}).reduce((sum: number, count) => sum + (count || 0), 0)
     return `${total} tropas`
   }
 
   if (unit.type === 'fleet') {
     const comp = unit.composition as FleetComposition
-    const ships = Object.values(comp.ships || {}).reduce((sum, count) => sum + (count || 0), 0)
+    const ships = Object.values(comp.ships || {}).reduce((sum: number, count) => sum + (count || 0), 0)
     const embarked = unit.embarkedTroops?.troops
-      ? Object.values(unit.embarkedTroops.troops).reduce((sum, count) => sum + (count || 0), 0)
+      ? Object.values(unit.embarkedTroops.troops).reduce((sum: number, count) => sum + (count || 0), 0)
       : 0
 
     if (embarked > 0) {
