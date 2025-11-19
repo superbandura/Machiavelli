@@ -1,4 +1,4 @@
-# Checklist de Documentación Pendiente
+ # Checklist de Documentación Pendiente
 
 **Creado:** 2025-01-18
 **Por:** Claude Code (comando `/documenta`)

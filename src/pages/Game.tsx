@@ -147,7 +147,6 @@ export default function Game() {
     const loadFactions = async () => {
       try {
         const loadedFactions = await getAllFactions()
-        console.log('[Game] Facciones cargadas:', loadedFactions.length)
         setFactions(loadedFactions)
       } catch (err) {
         console.error('[Game] Error cargando facciones:', err)
@@ -193,8 +192,6 @@ export default function Game() {
         ...doc.data()
       })) as (DiplomaticMessage & { id: string })[]
 
-      console.log(`[Game] Mensajes actualizados: ${messagesData.length} totales`)
-
       setMessages(messagesData)
     })
 
@@ -216,9 +213,6 @@ export default function Game() {
         id: doc.id,
         ...doc.data()
       })) as MilitaryCampaign[]
-
-      console.log(`[Game] Campañas actualizadas: ${campaignsData.length} totales`)
-      console.log('[Game] Campañas completas:', campaignsData)
 
       setCampaigns(campaignsData)
     })
@@ -712,6 +706,7 @@ export default function Game() {
               currentSeason={game.currentSeason}
               gameMap={game.map || { provinces: {}, adjacencies: {} }}
               provinceFaction={provinceFaction}
+              campaigns={campaigns}
             />
           </CollapsibleSection>
 
@@ -886,6 +881,7 @@ export default function Game() {
           existingCampaign={campaignModalData.campaign}
           game={game}
           player={player}
+          players={players}
           units={units}
           provinceFaction={provinceFaction}
           campaigns={campaigns}

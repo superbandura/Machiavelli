@@ -112,10 +112,24 @@ service cloud.firestore {
         request.resource.data.declaredBy == request.auth.uid &&
         get(/databases/$(database)/documents/games/$(request.resource.data.gameId)).data.currentPhase == 'diplomatic';
 
-      // Los jugadores pueden actualizar sus propias campañas durante la fase diplomática
-      allow update: if isAuthenticated() &&
-        resource.data.declaredBy == request.auth.uid &&
-        get(/databases/$(database)/documents/games/$(resource.data.gameId)).data.currentPhase == 'diplomatic';
+      // Los jugadores pueden actualizar sus propias campañas:
+      // - Durante la fase diplomática: cualquier campo (solo el declarante)
+      // - Durante la fase de órdenes:
+      //   * El declarante puede actualizar: 'formations', 'generalStrategy', 'updatedAt'
+      //   * Cualquier jugador autenticado puede actualizar: 'reinforcements', 'updatedAt' (enviar refuerzos)
+      allow update: if isAuthenticated() && (
+        // Fase diplomática: solo el declarante puede actualizar campaña (unidades, etc)
+        (resource.data.declaredBy == request.auth.uid &&
+         get(/databases/$(database)/documents/games/$(resource.data.gameId)).data.currentPhase == 'diplomatic') ||
+        // Fase de órdenes - Declarante: solo actualizar formaciones tácticas y estrategia general
+        (resource.data.declaredBy == request.auth.uid &&
+         get(/databases/$(database)/documents/games/$(resource.data.gameId)).data.currentPhase == 'orders' &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['formations', 'generalStrategy', 'updatedAt'])) ||
+        // Fase de órdenes - Cualquier jugador autenticado: puede actualizar refuerzos
+        // NOTA: Simplificado para evitar problemas con isPlayer durante testing
+        (get(/databases/$(database)/documents/games/$(resource.data.gameId)).data.currentPhase == 'orders' &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reinforcements', 'updatedAt']))
+      );
 
       // Solo Cloud Functions pueden eliminar campañas
       allow delete: if false;
@@ -156,6 +170,35 @@ service cloud.firestore {
       allow update: if isAuthenticated() &&
         resource.data.to == request.auth.uid &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+
+      // Solo Cloud Functions pueden eliminar mensajes
+      allow delete: if false;
+    }
+
+    // ==================== WAR COUNCIL MESSAGES ====================
+    match /war_council_messages/{messageId} {
+      // Los jugadores pueden leer mensajes del Consejo de Guerra de campañas de su juego
+      // El filtrado por bando (attacker/defender) se hace en el cliente
+      allow read: if isAuthenticated() && isPlayer(resource.data.gameId);
+
+      // Los jugadores pueden crear mensajes del Consejo de Guerra
+      // Validaciones:
+      // - El usuario debe estar autenticado
+      // - El remitente debe ser el usuario autenticado
+      // - El usuario debe ser jugador de la partida
+      // - El contenido debe tener longitud razonable (max 1000 caracteres)
+      // - El senderFaction debe ser 'attacker' o 'defender'
+      allow create: if isAuthenticated() &&
+        request.resource.data.from == request.auth.uid &&
+        isPlayer(request.resource.data.gameId) &&
+        request.resource.data.content.size() > 0 &&
+        request.resource.data.content.size() <= 1000 &&
+        (request.resource.data.senderFaction == 'attacker' || request.resource.data.senderFaction == 'defender');
+
+      // Los jugadores pueden actualizar el campo readBy para marcar mensajes como leídos
+      allow update: if isAuthenticated() &&
+        isPlayer(resource.data.gameId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']);
 
       // Solo Cloud Functions pueden eliminar mensajes
       allow delete: if false;

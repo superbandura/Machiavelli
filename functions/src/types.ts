@@ -191,3 +191,79 @@ export interface ResolutionContext {
   gameState?: any; // Estado del juego durante resolución
   famineMitigated?: string[]; // Provincias donde se mitigó hambruna
 }
+
+// ==================== MILITARY CAMPAIGNS ====================
+/**
+ * Sistema de Campañas Militares
+ *
+ * Las campañas militares permiten:
+ * 1. Declarar ataques coordinados en fase diplomática
+ * 2. Gestionar formaciones tácticas en fase de órdenes
+ * 3. Recibir refuerzos de jugadores neutrales
+ * 4. Resolver batallas tácticas con bonos estratégicos
+ *
+ * NOTA: La resolución de campañas debe combinar:
+ * - Formaciones del atacante (campaign.formations)
+ * - Formaciones del defensor
+ * - Refuerzos del atacante (campaign.reinforcements[] donde side === 'attacker')
+ * - Refuerzos del defensor (campaign.reinforcements[] donde side === 'defender')
+ */
+export type DeploymentZone = 'left' | 'right' | 'center' | 'reserve';
+export type StrategicOrder = 'none' | 'escaramuza' | 'marchar' | 'explorar' | 'cubrirFlancos' | 'mensajeros' | 'forrajear';
+export type TacticalOrder = 'none' | 'mantener' | 'avanzar' | 'cargar';
+
+export interface TacticalFormation {
+  id: string;
+  name: string;
+  troopType: string; // ArmyTroopType
+  faction: string;
+  quantity: number;
+  deploymentZone: DeploymentZone;
+  strategicOrder: StrategicOrder;
+  tacticalOrder: TacticalOrder;
+  createdAt: admin.firestore.Timestamp;
+  updatedAt: admin.firestore.Timestamp;
+}
+
+export interface CampaignAlly {
+  id: string;
+  playerId: string;
+  faction: string;
+  side: 'attacker' | 'defender';
+  unitIds: string[];
+  joinedAt: admin.firestore.Timestamp;
+}
+
+export interface CampaignReinforcement {
+  id: string;
+  playerId: string;
+  faction: string;
+  side: 'attacker' | 'defender';
+  unitIds: string[];
+  formations?: TacticalFormation[];
+  addedAt: admin.firestore.Timestamp;
+}
+
+export interface MilitaryCampaign {
+  id: string;
+  gameId: string;
+  targetProvince: string;
+  declaredBy: string;
+  declaredByFaction: string;
+  turnDeclared: number;
+  year: number;
+  status: 'planning' | 'active' | 'completed';
+  participatingUnits: string[];
+  route?: {
+    path: string[];
+    distance: number;
+    seaZones: string[];
+    estimatedDays: number;
+  };
+  createdAt: admin.firestore.Timestamp;
+  resolvedAt?: admin.firestore.Timestamp;
+  formations?: TacticalFormation[];
+  generalStrategy?: 'conquista' | 'batalla' | 'tanteo' | 'razzia' | 'retirada';
+  allies?: CampaignAlly[]; // Aliados que se unieron en fase diplomática
+  reinforcements?: CampaignReinforcement[]; // Refuerzos que llegaron tarde en fase de órdenes
+}

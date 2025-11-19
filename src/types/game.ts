@@ -190,6 +190,34 @@ export interface ExtraExpense {
 }
 
 // ==================== MILITARY CAMPAIGNS ====================
+/**
+ * Aliado que se une a una campaña durante fase diplomática
+ * Sus tropas participan desde el inicio de la campaña
+ */
+export interface CampaignAlly {
+  id: string // UUID único del aliado
+  playerId: string // ID del jugador aliado
+  faction: string // Facción del jugador
+  side: 'attacker' | 'defender' // Bando al que apoya
+  unitIds: string[] // IDs de unidades asignadas
+  joinedAt: Timestamp // Timestamp de cuando se unió
+}
+
+/**
+ * Refuerzo enviado por un jugador neutral a una campaña militar
+ * Estos refuerzos llegan tarde (durante fase de órdenes)
+ */
+export interface CampaignReinforcement {
+  id: string // UUID único del refuerzo
+  playerId: string // ID del jugador que envía el refuerzo
+  faction: string // Facción del jugador
+  side: 'attacker' | 'defender' // Bando al que refuerza
+  unitIds: string[] // IDs de unidades asignadas como refuerzo
+  formations?: TacticalFormation[] // Formaciones tácticas del refuerzo
+  addedAt: Timestamp // Timestamp de cuando se añadió el refuerzo
+  estimatedArrivalDay?: number // Día del turno en que el refuerzo estará disponible (opcional)
+}
+
 export interface MilitaryCampaign {
   id: string // Document ID de Firestore
   gameId: string // Referencia al juego
@@ -203,6 +231,68 @@ export interface MilitaryCampaign {
   route?: MaritimeRoute // Ruta marítima si es campaña anfibia
   createdAt: Timestamp // Timestamp de creación
   resolvedAt?: Timestamp // Timestamp de resolución (cuando se completa)
+  formations?: TacticalFormation[] // Formaciones tácticas organizadas para la campaña
+  generalStrategy?: GeneralStrategy // Estrategia general de la campaña
+  allies?: CampaignAlly[] // Aliados que se unieron en fase diplomática (participan desde inicio)
+  reinforcements?: CampaignReinforcement[] // Refuerzos que se unieron en fase de órdenes (llegan tarde)
+}
+
+// ==================== CAMPAIGN STRATEGY ====================
+/**
+ * Estrategia general de la campaña militar
+ * - conquista: Objetivo principal es capturar territorio
+ * - batalla: Buscar batalla decisiva con el enemigo
+ * - tanteo: Operaciones de reconocimiento limitadas
+ * - razzia: Incursiones rápidas de saqueo
+ * - retirada: Repliegue ordenado
+ */
+export type GeneralStrategy = 'conquista' | 'batalla' | 'tanteo' | 'razzia' | 'retirada'
+
+// ==================== TACTICAL FORMATIONS ====================
+/**
+ * Zona de despliegue en el campo de batalla
+ */
+export type DeploymentZone = 'left' | 'right' | 'center' | 'reserve'
+
+/**
+ * Órdenes estratégicas para formaciones
+ * - none: Sin orden estratégica
+ * - escaramuza: Táctica de hostigamiento (infantería y arqueros)
+ * - marchar: Movimiento rápido (todos)
+ * - explorar: Reconocimiento del terreno (caballería ligera)
+ * - cubrirFlancos: Protección de flancos (caballería ligera)
+ * - mensajeros: Comunicaciones y enlaces (caballería ligera)
+ * - forrajear: Búsqueda de suministros (infantería y arqueros)
+ */
+export type StrategicOrder = 'none' | 'escaramuza' | 'marchar' | 'explorar' | 'cubrirFlancos' | 'mensajeros' | 'forrajear'
+
+/**
+ * Órdenes tácticas para formaciones en batalla
+ * - none: Sin orden táctica específica
+ * - mantener: Mantener posición defensiva (milicia, lanceros, piqueros)
+ * - avanzar: Avance controlado (milicia, lanceros, piqueros)
+ * - cargar: Carga al enemigo (milicia, lanceros, piqueros)
+ */
+export type TacticalOrder = 'none' | 'mantener' | 'avanzar' | 'cargar'
+
+/**
+ * Formación táctica: agrupación de tropas del mismo tipo y facción
+ * con asignación de órdenes y zona de despliegue
+ */
+export interface TacticalFormation {
+  id: string // UUID único de la formación
+  name: string // Nombre de la formación (ej: "1ª de piqueros de Génova")
+  troopType: import('@/types/scenario').ArmyTroopType // Tipo de tropa ('pikemen', 'militia', etc.)
+  faction: string // Facción de las tropas (ej: 'genova', 'venice')
+  quantity: number // Cantidad de tropas asignadas a esta formación
+  deploymentZone: DeploymentZone // Zona de batalla donde se desplegará
+  strategicOrder: StrategicOrder // Orden estratégica asignada
+  tacticalOrder: TacticalOrder // Orden táctica para la batalla
+  createdAt: Timestamp // Timestamp de creación
+  updatedAt: Timestamp // Timestamp de última actualización
+  isReinforcement?: boolean // Indica si esta formación fue creada a partir de tropas de refuerzo
+  reinforcementId?: string // ID del refuerzo del que proviene (si isReinforcement es true)
+  estimatedArrivalDay?: number // Día estimado de llegada (heredado del refuerzo, si aplica)
 }
 
 // ==================== DIPLOMATIC MESSAGES ====================
@@ -216,6 +306,22 @@ export interface DiplomaticMessage {
   phase: 'diplomatic'
   sentAt: Timestamp
   isRead: boolean
+}
+
+// ==================== WAR COUNCIL MESSAGES ====================
+/**
+ * Mensajes del Consejo de Guerra
+ * Chat privado para facciones del mismo bando en una campaña militar
+ */
+export interface WarCouncilMessage {
+  id: string
+  gameId: string // ID de la partida
+  campaignId: string // ID de la campaña militar
+  from: string // userId del remitente (Firebase Auth UID)
+  senderFaction: 'attacker' | 'defender' // Bando del emisor
+  content: string
+  sentAt: Timestamp
+  readBy: string[] // Array de userIds que han leído el mensaje
 }
 
 // ==================== TURN HISTORY ====================

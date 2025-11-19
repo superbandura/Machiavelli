@@ -83,7 +83,20 @@ export default function ProvinceInfoPanel({
 
   const provinceInfo = getProvinceInfo(game.map, provinceId)
   const unitsInProvince = visibleUnits.filter(u => u.currentPosition === provinceId)
-  const myUnits = unitsInProvince.filter(u => u.owner === currentPlayer?.id)
+
+  // Helper para verificar si una unidad está en campaña o enviada como refuerzo
+  const isUnitInCampaign = (unitId: string): boolean => {
+    return campaigns.some(c =>
+      (c.status === 'planning' || c.status === 'active') &&
+      (c.participatingUnits.includes(unitId) ||
+       c.allies?.some(a => a.unitIds.includes(unitId)) ||
+       c.reinforcements?.some(r => r.unitIds.includes(unitId)))
+    )
+  }
+
+  const myUnits = unitsInProvince.filter(u =>
+    u.owner === currentPlayer?.id && !isUnitInCampaign(u.id)
+  )
   const otherUnits = unitsInProvince.filter(u => u.owner !== currentPlayer?.id)
   const isControlled = controlledProvinces.includes(provinceId)
   const controller = provinceFaction[provinceId]
@@ -571,46 +584,82 @@ export default function ProvinceInfoPanel({
                       {/* Header compacto con emblemas y objetivo */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
-                          {/* Emblema del atacante */}
-                          <img
-                            src={`/factions/${campaign.declaredByFaction.toLowerCase()}.png`}
-                            alt={attackerFaction?.name || campaign.declaredByFaction}
-                            title={`Atacante: ${attackerFaction?.name || campaign.declaredByFaction}`}
-                            className="w-5 h-5 object-contain"
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none'
-                              const parent = e.currentTarget.parentElement
-                              if (parent && !parent.querySelector('.fallback-emblem-attacker')) {
-                                const fallback = document.createElement('div')
-                                fallback.className = 'fallback-emblem-attacker w-4 h-4 rounded-full border border-[#4a3f2a]'
-                                fallback.style.backgroundColor = attackerFaction?.color || '#9ca3af'
-                                fallback.title = attackerFaction?.name || 'Desconocido'
-                                parent.insertBefore(fallback, e.currentTarget)
-                              }
-                            }}
-                          />
+                          {/* EQUIPO ATACANTE */}
+                          <div className="flex items-center gap-0.5">
+                            {/* Emblema del atacante principal */}
+                            <img
+                              src={`/factions/${campaign.declaredByFaction.toLowerCase()}.png`}
+                              alt={attackerFaction?.name || campaign.declaredByFaction}
+                              title={`Atacante: ${attackerFaction?.name || campaign.declaredByFaction}`}
+                              className="w-5 h-5 object-contain"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none'
+                                const parent = e.currentTarget.parentElement
+                                if (parent && !parent.querySelector('.fallback-emblem-attacker')) {
+                                  const fallback = document.createElement('div')
+                                  fallback.className = 'fallback-emblem-attacker w-4 h-4 rounded-full border border-[#4a3f2a]'
+                                  fallback.style.backgroundColor = attackerFaction?.color || '#9ca3af'
+                                  fallback.title = attackerFaction?.name || 'Desconocido'
+                                  parent.insertBefore(fallback, e.currentTarget)
+                                }
+                              }}
+                            />
 
-                          {/* Flecha */}
-                          <span className="text-red-600 text-sm font-bold">→</span>
+                            {/* Aliados atacantes */}
+                            {campaign.allies?.filter(a => a.side === 'attacker').map(ally => (
+                              <img
+                                key={ally.id}
+                                src={`/factions/${ally.faction.toLowerCase()}.png`}
+                                alt={ally.faction}
+                                title={`Aliado atacante: ${ally.faction}`}
+                                className="w-5 h-5 object-contain"
+                                onError={(e) => {
+                                  const target = e.currentTarget
+                                  target.style.display = 'none'
+                                }}
+                              />
+                            ))}
+                          </div>
 
-                          {/* Emblema del defensor */}
-                          <img
-                            src={`/factions/${defenderFactionName.toLowerCase()}.png`}
-                            alt={defenderFaction?.name || defenderFactionName}
-                            title={`Defensor: ${defenderFaction?.name || defenderFactionName}`}
-                            className="w-5 h-5 object-contain"
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none'
-                              const parent = e.currentTarget.parentElement
-                              if (parent && !parent.querySelector('.fallback-emblem-defender')) {
-                                const fallback = document.createElement('div')
-                                fallback.className = 'fallback-emblem-defender w-4 h-4 rounded-full border border-[#4a3f2a]'
-                                fallback.style.backgroundColor = defenderFaction?.color || '#9ca3af'
-                                fallback.title = defenderFaction?.name || 'Desconocido'
-                                parent.insertBefore(fallback, e.currentTarget)
-                              }
-                            }}
-                          />
+                          {/* FLECHA SEPARADORA */}
+                          <span className="text-red-600 text-sm font-bold mx-1">→</span>
+
+                          {/* EQUIPO DEFENSOR */}
+                          <div className="flex items-center gap-0.5">
+                            {/* Emblema del defensor principal */}
+                            <img
+                              src={`/factions/${defenderFactionName.toLowerCase()}.png`}
+                              alt={defenderFaction?.name || defenderFactionName}
+                              title={`Defensor: ${defenderFaction?.name || defenderFactionName}`}
+                              className="w-5 h-5 object-contain"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none'
+                                const parent = e.currentTarget.parentElement
+                                if (parent && !parent.querySelector('.fallback-emblem-defender')) {
+                                  const fallback = document.createElement('div')
+                                  fallback.className = 'fallback-emblem-defender w-4 h-4 rounded-full border border-[#4a3f2a]'
+                                  fallback.style.backgroundColor = defenderFaction?.color || '#9ca3af'
+                                  fallback.title = defenderFaction?.name || 'Desconocido'
+                                  parent.insertBefore(fallback, e.currentTarget)
+                                }
+                              }}
+                            />
+
+                            {/* Aliados defensores */}
+                            {campaign.allies?.filter(a => a.side === 'defender').map(ally => (
+                              <img
+                                key={ally.id}
+                                src={`/factions/${ally.faction.toLowerCase()}.png`}
+                                alt={ally.faction}
+                                title={`Aliado defensor: ${ally.faction}`}
+                                className="w-5 h-5 object-contain"
+                                onError={(e) => {
+                                  const target = e.currentTarget
+                                  target.style.display = 'none'
+                                }}
+                              />
+                            ))}
+                          </div>
 
                           <span className="text-xs font-heading font-semibold text-[#2d1810] truncate">
                             {targetProvinceInfo?.name || campaign.targetProvince}

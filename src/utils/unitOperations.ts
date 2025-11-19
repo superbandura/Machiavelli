@@ -3,7 +3,8 @@
  */
 
 import { doc, Timestamp, runTransaction } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { httpsCallable } from 'firebase/functions'
+import { db, functions } from '@/lib/firebase'
 import type { Unit, Game, Player } from '@/types/game'
 import type { ArmyComposition, FleetComposition, GarrisonComposition } from '@/types/scenario'
 import {
@@ -691,121 +692,22 @@ export async function embarkTroops(
   troopsToEmbark: Partial<Record<import('@/types/scenario').ArmyTroopType, number>>
 ): Promise<void> {
   try {
-    await runTransaction(db, async (transaction) => {
-      // Obtener datos del juego
-      const gameRef = doc(db, 'games', gameId)
-      const gameSnap = await transaction.get(gameRef)
-
-      if (!gameSnap.exists()) {
-        throw new Error('Partida no encontrada')
-      }
-
-      const game = gameSnap.data() as Game
-      const units = game.units || []
-
-      // Encontrar flota y ejército
-      const fleet = units.find(u => u.id === fleetId)
-      const army = units.find(u => u.id === armyId)
-
-      if (!fleet || fleet.type !== 'fleet') {
-        throw new Error('Flota no encontrada')
-      }
-
-      if (!army || army.type !== 'army') {
-        throw new Error('Ejército no encontrado')
-      }
-
-      // Validar pertenencia
-      if (fleet.owner !== playerId || army.owner !== playerId) {
-        throw new Error('No puedes embarcar tropas de unidades que no te pertenecen')
-      }
-
-      // Validar misma provincia
-      if (fleet.currentPosition !== army.currentPosition) {
-        throw new Error('La flota y el ejército deben estar en la misma provincia')
-      }
-
-      // Validar composición
-      if (!fleet.composition || !army.composition) {
-        throw new Error('Unidades sin composición válida')
-      }
-
-      const armyComp = army.composition as ArmyComposition
-
-      // Validar tropas disponibles y actualizar ejército
-      const updatedArmyTroops = { ...armyComp.troops }
-      let totalTroopsToEmbark = 0
-
-      for (const [troopType, count] of Object.entries(troopsToEmbark)) {
-        const available = updatedArmyTroops[troopType as keyof typeof updatedArmyTroops] || 0
-        if ((count || 0) > available) {
-          throw new Error(`Tropas insuficientes de tipo ${troopType}`)
-        }
-        updatedArmyTroops[troopType as keyof typeof updatedArmyTroops] -= (count || 0)
-        totalTroopsToEmbark += (count || 0)
-      }
-
-      // Validar capacidad de la flota
-      const fleetComp = fleet.composition as FleetComposition
-      const totalCapacity = calculateFleetCapacity(fleetComp)
-      const currentEmbarked = fleet.embarkedTroops
-        ? calculateEmbarkedTroopsCount(fleet.embarkedTroops.troops)
-        : 0
-
-      if (currentEmbarked + totalTroopsToEmbark > totalCapacity) {
-        throw new Error('Capacidad de la flota excedida')
-      }
-
-      // Actualizar tropas embarcadas en la flota
-      const currentEmbarkedTroops = fleet.embarkedTroops?.troops || {}
-      const updatedEmbarkedTroops: Partial<Record<import('@/types/scenario').ArmyTroopType, number>> = { ...currentEmbarkedTroops }
-
-      for (const [troopType, count] of Object.entries(troopsToEmbark)) {
-        const current = updatedEmbarkedTroops[troopType as import('@/types/scenario').ArmyTroopType] || 0
-        updatedEmbarkedTroops[troopType as import('@/types/scenario').ArmyTroopType] = current + (count || 0)
-      }
-
-      // Verificar si el ejército queda vacío
-      const totalRemainingTroops = Object.values(updatedArmyTroops).reduce((sum, n) => sum + n, 0)
-      const shouldDeleteArmy = totalRemainingTroops === 0
-
-      // Actualizar unidades
-      const updatedUnits = units.map(u => {
-        if (u.id === fleetId) {
-          return {
-            ...u,
-            embarkedTroops: {
-              troops: updatedEmbarkedTroops,
-              sourceUnitId: armyId
-            }
-          }
-        }
-        if (u.id === armyId) {
-          if (shouldDeleteArmy) {
-            return null // Marcar para eliminación
-          }
-          return {
-            ...u,
-            composition: {
-              ...armyComp,
-              troops: updatedArmyTroops
-            }
-          }
-        }
-        return u
-      }).filter(u => u !== null) // Eliminar unidades marcadas
-
-      // Guardar cambios
-      transaction.update(gameRef, {
-        units: updatedUnits,
-        updatedAt: Timestamp.now()
-      })
+    // Llamar a la Cloud Function
+    const embarkTroopsFunction = httpsCallable(functions, 'embarkTroops')
+    const result = await embarkTroopsFunction({
+      gameId,
+      playerId,
+      fleetId,
+      armyId,
+      troopsToEmbark
     })
 
-    console.log('✓ Tropas embarcadas exitosamente')
-  } catch (error) {
+    console.log('✓ Tropas embarcadas exitosamente:', result.data)
+  } catch (error: any) {
     console.error('Error al embarcar tropas:', error)
-    throw error
+    // Convertir errores de Cloud Function a mensajes legibles
+    const errorMessage = error.message || 'Error al embarcar tropas'
+    throw new Error(errorMessage)
   }
 }
 
@@ -827,158 +729,22 @@ export async function disembarkTroops(
   newArmyName?: string
 ): Promise<void> {
   try {
-    await runTransaction(db, async (transaction) => {
-      // Obtener datos del juego
-      const gameRef = doc(db, 'games', gameId)
-      const gameSnap = await transaction.get(gameRef)
-
-      if (!gameSnap.exists()) {
-        throw new Error('Partida no encontrada')
-      }
-
-      const game = gameSnap.data() as Game
-      const units = game.units || []
-
-      // Encontrar flota
-      const fleet = units.find(u => u.id === fleetId)
-
-      if (!fleet || fleet.type !== 'fleet') {
-        throw new Error('Flota no encontrada')
-      }
-
-      if (fleet.owner !== playerId) {
-        throw new Error('No puedes desembarcar de una flota que no te pertenece')
-      }
-
-      if (!fleet.embarkedTroops) {
-        throw new Error('La flota no tiene tropas embarcadas')
-      }
-
-      // Validar tropas embarcadas disponibles
-      const embarkedTroops = { ...fleet.embarkedTroops.troops }
-
-      for (const [troopType, count] of Object.entries(troopsToDisembark)) {
-        const troopKey = troopType as import('@/types/scenario').ArmyTroopType
-        const available = embarkedTroops[troopKey] || 0
-        if ((count || 0) > available) {
-          throw new Error(`Tropas embarcadas insuficientes de tipo ${troopType}`)
-        }
-        const currentValue = embarkedTroops[troopKey]
-        if (currentValue !== undefined) {
-          embarkedTroops[troopKey] = currentValue - (count || 0)
-        }
-      }
-
-      // Verificar si quedan tropas embarcadas
-      const totalRemainingEmbarked = Object.values(embarkedTroops).reduce((sum, n) => sum + (n || 0), 0)
-
-      let updatedUnits: (Unit | null)[]
-
-      if (targetArmyId) {
-        // Desembarcar a ejército existente
-        const targetArmy = units.find(u => u.id === targetArmyId)
-
-        if (!targetArmy || targetArmy.type !== 'army') {
-          throw new Error('Ejército destino no encontrado')
-        }
-
-        if (targetArmy.owner !== playerId) {
-          throw new Error('No puedes desembarcar a un ejército que no te pertenece')
-        }
-
-        if (targetArmy.currentPosition !== fleet.currentPosition) {
-          throw new Error('El ejército destino debe estar en la misma provincia que la flota')
-        }
-
-        const targetComp = targetArmy.composition as ArmyComposition
-        const updatedTargetTroops = { ...targetComp.troops }
-
-        for (const [troopType, count] of Object.entries(troopsToDisembark)) {
-          const current = updatedTargetTroops[troopType as import('@/types/scenario').ArmyTroopType] || 0
-          updatedTargetTroops[troopType as import('@/types/scenario').ArmyTroopType] = current + (count || 0)
-        }
-
-        updatedUnits = units.map(u => {
-          if (u.id === fleetId) {
-            // Omitir embarkedTroops completamente si no quedan tropas
-            const fleetUpdate: any = { ...u }
-            if (totalRemainingEmbarked > 0) {
-              fleetUpdate.embarkedTroops = {
-                troops: embarkedTroops,
-                sourceUnitId: fleet.embarkedTroops?.sourceUnitId
-              }
-            } else {
-              delete fleetUpdate.embarkedTroops
-            }
-            return fleetUpdate
-          }
-          if (u.id === targetArmyId) {
-            return {
-              ...u,
-              composition: {
-                ...targetComp,
-                troops: updatedTargetTroops
-              }
-            }
-          }
-          return u
-        })
-      } else {
-        // Crear nuevo ejército
-        const newArmy: Unit = {
-          id: generateUnitId(),
-          type: 'army',
-          owner: playerId,
-          currentPosition: fleet.currentPosition,
-          status: 'active',
-          siegeTurns: 0,
-          createdAt: Timestamp.now(),
-          name: newArmyName || `Ejército desembarcado`,
-          composition: {
-            name: newArmyName || `Ejército desembarcado`,
-            troops: {
-              militia: troopsToDisembark.militia ?? 0,
-              lancers: troopsToDisembark.lancers ?? 0,
-              pikemen: troopsToDisembark.pikemen ?? 0,
-              archers: troopsToDisembark.archers ?? 0,
-              crossbowmen: troopsToDisembark.crossbowmen ?? 0,
-              lightCavalry: troopsToDisembark.lightCavalry ?? 0,
-              heavyCavalry: troopsToDisembark.heavyCavalry ?? 0,
-            }
-          }
-        }
-
-        updatedUnits = [
-          ...units.map(u => {
-            if (u.id === fleetId) {
-              // Omitir embarkedTroops completamente si no quedan tropas
-              const fleetUpdate: any = { ...u }
-              if (totalRemainingEmbarked > 0) {
-                fleetUpdate.embarkedTroops = {
-                  troops: embarkedTroops,
-                  sourceUnitId: fleet.embarkedTroops?.sourceUnitId
-                }
-              } else {
-                delete fleetUpdate.embarkedTroops
-              }
-              return fleetUpdate
-            }
-            return u
-          }),
-          newArmy
-        ]
-      }
-
-      // Guardar cambios
-      transaction.update(gameRef, {
-        units: updatedUnits,
-        updatedAt: Timestamp.now()
-      })
+    // Llamar a la Cloud Function
+    const disembarkTroopsFunction = httpsCallable(functions, 'disembarkTroops')
+    const result = await disembarkTroopsFunction({
+      gameId,
+      playerId,
+      fleetId,
+      targetArmyId,
+      troopsToDisembark,
+      newArmyName
     })
 
-    console.log('✓ Tropas desembarcadas exitosamente')
-  } catch (error) {
+    console.log('✓ Tropas desembarcadas exitosamente:', result.data)
+  } catch (error: any) {
     console.error('Error al desembarcar tropas:', error)
-    throw error
+    // Convertir errores de Cloud Function a mensajes legibles
+    const errorMessage = error.message || 'Error al desembarcar tropas'
+    throw new Error(errorMessage)
   }
 }

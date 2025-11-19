@@ -8,7 +8,7 @@
  */
 
 import { useMemo } from 'react';
-import type { Player, Unit, GameMap } from '../types';
+import type { Player, Unit, GameMap, MilitaryCampaign } from '../types';
 import DucatBag from './decorative/icons/DucatBag';
 import Separator from './decorative/Separator';
 import { getProvinceIncome } from '../utils/gameMapHelpers';
@@ -19,9 +19,10 @@ interface TreasuryPanelProps {
   currentSeason: string;
   gameMap: GameMap;
   provinceFaction: Record<string, string>; // Mapa de control: provinceId -> faction
+  campaigns?: MilitaryCampaign[]; // Campañas activas para filtrar unidades
 }
 
-export default function TreasuryPanel({ player, units, currentSeason, gameMap, provinceFaction }: TreasuryPanelProps) {
+export default function TreasuryPanel({ player, units, currentSeason, gameMap, provinceFaction, campaigns = [] }: TreasuryPanelProps) {
   // Calcular TODAS las provincias controladas (usando provinceFaction)
   const provincesControlled = useMemo(() => {
     // Validación defensiva: si no hay gameMap, retornar array vacío
@@ -59,7 +60,19 @@ export default function TreasuryPanel({ player, units, currentSeason, gameMap, p
   const maintenanceCost = useMemo(() => {
     if (currentSeason !== 'Primavera') return 0;
 
-    const playerUnits = units.filter(u => u.owner === player.id);
+    // Filtrar unidades del jugador excluyendo las que están en campañas o refuerzos
+    const playerUnits = units.filter(u => {
+      if (u.owner !== player.id) return false;
+
+      // Excluir unidades en campañas activas o como refuerzos
+      const isInCampaign = campaigns.some(c =>
+        (c.status === 'planning' || c.status === 'active') &&
+        (c.participatingUnits.includes(u.id) ||
+         c.reinforcements?.some(r => r.unitIds.includes(u.id)))
+      );
+
+      return !isInCampaign;
+    });
 
     // Coste de mantenimiento: 1d por ejército/flota, 0.5d por guarnición
     let cost = 0;
@@ -72,7 +85,7 @@ export default function TreasuryPanel({ player, units, currentSeason, gameMap, p
     });
 
     return cost;
-  }, [units, player.id, currentSeason]);
+  }, [units, player.id, currentSeason, campaigns]);
 
   const treasury = player.treasury || 0;
   const isSpring = currentSeason === 'Primavera';
