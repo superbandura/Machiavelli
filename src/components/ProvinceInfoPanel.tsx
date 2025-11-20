@@ -10,19 +10,61 @@ import { collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { FACTIONS } from '@/data/factions'
 
+/**
+ * Props para el componente ProvinceInfoPanel
+ */
 interface ProvinceInfoPanelProps {
+  /** Partida actual con mapa y configuración */
   game: Game
+  /** ID de la provincia seleccionada (null si ninguna) */
   provinceId: string | null
+  /** Unidades visibles para el jugador actual (con fog of war aplicado) */
   visibleUnits: Unit[]
+  /** Lista de todos los jugadores de la partida */
   players: Player[]
+  /** Jugador actual (null si solo observando) */
   currentPlayer: Player | null
+  /** IDs de provincias controladas por el jugador actual */
   controlledProvinces: string[]
+  /** Mapa de control: provinceId → factionId */
   provinceFaction?: Record<string, string>
+  /** Campañas militares activas (para mostrar en tooltip) */
   campaigns?: MilitaryCampaign[]
+  /** Callback cuando se hace click en una unidad */
   onUnitClick?: (unit: Unit) => void
+  /** Callback cuando se hace click en una campaña */
   onCampaignClick?: (campaign: MilitaryCampaign) => void
 }
 
+/**
+ * Panel de información de provincia seleccionada
+ *
+ * Muestra información detallada de la provincia seleccionada:
+ * - Nombre, tipo (tierra/mar/puerto), control
+ * - Unidades presentes (con tooltips de composición)
+ * - Campañas activas en la provincia
+ * - Botones de creación de unidades (si controlada y fase lobby/orders)
+ * - Modal de órdenes para unidades propias
+ *
+ * Características:
+ * - Carga órdenes existentes del jugador desde Firestore
+ * - Cálculo de costes de reclutamiento
+ * - Validación de límites de unidades
+ * - Tooltips informativos con UnitCompositionTooltip
+ *
+ * @component
+ * @example
+ * <ProvinceInfoPanel
+ *   game={currentGame}
+ *   provinceId="FLORENCE"
+ *   visibleUnits={units}
+ *   players={players}
+ *   currentPlayer={player}
+ *   controlledProvinces={['FLORENCE', 'PISA']}
+ *   provinceFaction={provinceFactionMap}
+ *   campaigns={activeCampaigns}
+ * />
+ */
 export default function ProvinceInfoPanel({
   game,
   provinceId,

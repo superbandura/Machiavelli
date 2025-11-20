@@ -1,26 +1,61 @@
-/**
- * InactivePlayerVoting - Sistema de votación para jugadores inactivos
- *
- * Permite a los jugadores activos votar sobre qué hacer con jugadores
- * que han estado inactivos por 3 turnos consecutivos
- */
-
 import { useState, useEffect } from 'react'
 import { collection, query, where, onSnapshot, doc, setDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Player } from '@/types'
 
+/**
+ * Voto individual de un jugador sobre un jugador inactivo
+ */
 interface Vote {
+  /** ID del jugador que vota */
   voterId: string
+  /** Opción votada: IA básica, reemplazo o eliminación */
   option: 'ai_mode' | 'replacement' | 'elimination'
+  /** Fecha del voto */
   votedAt: Date
 }
 
+/**
+ * Props para el componente InactivePlayerVoting
+ */
 interface InactivePlayerVotingProps {
+  /** ID de la partida */
   gameId: string
+  /** Jugador actual que puede votar */
   currentPlayer: Player
+  /** Lista completa de jugadores (activos e inactivos) */
   players: Player[]
 }
+
+/**
+ * Sistema de votación para jugadores inactivos
+ *
+ * Permite a los jugadores activos decidir qué hacer con jugadores que han estado
+ * inactivos por 3+ turnos consecutivos. Los jugadores activos pueden votar una de
+ * tres opciones por cada jugador inactivo:
+ *
+ * **Opciones de votación:**
+ * 1. **🤖 Modo IA Básica:** Todas las unidades mantienen posición (Hold)
+ * 2. **🔄 Permitir Reemplazo:** Abrir slot para nuevo jugador
+ * 3. **☠️ Eliminar del Juego:** Destruir todas las unidades, territorios neutrales
+ *
+ * **Características:**
+ * - Real-time voting con Firestore listeners
+ * - Cada jugador vota una vez por inactivo
+ * - Opción ganadora = más votos (mayoría simple)
+ * - Solo jugadores activos (`status !== 'inactive'`) pueden votar
+ * - Voto guardado en `/votes/{gameId}_{targetPlayerId}_{voterId}`
+ * - Muestra quién ha votado y por qué opción
+ * - Auto-ejecuta resultado al final del próximo turno (Cloud Function)
+ *
+ * @component
+ * @example
+ * <InactivePlayerVoting
+ *   gameId="game-123"
+ *   currentPlayer={player}
+ *   players={allPlayers}
+ * />
+ */
 
 export default function InactivePlayerVoting({
   gameId,

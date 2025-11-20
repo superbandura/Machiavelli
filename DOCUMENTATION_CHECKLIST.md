@@ -114,8 +114,19 @@
 
 - [ ] **Revisar API_REFERENCE.md**
   - Verificar que todas las funciones exportadas en `functions/src/index.ts` estén documentadas
+  - **Funciones documentadas:** checkDeadlines, resolveTurn, forcePhaseAdvance
+  - **Funciones FALTANTES (9):**
+    - setAdminRole (callable)
+    - deleteGame (callable)
+    - embarkTroops (callable)
+    - disembarkTroops (callable)
+    - joinCampaign (callable)
+    - createFormation (callable)
+    - updateFormation (callable)
+    - deleteFormation (callable)
+    - updateCampaignFleetPool (callable)
   - Añadir ejemplos de uso para cada función callable
-  - Documentar parámetros y retornos
+  - Documentar parámetros y retornos para todas las funciones
 
 - [ ] **Actualizar CONTRIBUTING.md**
   - Añadir referencias a arquitectura.md y database.md
@@ -376,5 +387,6 @@
 ---
 
 **Creado:** 2025-01-13
+**Actualizado:** 2025-01-20 (auditoría API_REFERENCE.md, sincronización CLAUDE.md)
 **Por:** Claude Code (comando /documenta)
 **Próxima revisión:** Después de implementar Alta Prioridad

@@ -14,9 +14,10 @@ Bienvenido a la documentación de **Machiavelli**, un juego de estrategia por tu
 
 - **[Guía de Contribución](dev/CONTRIBUTING.md)** - Cómo contribuir al proyecto
 - **[Guía de Despliegue](dev/DEPLOYMENT.md)** - Despliegue a producción paso a paso
-- **[Referencia API](dev/API_REFERENCE.md)** - Documentación de Cloud Functions
+- **[Referencia API](dev/API_REFERENCE.md)** - Documentación de Cloud Functions (12/12 documentadas)
 - **[Guía de Testing](dev/TESTING.md)** - Estrategia y ejecución de pruebas
 - **[Sincronización de Código](dev/CODE_SYNCHRONIZATION.md)** - Guía de sync frontend/backend 🆕
+- **[Documentación de Componentes](dev/COMPONENTS.md)** - JSDoc de componentes React principales 🆕
 
 ### 🔧 Para Operaciones
 
@@ -109,4 +110,4 @@ Machiavelli/
 
 ---
 
-**Última actualización:** 2025-01-13
+**Última actualización:** 2025-01-20

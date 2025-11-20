@@ -1,15 +1,7 @@
-/**
- * Modal completo para gestionar unidades:
- * - Reclutar tropas/barcos
- * - Transferir tropas entre unidades
- * - Licenciar tropas
- * - Renombrar unidad
- */
-
 import { useState, useMemo, useEffect } from 'react'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-import type { Unit, Player, Game } from '@/types/game'
+import type { Unit, Player, Game, MilitaryCampaign } from '@/types/game'
 import type { ArmyComposition, FleetComposition, GarrisonComposition } from '@/types/scenario'
 import {
   recruitTroops,
@@ -31,14 +23,68 @@ import {
 import { calculateFleetCapacity, calculateEmbarkedTroopsCount } from '@/utils/embarkHelpers'
 import type { ArmyTroopType } from '@/types/scenario'
 
+/**
+ * Props para el componente UnitManagementModal
+ */
 interface UnitManagementModalProps {
+  /** Unidad a gestionar */
   unit: Unit
+  /** Información del juego (mapa, turno, fase, tesoro) */
   game: Game
+  /** Jugador que gestiona la unidad */
   currentPlayer: Player
-  allUnits: Unit[] // Todas las unidades del juego
+  /** Todas las unidades del juego (para transferencias y embarques) */
+  allUnits: Unit[]
+  /** Campañas activas (para detectar si unidad está en campaña) */
   campaigns: MilitaryCampaign[]
+  /** Callback para cerrar el modal */
   onClose: () => void
 }
+
+/**
+ * Modal completo de gestión de unidades
+ *
+ * Permite al jugador gestionar todas las operaciones de una unidad durante
+ * la fase de órdenes o lobby:
+ *
+ * **Tabs disponibles:**
+ * 1. **Reclutar:** Contratar tropas/barcos (cuesta florines, limitado por tesoro)
+ * 2. **Transferir:** Mover tropas entre unidades en misma provincia
+ * 3. **Embarcar/Desembarcar:** Tropas en Fleet (requiere capacidad disponible)
+ * 4. **Licenciar:** Licenciar tropas para recuperar 50% del coste
+ * 5. **Renombrar:** Cambiar nombre personalizado de la unidad
+ *
+ * **Características:**
+ * - Real-time sync con Firestore (listener para actualizar unidad)
+ * - Validación de capacidad (Fleet max tropas según naves)
+ * - Protección de mínimos (Garrison debe mantener 5 milicia)
+ * - Cálculo automático de costes con tasas de lote (TROOP_BATCH_SIZE)
+ * - Iconos y labels temáticos para cada tipo de tropa/nave
+ * - Bloqueado si unidad está en campaña activa
+ * - Callable Functions para operaciones (embarkTroops, disembarkTroops)
+ *
+ * **Costes de reclutamiento:**
+ * - Milicia: 5 florines/lote (10 unidades)
+ * - Lanceros: 15 florines/lote
+ * - Caballería Pesada: 50 florines/lote
+ * - Galera: 40 florines (1 unidad)
+ * - Coca: 60 florines (1 unidad)
+ *
+ * **Capacidad de transporte:**
+ * - Galera: 500 tropas cada una
+ * - Coca: 1000 tropas cada una
+ *
+ * @component
+ * @example
+ * <UnitManagementModal
+ *   unit={selectedUnit}
+ *   game={currentGame}
+ *   currentPlayer={player}
+ *   allUnits={allUnits}
+ *   campaigns={activeCampaigns}
+ *   onClose={() => setShowManagement(false)}
+ * />
+ */
 
 type TabType = 'recruit' | 'transfer' | 'embark' | 'disband' | 'rename'
 

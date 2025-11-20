@@ -2,11 +2,41 @@ import { useState, useEffect } from 'react'
 import { Game } from '@/types'
 import Separator from './decorative/Separator'
 
+/**
+ * Props para el componente TurnIndicator
+ */
 interface TurnIndicatorProps {
+  /** Información completa del juego (turno, fase, deadlines, duraciones) */
   game: Game
+  /** Callback opcional cuando se hace click en la fase diplomática */
   onDiplomacyClick?: () => void
 }
 
+/**
+ * Indicador del turno y fase actual con countdown timer
+ *
+ * Muestra información completa del estado del juego:
+ * - **Número de turno y fecha:** "Turno 5 - Anno Domini 1454 - Primavera"
+ * - **Estado de la partida:** Waiting/Active/Finished
+ * - **Fase actual:** Diplomática/Órdenes/Resolución (con color temático)
+ * - **Contador regresivo:** Tiempo restante hasta el deadline de la fase
+ * - **Duraciones configuradas:** Grid con duración de cada fase en horas
+ * - **Descripción de fase:** Explicación de qué se puede hacer en la fase actual
+ *
+ * **Características:**
+ * - Timer actualizado cada segundo (1000ms interval)
+ * - Alerta visual cuando quedan < 6 horas (color rojo + animación pulse)
+ * - Click en fase diplomática abre panel de chat (si onDiplomacyClick está definido)
+ * - Colores temáticos renacentistas por fase (burgundy/bronze/gold)
+ * - Iconos decorativos (fases, reloj de arena)
+ *
+ * @component
+ * @example
+ * <TurnIndicator
+ *   game={currentGame}
+ *   onDiplomacyClick={() => setShowDiplomacy(true)}
+ * />
+ */
 export default function TurnIndicator({ game, onDiplomacyClick }: TurnIndicatorProps) {
   const [timeRemaining, setTimeRemaining] = useState<string>('')
   const [isUrgent, setIsUrgent] = useState(false)

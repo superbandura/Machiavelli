@@ -5,22 +5,89 @@ import { useAuthStore } from '@/store/authStore'
 import { FACTIONS } from '@/data/factions'
 import { getFactionImageName } from '@/utils/factionHelpers'
 
+/**
+ * Props para el componente JoinGameDialog
+ */
 interface JoinGameDialogProps {
+  /** Indica si el modal está visible */
   isOpen: boolean
+  /** Callback para cerrar el modal */
   onClose: () => void
+  /** ID de la partida a unirse */
   gameId: string
+  /** Nombre de la partida (para mostrar en el título) */
   gameName: string
+  /** Número máximo de jugadores permitidos */
   maxPlayers: number
+  /** Callback opcional cuando el usuario se une exitosamente */
   onJoined?: (gameId: string) => void
 }
 
+/**
+ * Opción de facción con disponibilidad
+ */
 interface FactionOption {
+  /** ID de la facción */
   id: string
+  /** Nombre para mostrar */
   name: string
+  /** Color hexadecimal de la facción */
   color: string
+  /** Si la facción está disponible (no tomada por otro jugador) */
   available: boolean
 }
 
+/**
+ * Dialog de selección de facción para unirse a una partida
+ *
+ * Muestra las facciones disponibles del escenario y permite al jugador
+ * seleccionar una facción libre para unirse a la partida.
+ *
+ * **Características:**
+ * - Carga facciones disponibles desde `game.scenarioData.availableFactions`
+ * - Consulta jugadores actuales para marcar facciones tomadas
+ * - Emblemas de facciones con estado visual (disponible/tomada)
+ * - Validación: no permite unirse si partida está llena
+ * - Soporte para facciones dinámicas desde `/factions` collection
+ * - Fallback a `FACTIONS` hardcoded si no existe en Firestore
+ * - Actualización atómica con transacciones Firestore
+ *
+ * **Flujo de unión:**
+ * 1. Usuario selecciona facción disponible
+ * 2. Click "Unirse" → valida disponibilidad
+ * 3. Crea documento en `/players`:
+ *    ```typescript
+ *    {
+ *      gameId,
+ *      userId,
+ *      faction: selectedFaction,
+ *      treasury: startingTreasury,
+ *      isAlive: true,
+ *      joinedAt: serverTimestamp()
+ *    }
+ *    ```
+ * 4. Actualiza `/games/{gameId}`:
+ *    - `game.currentPlayerCount` +1
+ *    - Transfiere control de provincias a nueva facción
+ *    - Transfiere ownership de unidades a userId
+ * 5. Callback onJoined() → navega a la partida
+ *
+ * **Manejo de errores:**
+ * - "Facción no disponible" si otro jugador tomó la facción entre tanto
+ * - "Partida llena" si currentPlayerCount >= maxPlayers
+ * - "Ya estás en esta partida" si userId ya tiene player document
+ *
+ * @component
+ * @example
+ * <JoinGameDialog
+ *   isOpen={showDialog}
+ *   onClose={() => setShowDialog(false)}
+ *   gameId="game-123"
+ *   gameName="Italia 1454 - Campaña Principal"
+ *   maxPlayers={8}
+ *   onJoined={(gameId) => navigate(`/game/${gameId}`)}
+ * />
+ */
 export default function JoinGameDialog({
   isOpen,
   onClose,

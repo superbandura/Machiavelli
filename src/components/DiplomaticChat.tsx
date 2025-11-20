@@ -4,14 +4,46 @@ import { db } from '@/lib/firebase'
 import { Player, DiplomaticMessage } from '@/types'
 import WaxSeal from './decorative/icons/WaxSeal'
 
+/**
+ * Props para el componente DiplomaticChat
+ */
 interface DiplomaticChatProps {
+  /** ID de la partida */
   gameId: string
+  /** Jugador actual que envía/recibe mensajes */
   currentPlayer: Player
+  /** Lista de todos los jugadores de la partida */
   players: Player[]
+  /** Fase actual del juego (para bloquear envío fuera de fase diplomática) */
   currentPhase: string
+  /** Número de turno actual */
   turnNumber: number
 }
 
+/**
+ * Componente de chat diplomático entre jugadores
+ *
+ * Permite comunicación privada (1-a-1) o pública (todos) durante la fase diplomática.
+ * Los mensajes se sincronizan en tiempo real via Firestore onSnapshot.
+ *
+ * Características:
+ * - Real-time messaging con Firestore listeners
+ * - Mensajes privados y públicos
+ * - Auto-scroll a nuevos mensajes
+ * - Marcado automático de mensajes como leídos
+ * - Filtro de conversaciones por destinatario
+ * - Estilo temático renacentista con WaxSeal decorativo
+ *
+ * @component
+ * @example
+ * <DiplomaticChat
+ *   gameId="game-123"
+ *   currentPlayer={player}
+ *   players={allPlayers}
+ *   currentPhase="diplomatic"
+ *   turnNumber={5}
+ * />
+ */
 export default function DiplomaticChat({
   gameId,
   currentPlayer,

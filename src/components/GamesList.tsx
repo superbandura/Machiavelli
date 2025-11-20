@@ -6,10 +6,61 @@ import { useIsAdmin } from '@/hooks/useIsAdmin'
 import { Game } from '@/types'
 import DeleteGameDialog from './DeleteGameDialog'
 
+/**
+ * Props para el componente GamesList
+ */
 interface GamesListProps {
+  /** Callback cuando el usuario hace click en "Unirse" a una partida */
   onJoinGame: (gameId: string, gameName: string, maxPlayers: number) => void
 }
 
+/**
+ * Lista de partidas disponibles en el lobby
+ *
+ * Muestra todas las partidas públicas en estado `waiting` (esperando jugadores)
+ * excluyendo aquellas donde el usuario ya está jugando.
+ *
+ * **Características:**
+ * - Real-time sync con Firestore listener (`onSnapshot`)
+ * - Filtra partidas en `status: 'waiting'`
+ * - Excluye partidas donde el usuario ya es jugador
+ * - Ordenadas por fecha de creación (más recientes primero)
+ * - Botón "Unirse" abre JoinGameDialog
+ * - Botón "Eliminar" solo para admins (abre DeleteGameDialog)
+ * - Muestra info: nombre, creador, jugadores actuales/máximos, fecha
+ * - Indicador de partidas privadas (candado 🔒)
+ *
+ * **Query Firestore:**
+ * ```typescript
+ * query(
+ *   collection(db, 'games'),
+ *   where('status', '==', 'waiting'),
+ *   orderBy('createdAt', 'desc')
+ * )
+ * ```
+ *
+ * **Carga de myGameIds:**
+ * 1. Query a `/players` donde `userId == currentUser.uid`
+ * 2. Extrae `gameId` de cada documento
+ * 3. Crea Set<string> con IDs de partidas del usuario
+ * 4. Filtra lista de partidas para excluir las propias
+ *
+ * **Flujo:**
+ * 1. Usuario entra al lobby
+ * 2. GamesList carga partidas disponibles en tiempo real
+ * 3. Usuario hace click en "Unirse"
+ * 4. onJoinGame(gameId) → abre JoinGameDialog
+ * 5. Usuario selecciona facción → se une a la partida
+ *
+ * @component
+ * @example
+ * <GamesList
+ *   onJoinGame={(gameId, name, max) => {
+ *     setJoinDialogGame({ gameId, name, max })
+ *     setShowJoinDialog(true)
+ *   }}
+ * />
+ */
 export default function GamesList({ onJoinGame }: GamesListProps) {
   const { user } = useAuthStore()
   const isAdmin = useIsAdmin()

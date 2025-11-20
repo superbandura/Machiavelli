@@ -6,11 +6,75 @@ import { listScenarios, getScenario as getFirestoreScenario } from '@/lib/scenar
 import { ScenarioListItem, ScenarioDocument, ArmyComposition, GarrisonComposition, FleetComposition } from '@/types/scenario'
 import { GameMap, ScenarioData, ProvinceInfo, Unit } from '@/types/game'
 
+/**
+ * Props para el componente CreateGameModal
+ */
 interface CreateGameModalProps {
+  /** Indica si el modal está visible */
   isOpen: boolean
+  /** Callback para cerrar el modal */
   onClose: () => void
+  /** Callback opcional cuando se crea la partida (recibe gameId) */
   onGameCreated?: (gameId: string) => void
 }
+
+/**
+ * Modal de creación de nueva partida
+ *
+ * Permite al usuario crear una nueva partida configurando:
+ * - **Nombre de la partida**
+ * - **Escenario:** Italia 1454, Italia 1494, Tutorial, etc. (cargados desde `/scenarios`)
+ * - **Duración de fases:** Diplomática (24-168h), Órdenes (24-168h), Resolución (1-24h)
+ * - **Público/Privada:** Controla visibilidad en el lobby
+ * - **Contraseña opcional:** Para partidas privadas con código de acceso
+ *
+ * **Proceso de creación:**
+ * 1. Usuario selecciona escenario → carga detalles desde Firestore
+ * 2. Configura duraciones de fase (sliders en horas)
+ * 3. Click "Crear Partida" → valida campos obligatorios
+ * 4. Construye GameMap, ScenarioData y Units desde ScenarioDocument
+ * 5. Crea documento en `/games` con `status: 'waiting'`
+ * 6. Usuario pasa automáticamente al lobby (onGameCreated callback)
+ *
+ * **Builders internos:**
+ * - `buildGameMapFromFirestore()`: Convierte provincias de scenario → GameMap
+ * - `buildScenarioDataFromFirestore()`: Extrae availableFactions y victoryConditions
+ * - `buildUnitsFromScenario()`: Crea unidades embebidas con composición detallada
+ *
+ * **Validaciones:**
+ * - Nombre: mínimo 3 caracteres
+ * - Escenario: debe estar seleccionado
+ * - Duraciones: dentro de rangos permitidos (24-168h diplomatic/orders, 1-24h resolution)
+ * - Contraseña: opcional pero guardada en `game.password` si se provee
+ *
+ * **Estructura del juego creado:**
+ * ```typescript
+ * {
+ *   name: string
+ *   createdBy: userId
+ *   createdAt: Timestamp
+ *   status: 'waiting'
+ *   currentPhase: 'lobby'
+ *   turnNumber: 1
+ *   currentYear: 1454 (depende del escenario)
+ *   currentSeason: 'spring'
+ *   map: GameMap
+ *   scenarioData: ScenarioData
+ *   units: Unit[] (embebidas)
+ *   phaseDurations: { diplomatic, orders, resolution }
+ *   isPublic: boolean
+ *   password?: string
+ * }
+ * ```
+ *
+ * @component
+ * @example
+ * <CreateGameModal
+ *   isOpen={showModal}
+ *   onClose={() => setShowModal(false)}
+ *   onGameCreated={(gameId) => navigate(`/game/${gameId}`)}
+ * />
+ */
 
 /**
  * Construye el GameMap desde un escenario de Firestore

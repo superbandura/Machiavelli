@@ -3,15 +3,56 @@ import { Game, Player, Unit, MaritimeRoute } from '@/types'
 import { getProvinceInfo, isCampaignTarget, isCoastalProvince, findAmphibiousRoute } from '@/utils/gameMapHelpers'
 import { FleetComposition } from '@/types/scenario'
 
+/**
+ * Props para el componente MilitaryCampaignPanel
+ */
 interface MilitaryCampaignPanelProps {
+  /** Información del juego (mapa, estado, turno) */
   game: Game
+  /** ID de la provincia seleccionada (objetivo de la campaña) */
   provinceId: string
+  /** Jugador actual que planifica la campaña */
   currentPlayer: Player
+  /** Lista de todas las unidades del juego */
   units: Unit[]
+  /** Mapa de control de provincias (provinceId → faction) */
   provinceFaction: Record<string, string>
+  /** Callback para abrir el modal de declaración de campaña */
   onOpenCampaignModal: (provinceId: string) => void
 }
 
+/**
+ * Panel de planificación de campañas militares
+ *
+ * Muestra información sobre la provincia enemiga seleccionada y permite iniciar
+ * una declaración de campaña militar si se cumplen los requisitos:
+ * - La provincia es controlada por otra facción (no propia)
+ * - Tienes unidades (Army o Fleet) en provincias adyacentes
+ * - Es fase diplomática de primavera (verificado en el modal)
+ *
+ * **Características:**
+ * - **Validación automática:** Detecta si tienes unidades adyacentes
+ * - **Rutas anfibias:** Calcula y muestra rutas marítimas para desembarcos costeros
+ * - **Tooltips informativos:** Muestra desglose de ruta marítima (provincias, días)
+ * - **Imágenes de facciones:** Escudos decorativos de la facción controladora
+ * - **Estado visual:** Botón habilitado/deshabilitado según validación
+ *
+ * **Campaña anfibia:**
+ * Si la provincia objetivo es costera y tienes Fleet con tropas embarcadas, el sistema
+ * calcula automáticamente la ruta marítima más corta y muestra un icono de puerto con
+ * tooltip detallado de la travesía.
+ *
+ * @component
+ * @example
+ * <MilitaryCampaignPanel
+ *   game={currentGame}
+ *   provinceId="ROMA"
+ *   currentPlayer={player}
+ *   units={allUnits}
+ *   provinceFaction={factionMap}
+ *   onOpenCampaignModal={(id) => setCampaignTarget(id)}
+ * />
+ */
 export default function MilitaryCampaignPanel({
   game,
   provinceId,

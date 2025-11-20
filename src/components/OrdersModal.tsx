@@ -1,12 +1,3 @@
-/**
- * OrdersModal - Modal para dar órdenes a una unidad específica
- *
- * Similar a UnitManagementModal pero para órdenes militares
- * - Hold, Move, Support, Convoy, Besiege, Convert
- * - Validación en tiempo real
- * - Guardado en Firestore
- */
-
 import { useState, useEffect, useMemo } from 'react'
 import type { Unit, Order, Player, Game } from '@/types/game'
 import { validateOrder, getValidMoveDestinations, getValidSupportTargets } from '@/utils/orderValidation'
@@ -14,13 +5,60 @@ import { getProvinceInfo } from '@/utils/gameMapHelpers'
 import { collection, addDoc, query, where, getDocs, deleteDoc, doc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 
+/**
+ * Props para el componente OrdersModal
+ */
 interface OrdersModalProps {
+  /** Unidad a la que se le dará la orden */
   unit: Unit
+  /** Información del juego (mapa, turno, fase) */
   game: Game
+  /** Jugador que da la orden */
   currentPlayer: Player
+  /** Todas las unidades del juego (para validación de Support/Convoy) */
   allUnits: Unit[]
+  /** Callback para cerrar el modal */
   onClose: () => void
 }
+
+/**
+ * Modal para asignar órdenes militares a unidades
+ *
+ * Permite al jugador dar órdenes a sus unidades durante la fase de órdenes:
+ * - **Hold:** Mantener posición
+ * - **Move:** Mover a provincia adyacente
+ * - **Support:** Apoyar a otra unidad (aliada o enemiga)
+ * - **Convoy:** Transportar ejército (solo Fleet)
+ * - **Besiege:** Asediar ciudad (no Garrison)
+ * - **Convert:** Convertir tipo de unidad (Army ↔ Fleet ↔ Garrison)
+ *
+ * **Características:**
+ * - Validación en tiempo real con `orderValidation.ts`
+ * - Carga órdenes existentes desde `/orders` collection
+ * - Guarda todas las órdenes del jugador en un único documento
+ * - Grid visual de iconos para selección de tipo de orden
+ * - Selectores dinámicos según tipo de orden (destino, unidad apoyada, etc.)
+ * - Estado visual (válida/inválida con mensaje de error)
+ * - Composición de unidad visible (tropas, naves)
+ * - Auto-cierre tras guardado exitoso
+ *
+ * **Flujo:**
+ * 1. Carga orden existente si hay
+ * 2. Usuario selecciona tipo de orden (grid de iconos)
+ * 3. Campos adicionales aparecen según tipo (Move → destino, Support → unidad)
+ * 4. Validación en tiempo real
+ * 5. Guardar → actualiza documento `/orders/{gameId}_{playerId}_{turn}`
+ *
+ * @component
+ * @example
+ * <OrdersModal
+ *   unit={selectedUnit}
+ *   game={currentGame}
+ *   currentPlayer={player}
+ *   allUnits={allUnits}
+ *   onClose={() => setShowOrders(false)}
+ * />
+ */
 
 export default function OrdersModal({
   unit,

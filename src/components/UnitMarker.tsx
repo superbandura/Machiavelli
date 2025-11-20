@@ -1,12 +1,39 @@
 import { Unit } from '@/types'
 
+/**
+ * Props para el componente UnitMarker
+ */
 interface UnitMarkerProps {
+  /** Unidad a representar en el mapa */
   unit: Unit
+  /** Color de la facción (hexadecimal) */
   color: string
+  /** Posición (x, y) en el SVG del mapa */
   position: { x: number; y: number }
+  /** Callback cuando se hace click en el marcador */
   onClick?: () => void
 }
 
+/**
+ * Marcador visual de unidad en el mapa SVG
+ *
+ * Renderiza un icono SVG que representa visualmente el tipo de unidad:
+ * - **Army:** Escudo con espadas cruzadas
+ * - **Fleet:** Barco con mástil y vela
+ * - **Garrison:** Torre de castillo con almenas
+ *
+ * El marcador es interactivo y puede hacer click para seleccionar la unidad.
+ * El color del marcador corresponde al color de la facción propietaria.
+ *
+ * @component
+ * @example
+ * <UnitMarker
+ *   unit={armyUnit}
+ *   color="#FF0000"
+ *   position={{ x: 450, y: 320 }}
+ *   onClick={() => selectUnit(armyUnit)}
+ * />
+ */
 export default function UnitMarker({ unit, color, position, onClick }: UnitMarkerProps) {
   const getUnitIcon = () => {
     switch (unit.type) {

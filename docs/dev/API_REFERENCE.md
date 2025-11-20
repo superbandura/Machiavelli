@@ -121,6 +121,669 @@ throw new HttpsError('permission-denied', 'Solo el creador puede forzar el avanc
 
 ---
 
+### `setAdminRole`
+
+**Tipo:** Callable (HTTPS)
+**Archivo:** `functions/src/setAdminRole.ts`
+
+**Descripción:**
+Función administrativa temporal para asignar rol de administrador a un usuario mediante su email.
+
+**Parámetros:**
+```typescript
+{
+  email: string  // Email del usuario a hacer admin
+}
+```
+
+**Retorno:**
+```typescript
+{
+  success: boolean
+  message: string
+  user: {
+    uid: string
+    email: string
+    displayName: string
+    role: 'admin'
+  }
+}
+```
+
+**Ejemplo de uso (Cliente):**
+```typescript
+import { httpsCallable } from 'firebase/functions'
+import { functions } from '@/lib/firebase'
+
+const setAdmin = httpsCallable(functions, 'setAdminRole')
+
+try {
+  const result = await setAdmin({ email: 'usuario@example.com' })
+  console.log(result.data.message) // "Rol de administrador asignado correctamente"
+} catch (error) {
+  console.error('Error:', error.message)
+}
+```
+
+**Seguridad:**
+- NO requiere autenticación (temporal para setup inicial)
+- Busca usuario en colección `users` por email
+- Actualiza campo `role` a `'admin'`
+
+**Errores:**
+- `invalid-argument`: Email no proporcionado
+- `not-found`: Usuario con ese email no existe
+- `internal`: Error al actualizar usuario
+
+⚠️ **IMPORTANTE:** Esta función debe eliminarse o protegerse antes de producción. Cualquiera puede usarla actualmente.
+
+---
+
+### `deleteGame`
+
+**Tipo:** Callable (HTTPS)
+**Archivo:** `functions/src/deleteGame.ts`
+
+**Descripción:**
+Elimina completamente una partida y todos sus datos relacionados de Firestore.
+
+**Parámetros:**
+```typescript
+{
+  gameId: string  // ID de la partida a eliminar
+}
+```
+
+**Retorno:**
+```typescript
+{
+  success: boolean
+  message: string
+  deletedCounts?: {
+    diplomaticMessages: number
+    votes: number
+    orders: number
+    turns: number
+    campaigns: number
+    warCouncilMessages: number
+    players: number
+  }
+}
+```
+
+**Ejemplo de uso (Cliente):**
+```typescript
+import { httpsCallable } from 'firebase/functions'
+import { functions } from '@/lib/firebase'
+
+const deleteGameFn = httpsCallable(functions, 'deleteGame')
+
+try {
+  const result = await deleteGameFn({ gameId: 'game-123' })
+  console.log(result.data.message) // "Partida eliminada correctamente"
+  console.log(result.data.deletedCounts) // Resumen de documentos eliminados
+} catch (error) {
+  console.error('Error:', error.message)
+}
+```
+
+**Seguridad:**
+- Requiere autenticación
+- Solo el **creador de la partida** o un **administrador** pueden eliminarla
+- Verifica `game.createdBy === userId` o `user.role === 'admin'`
+
+**Colecciones eliminadas (en orden):**
+1. `diplomatic_messages` (gameId)
+2. `votes` (gameId)
+3. `orders` (gameId)
+4. `turns` (gameId)
+5. `campaigns` (gameId)
+6. `war_council_messages` (gameId)
+7. `players` (gameId)
+8. `games/{gameId}` (documento principal)
+
+**Nota:** Las unidades están embebidas en `game.units[]`, no son una colección separada.
+
+**Batch Processing:**
+- Usa batches de 500 operaciones (límite de Firestore)
+- Ejecuta múltiples batches si es necesario
+- Logs detallados de progreso
+
+**Errores:**
+- `unauthenticated`: Usuario no autenticado
+- `invalid-argument`: gameId faltante o inválido
+- `not-found`: Partida no encontrada
+- `permission-denied`: Usuario no es creador ni admin
+- `internal`: Error durante eliminación
+
+---
+
+### `embarkTroops`
+
+**Tipo:** Callable (HTTPS)
+**Archivo:** `functions/src/embarkTroops.ts`
+
+**Descripción:**
+Embarca tropas de un ejército a una flota. Si el ejército queda vacío, se elimina automáticamente. Usa Admin SDK para bypasear Security Rules y modificar el array `game.units[]`.
+
+**Parámetros:**
+```typescript
+{
+  gameId: string
+  playerId: string
+  fleetId: string        // ID de la flota receptora
+  armyId: string         // ID del ejército origen
+  troopsToEmbark: {      // Tropas a embarcar
+    militia?: number
+    lancers?: number
+    pikemen?: number
+    archers?: number
+    crossbowmen?: number
+    lightCavalry?: number
+    heavyCavalry?: number
+  }
+}
+```
+
+**Retorno:**
+```typescript
+{
+  success: boolean
+  message: string
+}
+```
+
+**Ejemplo de uso (Cliente):**
+```typescript
+const embark = httpsCallable(functions, 'embarkTroops')
+
+await embark({
+  gameId: 'game-123',
+  playerId: 'player-456',
+  fleetId: 'fleet-789',
+  armyId: 'army-101',
+  troopsToEmbark: {
+    militia: 50,
+    lancers: 20,
+    archers: 30
+  }
+})
+```
+
+**Validaciones:**
+- Flota y ejército deben estar en la **misma provincia**
+- Ambas unidades deben pertenecer al jugador
+- Tropas suficientes en el ejército
+- Capacidad de la flota no excedida
+
+**Capacidad de flota:**
+- Galera: 50 tropas
+- Cog: 100 tropas
+- Carrack: 200 tropas
+
+**Transacción:**
+1. Verifica pertenencia y ubicación
+2. Actualiza `army.composition.troops` (resta tropas)
+3. Actualiza `fleet.embarkedTroops.troops` (suma tropas)
+4. Si ejército vacío: elimina unidad del array
+5. Actualiza `game.units[]` y `game.updatedAt`
+
+**Errores:**
+- `unauthenticated`: Usuario no autenticado
+- `invalid-argument`: Parámetros faltantes
+- `not-found`: Jugador, partida, flota o ejército no encontrado
+- `permission-denied`: Unidades no pertenecen al jugador
+- `failed-precondition`:
+  - Flota y ejército en diferentes provincias
+  - Tropas insuficientes en ejército
+  - Capacidad de flota excedida
+
+---
+
+### `disembarkTroops`
+
+**Tipo:** Callable (HTTPS)
+**Archivo:** `functions/src/disembarkTroops.ts`
+
+**Descripción:**
+Desembarca tropas de una flota, creando un nuevo ejército o añadiéndolas a uno existente. Usa Admin SDK para modificar o crear unidades.
+
+**Parámetros:**
+```typescript
+{
+  gameId: string
+  playerId: string
+  fleetId: string
+  targetArmyId?: string  // ID de ejército existente (opcional)
+  newArmyName?: string   // Nombre para nuevo ejército (opcional)
+  troopsToDisembark: {   // Tropas a desembarcar
+    militia?: number
+    lancers?: number
+    pikemen?: number
+    archers?: number
+    crossbowmen?: number
+    lightCavalry?: number
+    heavyCavalry?: number
+  }
+}
+```
+
+**Retorno:**
+```typescript
+{
+  success: boolean
+  message: string
+}
+```
+
+**Ejemplo de uso (Cliente):**
+```typescript
+const disembark = httpsCallable(functions, 'disembarkTroops')
+
+// Opción 1: Crear nuevo ejército
+await disembark({
+  gameId: 'game-123',
+  playerId: 'player-456',
+  fleetId: 'fleet-789',
+  newArmyName: 'Desembarco de Nápoles',
+  troopsToDisembark: {
+    militia: 50,
+    lancers: 20
+  }
+})
+
+// Opción 2: Añadir a ejército existente
+await disembark({
+  gameId: 'game-123',
+  playerId: 'player-456',
+  fleetId: 'fleet-789',
+  targetArmyId: 'army-101',
+  troopsToDisembark: {
+    archers: 30
+  }
+})
+```
+
+**Validaciones:**
+- Flota debe tener tropas embarcadas
+- Tropas suficientes en `fleet.embarkedTroops`
+- Si `targetArmyId`: ejército debe estar en la misma provincia que la flota
+- Si `targetArmyId`: ejército debe pertenecer al jugador
+
+**Transacción:**
+- **Con targetArmyId:** Suma tropas a ejército existente
+- **Sin targetArmyId:** Crea nueva unidad tipo `'army'` con ID generado
+- Actualiza o elimina `fleet.embarkedTroops`
+- Si quedan tropas embarcadas: actualiza
+- Si no quedan tropas: elimina campo `embarkedTroops`
+
+**Errores:**
+- `unauthenticated`: Usuario no autenticado
+- `invalid-argument`: Parámetros faltantes
+- `not-found`: Jugador, partida, flota o ejército destino no encontrado
+- `permission-denied`: Flota o ejército destino no pertenecen al jugador
+- `failed-precondition`:
+  - Flota sin tropas embarcadas
+  - Tropas insuficientes en flota
+  - Ejército destino en diferente provincia
+
+---
+
+### `joinCampaign`
+
+**Tipo:** Callable (HTTPS)
+**Archivo:** `functions/src/joinCampaign.ts`
+
+**Descripción:**
+Permite a un jugador unirse a una campaña militar como aliado (atacante o defensor) durante la fase diplomática.
+
+**Parámetros:**
+```typescript
+{
+  gameId: string
+  campaignId: string
+  playerId: string
+  side: 'attacker' | 'defender'
+  unitIds: string[]       // IDs de unidades a aportar
+}
+```
+
+**Retorno:**
+```typescript
+{
+  success: boolean
+  message: string
+}
+```
+
+**Ejemplo de uso (Cliente):**
+```typescript
+const join = httpsCallable(functions, 'joinCampaign')
+
+await join({
+  gameId: 'game-123',
+  campaignId: 'campaign-456',
+  playerId: 'player-789',
+  side: 'attacker',
+  unitIds: ['unit-1', 'unit-2', 'unit-3']
+})
+```
+
+**Validaciones:**
+- Solo en **fase diplomática**
+- Jugador no es el declarante de la campaña
+- Jugador aún no se ha unido a la campaña
+- Todas las unidades existen y pertenecen al jugador
+- Al menos una unidad proporcionada
+
+**Ownership de unidades:**
+- Durante juego: `unit.owner === playerId`
+- Durante lobby: `unit.owner === factionId`
+- La función valida ambos casos
+
+**Transacción:**
+1. Crea nuevo `CampaignAlly`:
+   ```typescript
+   {
+     id: string
+     playerId: string
+     faction: string
+     side: 'attacker' | 'defender'
+     unitIds: string[]
+     joinedAt: Timestamp
+   }
+   ```
+2. Añade aliado a `campaign.allies[]`
+3. Añade unidades a `campaign.participatingUnits[]`
+4. Actualiza `campaign.updatedAt`
+
+**Errores:**
+- `unauthenticated`: Usuario no autenticado
+- `invalid-argument`: Parámetros faltantes o side inválido
+- `not-found`: Jugador o campaña no encontrada
+- `permission-denied`: playerId no coincide con usuario autenticado
+- `failed-precondition`:
+  - No estás en fase diplomática
+  - Eres el declarante
+  - Ya te uniste a la campaña
+  - Unidades inválidas o no te pertenecen
+  - No proporcionaste unidades
+
+---
+
+### `createFormation`
+
+**Tipo:** Callable (HTTPS)
+**Archivo:** `functions/src/createFormation.ts`
+
+**Descripción:**
+Crea una formación táctica en una campaña durante la fase de órdenes. Permite al declarante y aliados planificar despliegues tácticos.
+
+**Parámetros:**
+```typescript
+{
+  gameId: string
+  campaignId: string
+  formation: {
+    id?: string            // Opcional, se genera si no se proporciona
+    name: string
+    troopType: string      // Tipo de tropa (militia, lancers, etc.)
+    faction: string        // Facción propietaria
+    quantity: number       // Cantidad de tropas
+    deploymentZone: string // Zona de despliegue táctico
+    strategicOrder: string // Orden estratégica
+    tacticalOrder: string  // Orden táctica
+    // Campos opcionales de refuerzo:
+    isReinforcement?: boolean
+    reinforcementId?: string
+    estimatedArrivalDay?: number
+  }
+}
+```
+
+**Retorno:**
+```typescript
+{
+  success: boolean
+  formationId: string
+  message: string
+}
+```
+
+**Ejemplo de uso (Cliente):**
+```typescript
+const create = httpsCallable(functions, 'createFormation')
+
+await create({
+  gameId: 'game-123',
+  campaignId: 'campaign-456',
+  formation: {
+    name: 'Vanguardia Florentina',
+    troopType: 'lancers',
+    faction: 'Florence',
+    quantity: 50,
+    deploymentZone: 'center',
+    strategicOrder: 'attack',
+    tacticalOrder: 'charge'
+  }
+})
+```
+
+**Validaciones:**
+- Solo en **fase de órdenes**
+- Usuario es declarante o aliado de la campaña
+- Formación pertenece a la facción del jugador
+- Estructura de formación completa
+
+**Transacción:**
+1. Genera ID único si no se proporciona
+2. Crea `TacticalFormation` con timestamps
+3. Añade a `campaign.formations[]`
+4. Actualiza `campaign.updatedAt`
+
+**Errores:**
+- `unauthenticated`: Usuario no autenticado
+- `invalid-argument`: Parámetros faltantes o formación incompleta
+- `not-found`: Campaña no encontrada o no eres jugador
+- `permission-denied`: No perteneces a la campaña o facción incorrecta
+- `failed-precondition`:
+  - No estás en fase de órdenes
+  - Campaña no pertenece al juego
+
+---
+
+### `updateFormation`
+
+**Tipo:** Callable (HTTPS)
+**Archivo:** `functions/src/updateFormation.ts`
+
+**Descripción:**
+Actualiza una formación táctica existente durante la fase de órdenes. Solo puedes actualizar formaciones de tu propia facción.
+
+**Parámetros:**
+```typescript
+{
+  gameId: string
+  campaignId: string
+  formationId: string
+  updates: Partial<TacticalFormation>  // Campos a actualizar
+}
+```
+
+**Retorno:**
+```typescript
+{
+  success: boolean
+  message: string
+}
+```
+
+**Ejemplo de uso (Cliente):**
+```typescript
+const update = httpsCallable(functions, 'updateFormation')
+
+await update({
+  gameId: 'game-123',
+  campaignId: 'campaign-456',
+  formationId: 'formation-789',
+  updates: {
+    quantity: 60,           // Aumentar cantidad
+    deploymentZone: 'left', // Cambiar zona
+    tacticalOrder: 'defend' // Cambiar orden táctica
+  }
+})
+```
+
+**Validaciones:**
+- Solo en **fase de órdenes**
+- Usuario es declarante o aliado
+- Formación existe
+- Formación pertenece a tu facción
+
+**Transacción:**
+1. Encuentra formación por ID
+2. Aplica actualizaciones (merge)
+3. Preserva `id` y `faction` originales
+4. Actualiza `updatedAt`
+5. Reemplaza en `campaign.formations[]`
+6. Actualiza `campaign.updatedAt`
+
+**Errores:**
+- `unauthenticated`: Usuario no autenticado
+- `invalid-argument`: Parámetros faltantes
+- `not-found`: Campaña o formación no encontrada
+- `permission-denied`: No perteneces a la campaña o formación no es de tu facción
+- `failed-precondition`: No estás en fase de órdenes
+
+---
+
+### `deleteFormation`
+
+**Tipo:** Callable (HTTPS)
+**Archivo:** `functions/src/deleteFormation.ts`
+
+**Descripción:**
+Elimina una formación táctica de una campaña durante la fase de órdenes. Solo puedes eliminar tus propias formaciones.
+
+**Parámetros:**
+```typescript
+{
+  gameId: string
+  campaignId: string
+  formationId: string
+}
+```
+
+**Retorno:**
+```typescript
+{
+  success: boolean
+  message: string
+}
+```
+
+**Ejemplo de uso (Cliente):**
+```typescript
+const deleteForm = httpsCallable(functions, 'deleteFormation')
+
+await deleteForm({
+  gameId: 'game-123',
+  campaignId: 'campaign-456',
+  formationId: 'formation-789'
+})
+```
+
+**Validaciones:**
+- Solo en **fase de órdenes**
+- Usuario es declarante o aliado
+- Formación existe
+- Formación pertenece a tu facción
+
+**Transacción:**
+1. Encuentra formación por ID
+2. Verifica pertenencia a tu facción
+3. Filtra formación del array `campaign.formations[]`
+4. Actualiza `campaign.updatedAt`
+
+**Errores:**
+- `unauthenticated`: Usuario no autenticado
+- `invalid-argument`: Parámetros faltantes
+- `not-found`: Campaña o formación no encontrada
+- `permission-denied`: No perteneces a la campaña o formación no es de tu facción
+- `failed-precondition`: No estás en fase de órdenes
+
+---
+
+### `updateCampaignFleetPool`
+
+**Tipo:** Callable (HTTPS)
+**Archivo:** `functions/src/updateCampaignFleetPool.ts`
+
+**Descripción:**
+Actualiza el pool de naves disponibles para una campaña durante la fase de órdenes. Usado para gestionar refuerzos marítimos.
+
+**Parámetros:**
+```typescript
+{
+  gameId: string
+  campaignId: string
+  fleetPool: {
+    galleys: number    // ≥ 0
+    cogs: number       // ≥ 0
+  }
+}
+```
+
+**Retorno:**
+```typescript
+{
+  success: boolean
+  fleetPool: {
+    galleys: number
+    cogs: number
+  }
+  message: string
+}
+```
+
+**Ejemplo de uso (Cliente):**
+```typescript
+const updatePool = httpsCallable(functions, 'updateCampaignFleetPool')
+
+await updatePool({
+  gameId: 'game-123',
+  campaignId: 'campaign-456',
+  fleetPool: {
+    galleys: 5,
+    cogs: 3
+  }
+})
+```
+
+**Validaciones:**
+- Solo en **fase de órdenes**
+- Usuario participa en la campaña (declarante, aliado o refuerzo)
+- Valores numéricos válidos
+- Valores no negativos
+
+**Transacción:**
+1. Verifica pertenencia a campaña
+2. Valida estructura y valores de fleetPool
+3. Actualiza `campaign.fleetPool`
+4. Actualiza `campaign.updatedAt`
+
+**Errores:**
+- `unauthenticated`: Usuario no autenticado
+- `invalid-argument`:
+  - Parámetros faltantes
+  - fleetPool sin estructura correcta
+  - Valores negativos
+- `not-found`: Campaña no encontrada o no eres jugador
+- `permission-denied`: No participas en la campaña
+- `failed-precondition`: No estás en fase de órdenes
+
+---
+
 ## Resolución de Turnos
 
 ### `resolveTurn`
@@ -572,4 +1235,5 @@ firebase functions:log --only checkDeadlines --limit 20
 
 ---
 
-**Última actualización:** 2025-01-13
+**Última actualización:** 2025-01-20
+**Funciones documentadas:** 12 (checkDeadlines, forcePhaseAdvance, setAdminRole, deleteGame, embarkTroops, disembarkTroops, joinCampaign, createFormation, updateFormation, deleteFormation, updateCampaignFleetPool, resolveTurn)

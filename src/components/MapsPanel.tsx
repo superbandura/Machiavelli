@@ -1,10 +1,40 @@
+/**
+ * Tipos de filtros visuales disponibles para el mapa
+ */
 export type MapFilter = 'cities' | 'ports' | 'campaign-targets' | 'income-heatmap' | null
 
+/**
+ * Props para el componente MapsPanel
+ */
 interface MapsPanelProps {
+  /** Filtro actualmente activo (null = ninguno) */
   activeFilter: MapFilter
+  /** Callback para cambiar el filtro activo */
   onFilterChange: (filter: MapFilter) => void
 }
 
+/**
+ * Panel de filtros visuales del mapa
+ *
+ * Proporciona botones para activar/desactivar overlays visuales en el mapa SVG:
+ * - **🏛️ Ciudades:** Resalta provincias con ciudades (income source)
+ * - **⚓ Puertos:** Resalta provincias con puertos (Fleet creation)
+ * - **⚔️ Campañas:** Resalta objetivos de campañas activas
+ * - **💰 Ingresos:** Heatmap de ingresos por provincia (color-coded)
+ *
+ * **Características:**
+ * - Grid 2x2 de botones con iconos temáticos
+ * - Toggle behavior: click activa, re-click desactiva
+ * - Estado visual claro (color + scale + shadow cuando activo)
+ * - Integración con GameBoard.tsx para renderizar overlays
+ *
+ * @component
+ * @example
+ * <MapsPanel
+ *   activeFilter={currentFilter}
+ *   onFilterChange={(filter) => setFilter(filter)}
+ * />
+ */
 export default function MapsPanel({ activeFilter, onFilterChange }: MapsPanelProps) {
   const handleFilterClick = (filter: 'cities' | 'ports' | 'campaign-targets' | 'income-heatmap') => {
     // Si el filtro ya está activo, desactivarlo; si no, activarlo

@@ -1,14 +1,3 @@
-/**
- * CampaignManagementModal - Modal para gestionar campañas militares
- *
- * Cinco tabs según la fase del juego:
- * - Tab "Planificar" (diplomatic phase): Seleccionar unidades y declarar campaña
- * - Tab "Gestión Táctica" (orders phase): Gestionar fuerzas atacantes y órdenes
- * - Tab "Defensa" (orders phase): Gestionar fuerzas defensoras y apoyos
- * - Tab "Consejo de Guerra": Planificación estratégica y coordinación
- * - Tab "Historial": Historial de batallas y eventos de la campaña
- */
-
 import { useState, useEffect, useMemo } from 'react'
 import type { Unit, Player, Game, MilitaryCampaign, MaritimeRoute, TacticalFormation, WarCouncilMessage } from '@/types/game'
 import type { FleetComposition, ArmyComposition, ArmyTroopType } from '@/types/scenario'
@@ -33,17 +22,113 @@ import TacticalDeploymentModal from './TacticalDeploymentModal'
 import { ReinforcementsTab } from './ReinforcementsTab'
 import { ReinforcementTroopCard } from './ReinforcementTroopCard'
 
+/**
+ * Props para el componente CampaignManagementModal
+ */
 interface CampaignManagementModalProps {
+  /** ID de la provincia objetivo de la campaña */
   targetProvince: string
+  /** Campaña existente (si se abre para gestión) o undefined (si es nueva) */
   existingCampaign?: MilitaryCampaign
+  /** Información del juego (mapa, turno, fase) */
   game: Game
+  /** Jugador actual */
   player: Player
+  /** Lista de todos los jugadores (para chat y alianzas) */
   players: Player[]
+  /** Todas las unidades del juego */
   units: Unit[]
+  /** Mapa de control de provincias (provinceId → faction) */
   provinceFaction: Record<string, string>
+  /** Todas las campañas activas del juego */
   campaigns: MilitaryCampaign[]
+  /** Callback para cerrar el modal */
   onClose: () => void
 }
+
+/**
+ * Modal completo de gestión de campañas militares
+ *
+ * Este es el modal más complejo del juego. Permite declarar, gestionar y coordinar
+ * campañas militares multi-facción con múltiples tabs según la fase del juego:
+ *
+ * **Tabs disponibles:**
+ * 1. **Planificar** (diplomatic phase):
+ *    - Seleccionar unidades propias para la campaña
+ *    - Calcular ruta anfibia si es campaña costera
+ *    - Declarar campaña → crea documento en `/campaigns`
+ *    - Solo disponible para el declarante durante fase diplomática de primavera
+ *
+ * 2. **Gestión Táctica** (orders phase):
+ *    - Ver y gestionar tropas del bando (Troop Pool, Ship Pool)
+ *    - Crear formaciones tácticas (vanguardia, flanco, retaguardia)
+ *    - Desplegar tropas en formaciones específicas
+ *    - Ver refuerzos en camino con ETA
+ *    - Solo para jugadores del bando atacante/defensor
+ *
+ * 3. **Refuerzos** (orders phase):
+ *    - Enviar refuerzos a la campaña (tropas/naves)
+ *    - Calcular tiempo de llegada según distancia
+ *    - Crear formaciones para refuerzos
+ *    - Disponible para jugadores NO involucrados (neutrales)
+ *
+ * 4. **Consejo de Guerra** (todas las fases):
+ *    - Chat privado por bando (atacantes o defensores)
+ *    - Coordinación estratégica y táctica
+ *    - Real-time messaging vía Firestore
+ *    - Solo visible para miembros del bando
+ *
+ * 5. **Historial** (todas las fases):
+ *    - Ver eventos de la campaña
+ *    - Resultados de batallas pasadas
+ *    - Timeline de alianzas y refuerzos
+ *
+ * **Características clave:**
+ * - Real-time sync con listener a `/campaigns/{campaignId}`
+ * - Detección automática de bando (atacante/defensor/neutral)
+ * - Validación de unidades adyacentes para declarar
+ * - Cálculo automático de rutas anfibias (mar → costa)
+ * - Sistema de formaciones tácticas (CreateFormationModal integrado)
+ * - Cloud Function `joinCampaign` para enviar refuerzos
+ * - Contador de mensajes no leídos en tab Consejo
+ * - Secciones plegables (troop pool, ship pool, reinforcements)
+ *
+ * **Flujo típico:**
+ * 1. **Fase Diplomática:** Jugador declara campaña contra provincia enemiga
+ * 2. **Fase Diplomática:** Otros jugadores se unen como aliados (attacker/defender)
+ * 3. **Fase Órdenes:** Todos crean formaciones y despliegan tropas
+ * 4. **Fase Órdenes:** Neutrales envían refuerzos (con ETA)
+ * 5. **Fase Resolución:** Cloud Function resuelve batallas
+ * 6. **Historial:** Jugadores ven resultados en tab Historial
+ *
+ * @component
+ * @example
+ * // Declarar nueva campaña
+ * <CampaignManagementModal
+ *   targetProvince="ROMA"
+ *   game={currentGame}
+ *   player={player}
+ *   players={allPlayers}
+ *   units={allUnits}
+ *   provinceFaction={factionMap}
+ *   campaigns={activeCampaigns}
+ *   onClose={() => setShowModal(false)}
+ * />
+ *
+ * @example
+ * // Gestionar campaña existente
+ * <CampaignManagementModal
+ *   targetProvince="ROMA"
+ *   existingCampaign={campaign}
+ *   game={currentGame}
+ *   player={player}
+ *   players={allPlayers}
+ *   units={allUnits}
+ *   provinceFaction={factionMap}
+ *   campaigns={activeCampaigns}
+ *   onClose={() => setShowModal(false)}
+ * />
+ */
 
 export default function CampaignManagementModal({
   targetProvince,

@@ -4,13 +4,68 @@ import { db } from '@/lib/firebase'
 import { Player, WarCouncilMessage, MilitaryCampaign, Game } from '@/types'
 import WaxSeal from './decorative/icons/WaxSeal'
 
+/**
+ * Props para el componente WarCouncilChat
+ */
 interface WarCouncilChatProps {
+  /** ID de la partida */
   gameId: string
+  /** Campaña militar activa (contiene info de atacantes/defensores) */
   campaign: MilitaryCampaign
+  /** Jugador actual que accede al chat */
   currentPlayer: Player
+  /** Lista de todos los jugadores de la partida */
   players: Player[]
+  /** Información completa del juego (para determinar defensor) */
   game: Game
 }
+
+/**
+ * Chat privado del Consejo de Guerra para una campaña militar
+ *
+ * Cada campaña tiene dos salas de chat separadas:
+ * - **Chat Atacantes:** Solo visible para facción declarante y aliados atacantes
+ * - **Chat Defensores:** Solo visible para facción defensora y aliados defensores
+ *
+ * **Características:**
+ * - Real-time messaging con Firestore listeners
+ * - Filtrado automático por bando (`senderFaction: 'attacker' | 'defender'`)
+ * - Auto-scroll a nuevos mensajes
+ * - Marcado automático como leído con `arrayUnion(userId)` en `readBy`
+ * - Emblemas de facciones en cada mensaje
+ * - Límite de 1000 caracteres por mensaje
+ * - Persistencia en `/war_council_messages` collection
+ * - Acceso denegado si jugador no pertenece a ningún bando
+ *
+ * **Determinación de bando:**
+ * 1. ¿Es el declarante? → attacker
+ * 2. ¿Controla la provincia objetivo? → defender
+ * 3. ¿Es un aliado en `campaign.allies`? → según `ally.side`
+ * 4. Si no, → null (sin acceso)
+ *
+ * **Estructura Firestore:**
+ * ```typescript
+ * war_council_messages/{id} {
+ *   gameId: string
+ *   campaignId: string
+ *   from: userId
+ *   senderFaction: 'attacker' | 'defender'
+ *   content: string
+ *   sentAt: Timestamp
+ *   readBy: string[]
+ * }
+ * ```
+ *
+ * @component
+ * @example
+ * <WarCouncilChat
+ *   gameId="game-123"
+ *   campaign={activeCampaign}
+ *   currentPlayer={player}
+ *   players={allPlayers}
+ *   game={currentGame}
+ * />
+ */
 
 export default function WarCouncilChat({
   gameId,

@@ -84,9 +84,15 @@ export default function CreateFormationModal({
       // Contar tropas del tipo seleccionado
       let totalCount = 0
       reinforcementUnits.forEach(unit => {
+        // Contar tropas de ejércitos
         if (unit.type === 'army' && unit.composition) {
           const armyComp = unit.composition as ArmyComposition
           totalCount += armyComp.troops[troopType] || 0
+        }
+
+        // Contar tropas embarcadas en flotas
+        if (unit.type === 'fleet' && unit.embarkedTroops?.troops) {
+          totalCount += unit.embarkedTroops.troops[troopType] || 0
         }
       })
 

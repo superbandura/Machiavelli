@@ -1,22 +1,52 @@
-/**
- * CampaignsPanel - Panel para la columna derecha mostrando todas las campañas activas
- *
- * Muestra:
- * - Lista de todas las campañas del juego
- * - Información básica: objetivo, atacante, fuerza
- * - Click abre CampaignManagementModal
- */
-
 import type { MilitaryCampaign, Player, Game } from '@/types/game'
 import { FACTIONS } from '@/data/factions'
 import { getProvinceInfo } from '@/utils/gameMapHelpers'
 
+/**
+ * Props para el componente CampaignsPanel
+ */
 interface CampaignsPanelProps {
+  /** Lista de todas las campañas militares activas del juego */
   campaigns: MilitaryCampaign[]
+  /** Información del juego (mapa, turno, estado) */
   game: Game
+  /** Jugador actual */
   player: Player
+  /** Callback cuando se selecciona una campaña para ver detalles */
   onSelectCampaign: (campaign: MilitaryCampaign) => void
 }
+
+/**
+ * Panel de lista de campañas militares activas
+ *
+ * Muestra todas las campañas del año actual con información visual compacta:
+ * - **Emblemas de facciones:** Atacantes vs Defensores
+ * - **Aliados:** Muestra emblemas de todos los aliados de cada bando
+ * - **Objetivo:** Nombre de la provincia atacada
+ * - **Indicadores:** Icono de campaña anfibia (⚓), estrella si es propia (★)
+ * - **Click:** Abre modal de gestión de campaña
+ *
+ * **Características:**
+ * - Vista compacta con emblemas (~5px cada uno)
+ * - Fallback a círculos de color si faltan imágenes
+ * - Hover con shadow para indicar interactividad
+ * - Destacado visual para campañas propias (border gold)
+ * - Mensaje de "No hay campañas activas" si lista vacía
+ *
+ * **Flujo:**
+ * 1. Carga campañas de `game.campaigns` o prop
+ * 2. Por cada campaña, renderiza atacantes → defensor
+ * 3. Click → `onSelectCampaign(campaign)` → abre modal
+ *
+ * @component
+ * @example
+ * <CampaignsPanel
+ *   campaigns={activeCampaigns}
+ *   game={currentGame}
+ *   player={currentPlayer}
+ *   onSelectCampaign={(camp) => openModal(camp)}
+ * />
+ */
 
 export default function CampaignsPanel({
   campaigns,

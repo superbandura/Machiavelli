@@ -4,6 +4,9 @@ import { auth } from '@/lib/firebase'
 import { Link, useNavigate } from 'react-router-dom'
 import Separator from '@/components/decorative/Separator'
 
+/**
+ * Emblemas de facciones mostrados en la parte superior del login
+ */
 const topFactionEmblems = [
   { name: 'Venecia', path: '/factions/venecia.png' },
   { name: 'Florencia', path: '/factions/florencia.png' },
@@ -12,6 +15,9 @@ const topFactionEmblems = [
   { name: 'Papado', path: '/factions/papado.png' },
 ]
 
+/**
+ * Emblemas de facciones mostrados en la parte inferior del login
+ */
 const bottomFactionEmblems = [
   { name: 'Francia', path: '/factions/francia.png' },
   { name: 'Génova', path: '/factions/genova.png' },
@@ -20,6 +26,38 @@ const bottomFactionEmblems = [
   { name: 'Otomanos', path: '/factions/otomanos.png' },
 ]
 
+/**
+ * Página de login con autenticación Firebase
+ *
+ * Permite a los usuarios iniciar sesión con email y contraseña usando Firebase Auth.
+ *
+ * **Características:**
+ * - Autenticación con Firebase (`signInWithEmailAndPassword`)
+ * - Navegación automática al lobby tras login exitoso
+ * - Delay de 1s para esperar carga de rol desde Firestore (evita race condition)
+ * - Validación de credenciales con mensajes de error
+ * - Diseño temático renacentista con emblemas de facciones
+ * - Links a registro y recuperación de contraseña
+ * - Separadores ornamentales y tipografía de época
+ *
+ * **Flujo:**
+ * 1. Usuario introduce email y contraseña
+ * 2. Submit → `signInWithEmailAndPassword()`
+ * 3. Espera 1s para que authStore cargue rol desde Firestore
+ * 4. Navega a `/lobby`
+ * 5. Si error → muestra mensaje "Credenciales inválidas"
+ *
+ * **Decoración:**
+ * - 10 emblemas de facciones (5 arriba, 5 abajo)
+ * - Título "Machiavelli" con fuente display
+ * - Subtítulo latino: "Melius est amari quam timeri"
+ * - Borde ornamental con shadow-ornate
+ *
+ * @component
+ * @example
+ * // Ruta en App.tsx
+ * <Route path="/login" element={<Login />} />
+ */
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')

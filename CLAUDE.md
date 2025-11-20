@@ -288,21 +288,38 @@ docs: Actualiza documentación de API
 ### Para Desarrolladores
 - **[Guía de Contribución](docs/dev/CONTRIBUTING.md)** - Setup y flujo de trabajo
 - **[Despliegue](docs/dev/DEPLOYMENT.md)** - Deploy a producción
-- **[API Reference](docs/dev/API_REFERENCE.md)** - Cloud Functions
+- **[API Reference](docs/dev/API_REFERENCE.md)** - Cloud Functions (12/12 documentadas)
 - **[Testing](docs/dev/TESTING.md)** - Estrategia de testing
+- **[Sincronización de Código](docs/dev/CODE_SYNCHRONIZATION.md)** - Guía de sync frontend/backend
+- **[Componentes React](docs/dev/COMPONENTS.md)** - JSDoc de componentes (19/40 documentados) 🆕
 
 ### Para Operaciones
 - **[Monitoreo](docs/ops/MONITORING.md)** - Métricas y alertas
 - **[Troubleshooting](docs/ops/TROUBLESHOOTING.md)** - Solución de problemas
 
 ### Referencia Técnica
+
+#### Arquitectura y Sistema
 - **[Arquitectura](docs/reference/arquitectura.md)** - Diseño completo
 - **[Base de Datos](docs/reference/database.md)** - Esquema Firestore
 - **[Fases del Juego](docs/reference/GAME_PHASES.md)** - Sistema de turnos
+- **[Glosario](docs/reference/glosario.md)** - Términos oficiales
+
+#### Mecánicas de Juego
 - **[Órdenes Militares](docs/reference/ordenes-militares.md)** - Todas las órdenes
 - **[Eventos Especiales](docs/reference/eventos-especiales.md)** - Hambruna, Peste, Asesinato
-- **[Escenarios](docs/reference/escenarios.md)** - Italia 1454, 1494, Tutorial
-- **[Glosario](docs/reference/glosario.md)** - Términos oficiales
+- **[Sistema de Transferencias](docs/reference/sistema-transferencias.md)** - Transferencias de ducados
+- **[Jugadores Inactivos](docs/reference/jugadores-inactivos.md)** - Gestión de inactividad
+- **[Casos Límite](docs/reference/casos-limite.md)** - Algoritmos y casos especiales
+
+#### Escenarios y Ejemplos
+- **[Escenarios](docs/reference/escenarios.md)** - Italia 1454, Italia 1494, Tutorial
+- **[Ejemplo de Turno](docs/reference/ejemplo-turno.md)** - Turno completo paso a paso
+
+#### Diseño y Desarrollo
+- **[Documento de Diseño](docs/reference/Machiavelli.md)** - Visión general del juego
+- **[Plan de Desarrollo](docs/reference/plan-desarrollo.md)** - Roadmap de 8 fases
+- **[Soluciones Aplicadas](docs/reference/SOLUCIONES-APLICADAS.md)** - 36+ problemas resueltos
 
 **Navegación:** Ver **[docs/INDEX.md](docs/INDEX.md)** para documentación completa.
 
@@ -345,4 +362,4 @@ docs: Actualiza documentación de API
 
 ---
 
-**Última actualización:** 2025-01-13
+**Última actualización:** 2025-01-20
