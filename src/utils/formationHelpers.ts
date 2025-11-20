@@ -2,7 +2,7 @@ import { Timestamp } from 'firebase/firestore'
 import type { MilitaryCampaign, Unit, TacticalFormation, Player, Game } from '@/types/game'
 import type { ArmyComposition, ArmyTroopType, FleetComposition, FleetShipType } from '@/types/scenario'
 import type { Province } from '@/types/map'
-import { getAdjacentProvinces } from './gameMapHelpers'
+import { getAdjacentProvinces, isCoastalProvince } from './gameMapHelpers'
 
 /**
  * Información agregada de tropas por tipo y facción
@@ -74,38 +74,9 @@ export function calculateAvailableTroops(
     }
   }
 
-  // Añadir tropas de refuerzo
-  if (campaign.reinforcements && campaign.reinforcements.length > 0) {
-    for (const reinforcement of campaign.reinforcements) {
-      // Obtener unidades del refuerzo
-      const reinforcementUnits = units.filter(u => reinforcement.unitIds.includes(u.id))
-
-      for (const unit of reinforcementUnits) {
-        if (unit.type !== 'army' || !unit.composition) continue
-
-        const armyComp = unit.composition as ArmyComposition
-        const faction = reinforcement.faction.toLowerCase()
-
-        // Iterar sobre cada tipo de tropa
-        for (const [troopType, count] of Object.entries(armyComp.troops)) {
-          if (!count || count <= 0) continue
-
-          const key = `${troopType}-${faction}`
-
-          if (!pool[key]) {
-            pool[key] = {
-              type: troopType as ArmyTroopType,
-              faction,
-              total: 0,
-              key
-            }
-          }
-
-          pool[key].total += count
-        }
-      }
-    }
-  }
+  // Los refuerzos NO se incluyen en el pool disponible para formaciones
+  // Se muestran solo en la sección dedicada "Refuerzos Recibidos"
+  // con su badge "R" rojo y días hasta llegada
 
   return pool
 }
@@ -118,11 +89,17 @@ export function calculateAvailableShips(
   campaign: MilitaryCampaign,
   units: Unit[]
 ): Record<string, ShipPool> {
+  console.log('[calculateAvailableShips] 🔍 Calculando barcos disponibles:', {
+    campaignId: campaign.id,
+    participatingUnits: campaign.participatingUnits?.length || 0,
+    fleetPool: campaign.fleetPool
+  })
+
   const pool: Record<string, ShipPool> = {}
 
   // Validar que exista el array de unidades participantes
   if (!campaign.participatingUnits || campaign.participatingUnits.length === 0) {
-    return pool
+    console.log('[calculateAvailableShips] ⚠️ No hay unidades participantes, pero revisando fleetPool...')
   }
 
   // Filtrar solo las unidades que participan en esta campaña
@@ -160,71 +137,49 @@ export function calculateAvailableShips(
     }
   }
 
-  // Añadir naves de aliados
-  if (campaign.allies && campaign.allies.length > 0) {
-    for (const ally of campaign.allies) {
-      // Obtener unidades del aliado
-      const allyUnits = units.filter(u => ally.unitIds.includes(u.id))
+  // Los aliados y refuerzos NO se incluyen en el pool disponible
+  // Las naves de aliados están en participatingUnits (después del fix de joinCampaign)
+  // Los refuerzos se muestran en su sección dedicada
 
-      for (const unit of allyUnits) {
-        if (unit.type !== 'fleet' || !unit.composition) continue
+  // AÑADIR: Barcos del fleetPool (flotas de refuerzo integradas inmediatamente)
+  if (campaign.fleetPool) {
+    console.log('[calculateAvailableShips] 🚢 Añadiendo barcos del fleetPool:', campaign.fleetPool)
+    const faction = campaign.declaredByFaction.toLowerCase()
 
-        const fleetComp = unit.composition as FleetComposition
-        const faction = ally.faction.toLowerCase()
-
-        // Iterar sobre cada tipo de nave
-        for (const [shipType, count] of Object.entries(fleetComp.ships)) {
-          if (!count || count <= 0) continue
-
-          const key = `${shipType}-${faction}`
-
-          if (!pool[key]) {
-            pool[key] = {
-              type: shipType as FleetShipType,
-              faction,
-              total: 0,
-              key
-            }
-          }
-
-          pool[key].total += count
+    // Añadir galeras del pool
+    if (campaign.fleetPool.galleys > 0) {
+      const key = `galley-${faction}`
+      if (!pool[key]) {
+        pool[key] = {
+          type: 'galley' as FleetShipType,
+          faction,
+          total: 0,
+          key
         }
       }
+      pool[key].total += campaign.fleetPool.galleys
+      console.log(`[calculateAvailableShips] ✅ Añadidas ${campaign.fleetPool.galleys} galeras, total:`, pool[key].total)
     }
-  }
 
-  // Añadir naves de refuerzo
-  if (campaign.reinforcements && campaign.reinforcements.length > 0) {
-    for (const reinforcement of campaign.reinforcements) {
-      // Obtener unidades del refuerzo
-      const reinforcementUnits = units.filter(u => reinforcement.unitIds.includes(u.id))
-
-      for (const unit of reinforcementUnits) {
-        if (unit.type !== 'fleet' || !unit.composition) continue
-
-        const fleetComp = unit.composition as FleetComposition
-        const faction = reinforcement.faction.toLowerCase()
-
-        // Iterar sobre cada tipo de nave
-        for (const [shipType, count] of Object.entries(fleetComp.ships)) {
-          if (!count || count <= 0) continue
-
-          const key = `${shipType}-${faction}`
-
-          if (!pool[key]) {
-            pool[key] = {
-              type: shipType as FleetShipType,
-              faction,
-              total: 0,
-              key
-            }
-          }
-
-          pool[key].total += count
+    // Añadir cocas del pool
+    if (campaign.fleetPool.cogs > 0) {
+      const key = `cog-${faction}`
+      if (!pool[key]) {
+        pool[key] = {
+          type: 'cog' as FleetShipType,
+          faction,
+          total: 0,
+          key
         }
       }
+      pool[key].total += campaign.fleetPool.cogs
+      console.log(`[calculateAvailableShips] ✅ Añadidas ${campaign.fleetPool.cogs} cocas, total:`, pool[key].total)
     }
+  } else {
+    console.log('[calculateAvailableShips] ⚠️ No hay fleetPool en la campaña')
   }
+
+  console.log('[calculateAvailableShips] ✅ Pool calculado:', pool)
 
   return pool
 }
@@ -309,39 +264,8 @@ export function calculateEmbarkedTroops(
     }
   }
 
-  // Añadir tropas embarcadas de refuerzos
-  if (campaign.reinforcements && campaign.reinforcements.length > 0) {
-    for (const reinforcement of campaign.reinforcements) {
-      // Obtener flotas del refuerzo
-      const reinforcementFleets = units.filter(u =>
-        reinforcement.unitIds.includes(u.id) && u.type === 'fleet'
-      )
-
-      for (const fleet of reinforcementFleets) {
-        if (!fleet.embarkedTroops?.troops) continue
-
-        const faction = reinforcement.faction.toLowerCase()
-
-        // Iterar sobre cada tipo de tropa embarcada
-        for (const [troopType, count] of Object.entries(fleet.embarkedTroops.troops)) {
-          if (!count || count <= 0) continue
-
-          const key = `${troopType}-${faction}`
-
-          if (!pool[key]) {
-            pool[key] = {
-              type: troopType as ArmyTroopType,
-              faction,
-              total: 0,
-              key
-            }
-          }
-
-          pool[key].total += count
-        }
-      }
-    }
-  }
+  // Los refuerzos NO se incluyen en el pool disponible
+  // Se muestran solo en su sección dedicada
 
   return pool
 }
@@ -525,9 +449,9 @@ export function createFormation(
     tacticalOrder: tacticalOrder || 'none',
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
-    ...(isReinforcement && { isReinforcement }),
-    ...(reinforcementId && { reinforcementId }),
-    ...(estimatedArrivalDay && { estimatedArrivalDay })
+    ...(isReinforcement !== undefined && { isReinforcement }),
+    ...(reinforcementId !== undefined && { reinforcementId }),
+    ...(estimatedArrivalDay !== undefined && { estimatedArrivalDay })
   }
 }
 
@@ -683,6 +607,8 @@ export function calculateReinforcementUnits(
   const adjacentProvinces = getAdjacentProvinces({ provinces: provinceMap }, campaign.targetProvince)
 
   // Filtrar unidades del jugador
+  const isTargetCoastalProvince = isCoastalProvince({ provinces: provinceMap }, campaign.targetProvince)
+
   const playerUnits = allUnits.filter(unit => {
     // Debe pertenecer al jugador
     if (unit.owner !== player.id) return false
@@ -707,9 +633,10 @@ export function calculateReinforcementUnits(
     )
     if (isInOtherCampaign) return false
 
-    // No debe estar ya enviada como refuerzo en esta campaña
-    const isAlreadyReinforcement = campaign.reinforcements?.some(r =>
-      r.unitIds.includes(unit.id)
+    // No debe estar ya enviada como refuerzo en ninguna campaña activa
+    const isAlreadyReinforcement = allCampaigns.some(c =>
+      (c.status === 'planning' || c.status === 'active') &&
+      c.reinforcements?.some(r => r.unitIds.includes(unit.id))
     )
     if (isAlreadyReinforcement) return false
 
@@ -723,17 +650,12 @@ export function calculateReinforcementUnits(
 
     // Si es flota: solo puede reforzar provincias costeras
     if (unit.type === 'fleet') {
-      // Verificar si la provincia objetivo es costera (tiene mares adyacentes)
-      const isTargetCoastal = targetProvince.adjacentSeas && targetProvince.adjacentSeas.length > 0
-
       // Las flotas solo pueden reforzar provincias costeras
-      if (!isTargetCoastal) {
-        return false
-      }
+      if (!isTargetCoastalProvince) return false
 
       // Si es costera, verificar tropas embarcadas o adyacencia
-      const hasEmbarkedTroops = unit.composition.embarkedTroops &&
-        Object.values(unit.composition.embarkedTroops).some(count => count > 0)
+      const hasEmbarkedTroops = unit.embarkedTroops?.troops &&
+        Object.values(unit.embarkedTroops.troops).some(count => count > 0)
 
       if (hasEmbarkedTroops) {
         // Flota con tropas embarcadas puede reforzar cualquier provincia costera

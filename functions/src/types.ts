@@ -223,6 +223,9 @@ export interface TacticalFormation {
   tacticalOrder: TacticalOrder;
   createdAt: admin.firestore.Timestamp;
   updatedAt: admin.firestore.Timestamp;
+  isReinforcement?: boolean;
+  reinforcementId?: string;
+  estimatedArrivalDay?: number;
 }
 
 export interface CampaignAlly {
@@ -242,6 +245,8 @@ export interface CampaignReinforcement {
   unitIds: string[];
   formations?: TacticalFormation[];
   addedAt: admin.firestore.Timestamp;
+  estimatedArrivalDay: number;
+  isFleetOnly?: boolean;
 }
 
 export interface MilitaryCampaign {
@@ -266,4 +271,8 @@ export interface MilitaryCampaign {
   generalStrategy?: 'conquista' | 'batalla' | 'tanteo' | 'razzia' | 'retirada';
   allies?: CampaignAlly[]; // Aliados que se unieron en fase diplomática
   reinforcements?: CampaignReinforcement[]; // Refuerzos que llegaron tarde en fase de órdenes
+  fleetPool?: {
+    galleys: number;
+    cogs: number;
+  };
 }

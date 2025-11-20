@@ -23,3 +23,4 @@ export { joinCampaign } from './joinCampaign';
 export { createFormation } from './createFormation';
 export { updateFormation } from './updateFormation';
 export { deleteFormation } from './deleteFormation';
+export { updateCampaignFleetPool } from './updateCampaignFleetPool';

@@ -154,11 +154,22 @@ export default function CampaignManagementModal({
       return
     }
 
+    console.log('[Campaign Listener] 🎯 Suscribiéndose a campaña:', existingCampaign.id)
+
     const unsubscribe = onSnapshot(
       doc(db, 'campaigns', existingCampaign.id),
       (snapshot) => {
         if (snapshot.exists()) {
-          setLiveCampaign({ id: snapshot.id, ...snapshot.data() } as MilitaryCampaign)
+          const campaignData = { id: snapshot.id, ...snapshot.data() } as MilitaryCampaign
+
+          console.log('[Campaign Listener] 🔄 Campaña actualizada:', {
+            campaignId: campaignData.id,
+            fleetPool: campaignData.fleetPool,
+            reinforcements: campaignData.reinforcements?.length || 0,
+            participatingUnits: campaignData.participatingUnits?.length || 0
+          })
+
+          setLiveCampaign(campaignData)
         }
       },
       (error) => {
@@ -231,7 +242,11 @@ export default function CampaignManagementModal({
           (c.status === 'planning' || c.status === 'active') &&
           c.id !== liveCampaign?.id  // Excluir la campaña actual al editar
         )
-        .flatMap(c => c.participatingUnits)
+        .flatMap(c => [
+          ...c.participatingUnits,
+          // También incluir unidades enviadas como refuerzos
+          ...(c.reinforcements?.flatMap(r => r.unitIds) || [])
+        ])
     )
 
     // Obtener provincias adyacentes al objetivo
@@ -376,35 +391,53 @@ export default function CampaignManagementModal({
         // Obtener todas las unidades de este refuerzo
         const reinforcementUnits = units.filter(u => reinforcement.unitIds.includes(u.id))
 
-        // Procesar cada unidad (solo ejércitos con composición)
+        // Agregar tropas por tipo de todas las unidades del refuerzo
+        const troopTotals = new Map<ArmyTroopType, number>()
+
         reinforcementUnits.forEach(unit => {
+          // Procesar ejércitos
           if (unit.type === 'army' && unit.composition) {
             const armyComp = unit.composition as ArmyComposition
 
-            // Iterar sobre cada tipo de tropa
             Object.entries(armyComp.troops).forEach(([troopType, count]) => {
               if (count > 0) {
-                const available = calculateUnassignedReinforcementTroops(
-                  reinforcement.id,
-                  troopType as ArmyTroopType,
-                  reinforcement.faction,
-                  count,
-                  liveCampaign.formations || []
-                )
-
-                troopCards.push({
-                  troopType: troopType as ArmyTroopType,
-                  quantity: count,
-                  available,
-                  faction: reinforcement.faction,
-                  daysUntilArrival,
-                  reinforcementId: reinforcement.id,
-                  estimatedArrivalDay: reinforcement.estimatedArrivalDay!,
-                  key: `${reinforcement.id}-${unit.id}-${troopType}`
-                })
+                const currentTotal = troopTotals.get(troopType as ArmyTroopType) || 0
+                troopTotals.set(troopType as ArmyTroopType, currentTotal + count)
               }
             })
           }
+
+          // Procesar flotas con tropas embarcadas
+          if (unit.type === 'fleet' && unit.embarkedTroops?.troops) {
+            Object.entries(unit.embarkedTroops.troops).forEach(([troopType, count]) => {
+              if (count && count > 0) {
+                const currentTotal = troopTotals.get(troopType as ArmyTroopType) || 0
+                troopTotals.set(troopType as ArmyTroopType, currentTotal + count)
+              }
+            })
+          }
+        })
+
+        // Crear una card por tipo de tropa con el total agregado
+        troopTotals.forEach((totalCount, troopType) => {
+          const available = calculateUnassignedReinforcementTroops(
+            reinforcement.id,
+            troopType,
+            reinforcement.faction,
+            totalCount,
+            liveCampaign.formations || []
+          )
+
+          troopCards.push({
+            troopType,
+            quantity: totalCount,
+            available,
+            faction: reinforcement.faction,
+            daysUntilArrival,
+            reinforcementId: reinforcement.id,
+            estimatedArrivalDay: reinforcement.estimatedArrivalDay!,
+            key: `${reinforcement.id}-${troopType}`
+          })
         })
       })
 
@@ -439,35 +472,52 @@ export default function CampaignManagementModal({
         // Obtener todas las unidades de este refuerzo
         const reinforcementUnits = units.filter(u => reinforcement.unitIds.includes(u.id))
 
-        // Procesar cada unidad (solo ejércitos con composición)
+        // Agregar tropas por tipo de todas las unidades del refuerzo
+        const troopTotals = new Map<ArmyTroopType, number>()
+
         reinforcementUnits.forEach(unit => {
           if (unit.type === 'army' && unit.composition) {
             const armyComp = unit.composition as ArmyComposition
 
-            // Iterar sobre cada tipo de tropa
             Object.entries(armyComp.troops).forEach(([troopType, count]) => {
               if (count > 0) {
-                const available = calculateUnassignedReinforcementTroops(
-                  reinforcement.id,
-                  troopType as ArmyTroopType,
-                  reinforcement.faction,
-                  count,
-                  liveCampaign.formations || []
-                )
-
-                troopCards.push({
-                  troopType: troopType as ArmyTroopType,
-                  quantity: count,
-                  available,
-                  faction: reinforcement.faction,
-                  daysUntilArrival,
-                  reinforcementId: reinforcement.id,
-                  estimatedArrivalDay: reinforcement.estimatedArrivalDay!,
-                  key: `${reinforcement.id}-${unit.id}-${troopType}`
-                })
+                const currentTotal = troopTotals.get(troopType as ArmyTroopType) || 0
+                troopTotals.set(troopType as ArmyTroopType, currentTotal + count)
               }
             })
           }
+
+          // Procesar flotas con tropas embarcadas
+          if (unit.type === 'fleet' && unit.embarkedTroops?.troops) {
+            Object.entries(unit.embarkedTroops.troops).forEach(([troopType, count]) => {
+              if (count && count > 0) {
+                const currentTotal = troopTotals.get(troopType as ArmyTroopType) || 0
+                troopTotals.set(troopType as ArmyTroopType, currentTotal + count)
+              }
+            })
+          }
+        })
+
+        // Crear una card por tipo de tropa con el total agregado
+        troopTotals.forEach((totalCount, troopType) => {
+          const available = calculateUnassignedReinforcementTroops(
+            reinforcement.id,
+            troopType,
+            reinforcement.faction,
+            totalCount,
+            liveCampaign.formations || []
+          )
+
+          troopCards.push({
+            troopType,
+            quantity: totalCount,
+            available,
+            faction: reinforcement.faction,
+            daysUntilArrival,
+            reinforcementId: reinforcement.id,
+            estimatedArrivalDay: reinforcement.estimatedArrivalDay!,
+            key: `${reinforcement.id}-${troopType}`
+          })
         })
       })
 
@@ -654,20 +704,153 @@ export default function CampaignManagementModal({
     setShowCreateFormationModal(true)
   }
 
+  /**
+   * Procesa flotas enviadas como refuerzos:
+   * - Integra los barcos al fleetPool de la campaña inmediatamente
+   * - Si la flota tiene tropas embarcadas, las añade al reinforcement
+   *
+   * @param unitIds IDs de las unidades del refuerzo
+   * @param fleetPool Pool actual de flotas de la campaña
+   * @returns Objeto con el pool actualizado y flag indicando si hay tropas embarcadas
+   */
+  const processFleetReinforcement = (
+    unitIds: string[],
+    fleetPool: { galleys: number; cogs: number } = { galleys: 0, cogs: 0 }
+  ): { updatedFleetPool: { galleys: number; cogs: number }; hasEmbarkedTroops: boolean } => {
+    let galleys = fleetPool.galleys
+    let cogs = fleetPool.cogs
+    let hasEmbarkedTroops = false
+
+    const reinforcementUnits = units.filter(u => unitIds.includes(u.id))
+
+    console.log('[processFleetReinforcement] 🔍 Procesando unidades:', {
+      unitIds,
+      reinforcementUnits: reinforcementUnits.map(u => ({
+        id: u.id,
+        type: u.type,
+        hasComposition: !!u.composition,
+        hasEmbarkedTroops: !!u.embarkedTroops
+      }))
+    })
+
+    reinforcementUnits.forEach(unit => {
+      if (unit.type === 'fleet' && unit.composition) {
+        const fleetComp = unit.composition as FleetComposition
+
+        console.log('[processFleetReinforcement] 🚢 Procesando flota:', {
+          unitId: unit.id,
+          ships: fleetComp.ships,
+          galleys: fleetComp.ships?.galley,
+          cogs: fleetComp.ships?.cog,
+          embarkedTroops: unit.embarkedTroops
+        })
+
+        // Sumar los barcos al pool (leer de fleetComp.ships)
+        galleys += fleetComp.ships?.galley || 0
+        cogs += fleetComp.ships?.cog || 0
+
+        // Verificar si tiene tropas embarcadas
+        if (unit.embarkedTroops?.troops) {
+          const hasTroops = Object.values(unit.embarkedTroops.troops).some(count => count && count > 0)
+          if (hasTroops) {
+            hasEmbarkedTroops = true
+          }
+        }
+      }
+    })
+
+    console.log('[processFleetReinforcement] ✅ Resultado:', {
+      updatedFleetPool: { galleys, cogs },
+      hasEmbarkedTroops
+    })
+
+    return {
+      updatedFleetPool: { galleys, cogs },
+      hasEmbarkedTroops
+    }
+  }
+
   // Handler para guardar refuerzo
   const handleSaveReinforcement = async (reinforcement: Partial<import('@/types/game').CampaignReinforcement>) => {
     if (!liveCampaign) return
 
+    console.log('[handleSaveReinforcement] 🚀 Iniciando guardado:', {
+      reinforcement,
+      liveCampaignId: liveCampaign.id
+    })
+
+    // Validar que estimatedArrivalDay existe (campo obligatorio)
+    if (reinforcement.estimatedArrivalDay === undefined) {
+      console.error('[handleSaveReinforcement] ERROR: refuerzo sin estimatedArrivalDay:', reinforcement)
+      throw new Error('El refuerzo debe tener un estimatedArrivalDay válido')
+    }
+
     try {
       const currentReinforcements = liveCampaign.reinforcements || []
+      const currentFleetPool = liveCampaign.fleetPool || { galleys: 0, cogs: 0 }
 
-      // Siempre agregar el nuevo refuerzo (permitir múltiples refuerzos por jugador)
-      const updatedReinforcements = [...currentReinforcements, reinforcement]
+      console.log('[handleSaveReinforcement] 📦 Estado actual:', {
+        currentReinforcements: currentReinforcements.length,
+        currentFleetPool
+      })
+
+      // Procesar flotas en el refuerzo
+      const { updatedFleetPool, hasEmbarkedTroops } = processFleetReinforcement(
+        reinforcement.unitIds || [],
+        currentFleetPool
+      )
+
+      console.log('[handleSaveReinforcement] 🚢 Resultado processFleetReinforcement:', {
+        updatedFleetPool,
+        hasEmbarkedTroops,
+        cambioEnPool: updatedFleetPool.galleys !== currentFleetPool.galleys ||
+                      updatedFleetPool.cogs !== currentFleetPool.cogs
+      })
+
+      // 1. ACTUALIZAR FLEETPOOL VÍA CLOUD FUNCTION (si cambió)
+      if (updatedFleetPool.galleys !== currentFleetPool.galleys || updatedFleetPool.cogs !== currentFleetPool.cogs) {
+        console.log('[handleSaveReinforcement] 🔧 Llamando a Cloud Function updateCampaignFleetPool:', updatedFleetPool)
+
+        const updateFleetPoolFn = httpsCallable(functions, 'updateCampaignFleetPool')
+        await updateFleetPoolFn({
+          gameId: game.id,
+          campaignId: liveCampaign.id,
+          fleetPool: updatedFleetPool
+        })
+
+        console.log('[handleSaveReinforcement] ✅ fleetPool actualizado vía Cloud Function')
+      }
+
+      // 2. ACTUALIZAR REINFORCEMENTS VÍA UPDATEDOC
+      const hasArmies = reinforcement.unitIds?.some(id => {
+        const unit = units.find(u => u.id === id)
+        return unit?.type === 'army'
+      })
+
+      // Determinar tipo de refuerzo
+      const isFleetOnly = !hasEmbarkedTroops && !hasArmies
+
+      // SIEMPRE añadir a reinforcements[], incluso si es solo flota
+      const reinforcementToAdd = {
+        ...reinforcement,
+        ...(isFleetOnly && { isFleetOnly: true }) // Marcar si es solo flota
+      }
+
+      const updatedReinforcements = [...currentReinforcements, reinforcementToAdd]
+
+      console.log('[handleSaveReinforcement] 📝 Actualizando reinforcements vía updateDoc:', {
+        tipo: isFleetOnly ? 'solo flota' : 'tropas/ejércitos',
+        total: updatedReinforcements.length
+      })
 
       await updateDoc(doc(db, 'campaigns', liveCampaign.id), {
         reinforcements: updatedReinforcements,
         updatedAt: Timestamp.now()
       })
+
+      console.log('[handleSaveReinforcement] ✅ Reinforcement registrado en Firestore')
+
+      console.log('[handleSaveReinforcement] ✅ Guardado completo exitoso')
     } catch (error) {
       console.error('Error al guardar refuerzo en Firestore:', error)
       throw error
@@ -1249,12 +1432,9 @@ export default function CampaignManagementModal({
                             quantity={card.available}
                             faction={card.faction}
                             daysUntilArrival={card.daysUntilArrival}
-                            onQuickCreate={() => handleQuickCreateFromReinforcement(
-                              card.troopType,
-                              card.faction,
-                              card.reinforcementId,
-                              card.estimatedArrivalDay
-                            )}
+                            reinforcementId={card.reinforcementId}
+                            estimatedArrivalDay={card.estimatedArrivalDay}
+                            onQuickCreate={handleQuickCreateFromReinforcement}
                           />
                         ))}
                       </div>
@@ -1342,12 +1522,9 @@ export default function CampaignManagementModal({
                         quantity={card.available}
                         faction={card.faction}
                         daysUntilArrival={card.daysUntilArrival}
-                        onQuickCreate={() => handleQuickCreateFromReinforcement(
-                          card.troopType,
-                          card.faction,
-                          card.reinforcementId,
-                          card.estimatedArrivalDay
-                        )}
+                        reinforcementId={card.reinforcementId}
+                        estimatedArrivalDay={card.estimatedArrivalDay}
+                        onQuickCreate={handleQuickCreateFromReinforcement}
                       />
                     ))}
                   </div>

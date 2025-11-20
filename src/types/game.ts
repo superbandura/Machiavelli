@@ -215,7 +215,8 @@ export interface CampaignReinforcement {
   unitIds: string[] // IDs de unidades asignadas como refuerzo
   formations?: TacticalFormation[] // Formaciones tácticas del refuerzo
   addedAt: Timestamp // Timestamp de cuando se añadió el refuerzo
-  estimatedArrivalDay?: number // Día del turno en que el refuerzo estará disponible (opcional)
+  estimatedArrivalDay: number // Día del turno en que el refuerzo estará disponible
+  isFleetOnly?: boolean // true si el refuerzo es solo una flota sin tropas embarcadas (barcos integrados a fleetPool)
 }
 
 export interface MilitaryCampaign {
@@ -235,6 +236,10 @@ export interface MilitaryCampaign {
   generalStrategy?: GeneralStrategy // Estrategia general de la campaña
   allies?: CampaignAlly[] // Aliados que se unieron en fase diplomática (participan desde inicio)
   reinforcements?: CampaignReinforcement[] // Refuerzos que se unieron en fase de órdenes (llegan tarde)
+  fleetPool?: { // Pool de barcos de flotas de refuerzo (integrados inmediatamente)
+    galleys: number
+    cogs: number
+  }
 }
 
 // ==================== CAMPAIGN STRATEGY ====================
