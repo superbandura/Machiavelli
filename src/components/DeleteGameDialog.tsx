@@ -102,7 +102,7 @@ export default function DeleteGameDialog({
                   </div>
                   <div className="text-red-300 text-sm">
                     Se eliminarán permanentemente todos los datos de la partida, incluyendo
-                    jugadores, unidades, órdenes y mensajes diplomáticos.
+                    jugadores, órdenes, campañas militares, mensajes diplomáticos y del Consejo de Guerra.
                   </div>
                 </div>
               </div>

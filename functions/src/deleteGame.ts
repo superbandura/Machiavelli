@@ -9,9 +9,12 @@ import { https } from 'firebase-functions/v2'
  * - votes (gameId)
  * - orders (gameId)
  * - turns (gameId)
- * - units (gameId) ⭐
+ * - campaigns (gameId)
+ * - war_council_messages (gameId)
  * - players (gameId)
  * - games (gameId)
+ *
+ * Nota: units están embebidas en games.units[], no es una colección separada.
  *
  * Permisos: Solo el creador de la partida o un admin puede eliminar.
  * Estados: Se puede eliminar partidas en cualquier estado (waiting, active, finished).
@@ -31,7 +34,8 @@ interface DeleteGameResponse {
     votes: number
     orders: number
     turns: number
-    units: number
+    campaigns: number
+    warCouncilMessages: number
     players: number
   }
 }
@@ -85,7 +89,8 @@ export const deleteGame = https.onCall(async (request): Promise<DeleteGameRespon
       votes: 0,
       orders: 0,
       turns: 0,
-      units: 0,
+      campaigns: 0,
+      warCouncilMessages: 0,
       players: 0
     }
 
@@ -141,8 +146,11 @@ export const deleteGame = https.onCall(async (request): Promise<DeleteGameRespon
     console.log('[deleteGame] Eliminando turns...')
     deletedCounts.turns = await deleteCollection('turns')
 
-    console.log('[deleteGame] Eliminando units...')
-    deletedCounts.units = await deleteCollection('units')
+    console.log('[deleteGame] Eliminando campaigns...')
+    deletedCounts.campaigns = await deleteCollection('campaigns')
+
+    console.log('[deleteGame] Eliminando war_council_messages...')
+    deletedCounts.warCouncilMessages = await deleteCollection('war_council_messages')
 
     console.log('[deleteGame] Eliminando players...')
     deletedCounts.players = await deleteCollection('players')
