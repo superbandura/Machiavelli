@@ -870,6 +870,7 @@ export default function Game() {
           game={game}
           currentPlayer={player}
           allUnits={units}
+          campaigns={campaigns}
           onClose={() => setUnitManagementModalUnit(null)}
         />
       )}

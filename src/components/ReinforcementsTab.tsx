@@ -29,17 +29,34 @@ export function ReinforcementsTab({
   provinceMap,
   onSave
 }: ReinforcementsTabProps) {
-  // Verificar si el jugador es atacante o defensor original
-  const defenderFaction = game.map.provinces[campaign.targetProvince]?.controlledBy || ''
-  const isOriginalAttacker = player.faction === campaign.declaredByFaction
-  const isOriginalDefender = player.faction === defenderFaction
+  // Determinar el bando actual del jugador (si ya está comprometido)
+  const getCurrentPlayerSide = useMemo<'attacker' | 'defender' | null>(() => {
+    const defenderFaction = game.map.provinces[campaign.targetProvince]?.controlledBy || ''
 
-  // Determinar bando inicial basado en participación original
-  const initialSide: 'attacker' | 'defender' = isOriginalAttacker
-    ? 'attacker'
-    : isOriginalDefender
-    ? 'defender'
-    : 'attacker'
+    // 1. Verificar si el jugador es atacante o defensor original
+    if (player.faction === campaign.declaredByFaction) {
+      return 'attacker'
+    } else if (player.faction === defenderFaction) {
+      return 'defender'
+    }
+
+    // 2. Verificar si el jugador es un aliado (se unió en fase diplomática)
+    const playerAlly = campaign.allies?.find(a => a.playerId === player.id)
+    if (playerAlly) {
+      return playerAlly.side
+    }
+
+    // 3. Verificar si el jugador ha enviado refuerzos (se unió en fase de órdenes)
+    const playerReinforcement = campaign.reinforcements?.find(r => r.playerId === player.id)
+    if (playerReinforcement) {
+      return playerReinforcement.side
+    }
+
+    return null // Jugador neutral sin refuerzos
+  }, [campaign, player, game.map.provinces])
+
+  // Determinar bando inicial: si ya tiene bando, usar ese; si no, atacante por defecto
+  const initialSide: 'attacker' | 'defender' = getCurrentPlayerSide ?? 'attacker'
 
   // Estado: bando seleccionado
   const [selectedSide, setSelectedSide] = useState<'attacker' | 'defender'>(initialSide)
@@ -107,7 +124,8 @@ export function ReinforcementsTab({
     }
   }
 
-  const isParticipant = isOriginalAttacker || isOriginalDefender
+  // El jugador ya está comprometido con un bando si getCurrentPlayerSide no es null
+  const isParticipant = getCurrentPlayerSide !== null
 
   return (
     <div className="space-y-6">

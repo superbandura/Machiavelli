@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import type { MilitaryCampaign, Unit, TacticalFormation, DeploymentZone } from '@/types/game'
-import type { ArmyTroopType } from '@/types/scenario'
+import type { ArmyTroopType, ArmyComposition } from '@/types/scenario'
 import { ARMY_TROOP_TYPES } from '@/data/unitTypes'
 import {
   calculateAvailableTroops,
   calculateEmbarkedTroops,
   calculateUnassignedTroops,
+  calculateUnassignedReinforcementTroops,
   validateFormation,
   generateFormationName,
   createFormation,
@@ -68,37 +69,90 @@ export default function CreateFormationModal({
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Calcular tropas normales (de ejércitos)
-  const normalTroops = calculateAvailableTroops(campaign, units)
+  // Calcular tropas disponibles (condicional: refuerzo vs normal)
+  const maxAvailable = useMemo(() => {
+    if (!troopType || !faction) return 0
 
-  // Calcular tropas embarcadas (de flotas)
-  const embarkedTroops = calculateEmbarkedTroops(campaign, units)
+    // MODO REFUERZO: calcular solo para el refuerzo específico
+    if (isReinforcement && reinforcementId) {
+      const reinforcement = campaign.reinforcements?.find(r => r.id === reinforcementId)
+      if (!reinforcement) return 0
 
-  // Combinar ambos pools
-  const availableTroops = { ...normalTroops }
-  for (const [key, embarkedPool] of Object.entries(embarkedTroops)) {
-    if (availableTroops[key]) {
-      // Si ya existe este tipo de tropa, sumar las embarcadas
-      availableTroops[key].total += embarkedPool.total
-    } else {
-      // Si no existe, añadir el pool de tropas embarcadas
-      availableTroops[key] = embarkedPool
+      // Obtener unidades del refuerzo
+      const reinforcementUnits = units.filter(u => reinforcement.unitIds.includes(u.id))
+
+      // Contar tropas del tipo seleccionado
+      let totalCount = 0
+      reinforcementUnits.forEach(unit => {
+        if (unit.type === 'army' && unit.composition) {
+          const armyComp = unit.composition as ArmyComposition
+          totalCount += armyComp.troops[troopType] || 0
+        }
+      })
+
+      // Usar función específica para refuerzos
+      return calculateUnassignedReinforcementTroops(
+        reinforcementId,
+        troopType as ArmyTroopType,
+        faction,
+        totalCount,
+        existingFormations
+      )
     }
-  }
 
-  const unassignedTroops = calculateUnassignedTroops(availableTroops, existingFormations)
+    // MODO NORMAL: calcular del pool principal
+    const normalTroops = calculateAvailableTroops(campaign, units)
+    const embarkedTroops = calculateEmbarkedTroops(campaign, units)
 
-  // Calcular opciones disponibles
-  const availableTroopTypes = Object.values(availableTroops)
-    .map(pool => pool.type)
-    .filter((type, index, self) => self.indexOf(type) === index) // Unique
+    // Combinar ambos pools
+    const availableTroops = { ...normalTroops }
+    for (const [key, embarkedPool] of Object.entries(embarkedTroops)) {
+      if (availableTroops[key]) {
+        availableTroops[key].total += embarkedPool.total
+      } else {
+        availableTroops[key] = embarkedPool
+      }
+    }
 
-  const availableFactions = troopType
-    ? Object.values(availableTroops)
-        .filter(pool => pool.type === troopType)
-        .map(pool => pool.faction)
-        .filter((faction, index, self) => self.indexOf(faction) === index) // Unique
-    : []
+    const unassignedTroops = calculateUnassignedTroops(availableTroops, existingFormations)
+    return unassignedTroops[`${troopType}-${faction}`] || 0
+  }, [isReinforcement, reinforcementId, troopType, faction, campaign, units, existingFormations])
+
+  // Calcular opciones disponibles (solo para modo normal)
+  const { availableTroopTypes, availableFactions } = useMemo(() => {
+    // En modo refuerzo, solo hay un tipo y facción disponibles
+    if (isReinforcement && reinforcementId) {
+      return {
+        availableTroopTypes: troopType ? [troopType] : [],
+        availableFactions: faction ? [faction] : []
+      }
+    }
+
+    // Modo normal: calcular pools
+    const normalTroops = calculateAvailableTroops(campaign, units)
+    const embarkedTroops = calculateEmbarkedTroops(campaign, units)
+    const availableTroops = { ...normalTroops }
+    for (const [key, embarkedPool] of Object.entries(embarkedTroops)) {
+      if (availableTroops[key]) {
+        availableTroops[key].total += embarkedPool.total
+      } else {
+        availableTroops[key] = embarkedPool
+      }
+    }
+
+    const types = Object.values(availableTroops)
+      .map(pool => pool.type)
+      .filter((type, index, self) => self.indexOf(type) === index)
+
+    const factions = troopType
+      ? Object.values(availableTroops)
+          .filter(pool => pool.type === troopType)
+          .map(pool => pool.faction)
+          .filter((f, index, self) => self.indexOf(f) === index)
+      : []
+
+    return { availableTroopTypes: types, availableFactions: factions }
+  }, [isReinforcement, reinforcementId, troopType, faction, campaign, units])
 
   // Auto-seleccionar facción si solo hay una disponible
   useEffect(() => {
@@ -116,9 +170,6 @@ export default function CreateFormationModal({
       : ''
 
   const displayName = useCustomName && customName ? customName : autoGeneratedName
-
-  // Máximo de tropas disponibles para este tipo/facción
-  const maxAvailable = troopType && faction ? unassignedTroops[`${troopType}-${faction}`] || 0 : 0
 
   // Ajustar quantity si excede el máximo
   useEffect(() => {
@@ -138,20 +189,10 @@ export default function CreateFormationModal({
       return
     }
 
-    // Validar formación
-    const validation = validateFormation(
-      {
-        troopType: troopType as ArmyTroopType,
-        faction,
-        quantity,
-        deploymentZone
-      },
-      availableTroops,
-      existingFormations
-    )
-
-    if (!validation.isValid) {
-      setError(validation.error || 'Formación inválida')
+    // Validar que no exceda las tropas disponibles
+    if (quantity > maxAvailable) {
+      const troopName = ARMY_TROOP_TYPES[troopType as ArmyTroopType]?.name || 'tropas'
+      setError(`Solo hay ${maxAvailable} ${troopName} disponibles`)
       return
     }
 

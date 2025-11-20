@@ -36,6 +36,7 @@ interface UnitManagementModalProps {
   game: Game
   currentPlayer: Player
   allUnits: Unit[] // Todas las unidades del juego
+  campaigns: MilitaryCampaign[]
   onClose: () => void
 }
 
@@ -76,6 +77,7 @@ export default function UnitManagementModal({
   game,
   currentPlayer,
   allUnits,
+  campaigns,
   onClose,
 }: UnitManagementModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('recruit')
@@ -150,13 +152,30 @@ export default function UnitManagementModal({
   const embarkableArmies = useMemo(() => {
     if (unit.type !== 'fleet') return []
 
+    // Obtener IDs de todas las unidades asignadas a campañas activas
+    const unitsInCampaigns = new Set<string>()
+    campaigns
+      .filter(c => c.status === 'planning' || c.status === 'active')
+      .forEach(campaign => {
+        campaign.participatingUnits.forEach(unitId => unitsInCampaigns.add(unitId))
+        // También incluir unidades de aliados
+        campaign.allies?.forEach(ally => {
+          ally.unitIds.forEach(unitId => unitsInCampaigns.add(unitId))
+        })
+        // Y unidades de refuerzos
+        campaign.reinforcements?.forEach(reinforcement => {
+          reinforcement.unitIds.forEach(unitId => unitsInCampaigns.add(unitId))
+        })
+      })
+
     return allUnits.filter((u) => {
       if (u.type !== 'army') return false
       if (u.owner !== currentPlayer.id) return false
       if (u.currentPosition !== unit.currentPosition) return false
+      if (unitsInCampaigns.has(u.id)) return false // Excluir si está en campaña
       return true
     })
-  }, [allUnits, unit, currentPlayer])
+  }, [allUnits, unit, currentPlayer, campaigns])
 
   // Calcular coste total de reclutamiento
   const totalRecruitCost = useMemo(() => {

@@ -116,7 +116,11 @@ export const createFormation = onCall(async (request) => {
         strategicOrder: formation.strategicOrder,
         tacticalOrder: formation.tacticalOrder,
         createdAt: admin.firestore.Timestamp.now(),
-        updatedAt: admin.firestore.Timestamp.now()
+        updatedAt: admin.firestore.Timestamp.now(),
+        // Copiar campos opcionales de refuerzo si existen
+        ...(formation.isReinforcement !== undefined && { isReinforcement: formation.isReinforcement }),
+        ...(formation.reinforcementId !== undefined && { reinforcementId: formation.reinforcementId }),
+        ...(formation.estimatedArrivalDay !== undefined && { estimatedArrivalDay: formation.estimatedArrivalDay })
       };
 
       // Actualizar campaña con nueva formación

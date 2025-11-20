@@ -153,8 +153,15 @@ export const joinCampaign = onCall(async (request) => {
       // Actualizar campaña con nuevo aliado
       const updatedAllies = [...currentAllies, newAlly];
 
+      // Agregar las unidades del aliado a participatingUnits
+      const updatedParticipatingUnits = [
+        ...(campaign.participatingUnits || []),
+        ...unitIds
+      ];
+
       transaction.update(campaignRef, {
         allies: updatedAllies,
+        participatingUnits: updatedParticipatingUnits,
         updatedAt: admin.firestore.Timestamp.now()
       });
     });

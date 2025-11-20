@@ -6,7 +6,14 @@ interface ReinforcementTroopCardProps {
   quantity: number
   faction: string
   daysUntilArrival: number
-  onQuickCreate?: (troopType: ArmyTroopType, faction: string) => void
+  reinforcementId: string
+  estimatedArrivalDay: number
+  onQuickCreate?: (
+    troopType: ArmyTroopType,
+    faction: string,
+    reinforcementId: string,
+    estimatedArrivalDay: number
+  ) => void
 }
 
 /**
@@ -30,6 +37,8 @@ export function ReinforcementTroopCard({
   quantity,
   faction,
   daysUntilArrival,
+  reinforcementId,
+  estimatedArrivalDay,
   onQuickCreate
 }: ReinforcementTroopCardProps) {
   const troopInfo = ARMY_TROOP_TYPES[troopType]
@@ -75,7 +84,7 @@ export function ReinforcementTroopCard({
         <button
           onClick={(e) => {
             e.stopPropagation()
-            onQuickCreate(troopType, faction)
+            onQuickCreate(troopType, faction, reinforcementId, estimatedArrivalDay)
           }}
           className="absolute bottom-2 left-2 w-6 h-6 opacity-60 hover:opacity-100 transition-opacity hover:scale-110"
           title="Crear formación rápida"

@@ -25,10 +25,19 @@ export function ShipPoolSummary({ campaign, units }: ShipPoolSummaryProps) {
 
   // Validación defensiva: retornar null si campaign no existe
   if (!campaign) {
+    console.log('[ShipPoolSummary] ⚠️ No hay campaña')
     return null
   }
 
+  console.log('[ShipPoolSummary] 📊 Renderizando con:', {
+    campaignId: campaign.id,
+    campaignFleetPool: campaign.fleetPool,
+    unitsCount: units.length
+  })
+
   const availableShips = calculateAvailableShips(campaign, units)
+
+  console.log('[ShipPoolSummary] 🚢 availableShips:', availableShips)
 
   // Convertir a array y ordenar por tipo de nave
   const shipPools = Object.values(availableShips).sort((a, b) => {
@@ -39,7 +48,13 @@ export function ShipPoolSummary({ campaign, units }: ShipPoolSummaryProps) {
     return (order[a.type] || 99) - (order[b.type] || 99)
   })
 
+  console.log('[ShipPoolSummary] 📦 shipPools array:', {
+    count: shipPools.length,
+    pools: shipPools
+  })
+
   if (shipPools.length === 0) {
+    console.log('[ShipPoolSummary] ⚠️ No hay barcos para mostrar')
     return null // No mostrar nada si no hay naves
   }
 
